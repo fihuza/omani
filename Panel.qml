@@ -345,6 +345,7 @@ Panel {
                             missing: root.missing,
                             playing: root.service ? root.service.playing : false,
                             nowPlaying: root.service ? root.service.nowPlaying : "",
+                            elapsed: root.service ? root.service.elapsed : "",
                             quality: root.quality,
                             mode: root.mode
                         })

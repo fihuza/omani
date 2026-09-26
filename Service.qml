@@ -63,6 +63,11 @@ Item {
     readonly property bool playing: players.length > 0
     readonly property string nowPlaying: players.length > 0 ? players[0].title : ""
 
+    // Bound to the player on the bus rather than sampled, so the clock in the
+    // hero moves with playback instead of with the ten-second history sample.
+    readonly property var currentPlayer: Model.playerFor(playerList, nowPlaying)
+    readonly property string elapsed: currentPlayer ? Model.elapsed(currentPlayer.position, currentPlayer.length) : ""
+
     function setting(name, fallback) {
         var value = settings ? settings[name] : undefined;
         return value === undefined || value === null || value === "" ? fallback : value;

@@ -338,10 +338,33 @@ function sectionLabel(text) {
   return String(text === null || text === undefined ? "" : text).toUpperCase()
 }
 
+function clock(seconds) {
+  var total = Math.max(0, Math.floor(Number(seconds) || 0))
+  var hours = Math.floor(total / 3600)
+  var minutes = Math.floor((total % 3600) / 60)
+  var rest = total % 60
+  var padded = (rest < 10 ? "0" : "") + rest
+  if (hours === 0) return minutes + ":" + padded
+  return hours + ":" + (minutes < 10 ? "0" : "") + minutes + ":" + padded
+}
+
+function elapsed(position, duration) {
+  if (!duration || duration <= 0) return ""
+  return clock(position) + " / " + clock(duration)
+}
+
+function playerFor(players, title) {
+  if (!title) return null
+  for (var i = 0; i < players.length; i++) {
+    if (String(players[i].trackTitle || "") === title) return players[i]
+  }
+  return null
+}
+
 function heroMeta(state) {
   if (!state.ready) return "missing: " + state.missing
   if (!state.tracking) return "mpv-mpris missing \u00b7 players are not tracked"
-  if (state.playing) return state.nowPlaying
+  if (state.playing) return state.nowPlaying + (state.elapsed ? " \u00b7 " + state.elapsed : "")
   return state.quality + " \u00b7 " + state.mode
 }
 
@@ -490,6 +513,9 @@ if (typeof module !== "undefined") {
     episodeLabel: episodeLabel,
     heading: heading,
     heroMeta: heroMeta,
+    clock: clock,
+    elapsed: elapsed,
+    playerFor: playerFor,
     sectionLabel: sectionLabel,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,

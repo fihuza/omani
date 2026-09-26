@@ -517,6 +517,36 @@ function hero(over) {
   return Object.assign(base, over)
 }
 
+test("seconds read as a clock", () => {
+  assert.equal(Model.clock(0), "0:00")
+  assert.equal(Model.clock(9), "0:09")
+  assert.equal(Model.clock(252), "4:12")
+  assert.equal(Model.clock(1402), "23:22")
+  assert.equal(Model.clock(3725), "1:02:05")
+  assert.equal(Model.clock(4500), "1:15:00")
+  assert.equal(Model.clock(-5), "0:00")
+  assert.equal(Model.clock(null), "0:00")
+})
+
+test("elapsed is empty until the length is known", () => {
+  assert.equal(Model.elapsed(252, 1402), "4:12 / 23:22")
+  assert.equal(Model.elapsed(252, 0), "")
+  assert.equal(Model.elapsed(0, 0), "")
+})
+
+test("the player on the bus is found by the title it reports", () => {
+  const players = [{}, { trackTitle: "Other" }, { trackTitle: "Naruto Episode 5" }]
+  assert.equal(Model.playerFor(players, "Naruto Episode 5").trackTitle, "Naruto Episode 5")
+  assert.equal(Model.playerFor(players, "Nothing"), null)
+  assert.equal(Model.playerFor(players, ""), null)
+})
+
+test("the hero says how far into what is playing", () => {
+  const state = { ready: true, tracking: true, missing: "", playing: true, nowPlaying: "Naruto Episode 5", elapsed: "4:12 / 23:22", quality: "best", mode: "sub" }
+  assert.equal(Model.heroMeta(state), "Naruto Episode 5 \u00b7 4:12 / 23:22")
+  assert.equal(Model.heroMeta(Object.assign({}, state, { elapsed: "" })), "Naruto Episode 5")
+})
+
 test("a missing dependency is what the hero says", () => {
   assert.equal(Model.heroMeta(hero({ ready: false, missing: "mpv" })), "missing: mpv")
 })
