@@ -11,8 +11,10 @@ MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/
 STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
 
-HIST_DIR="${ANI_CLI_HIST_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/ani-cli}"
-HIST_FILE="${OMANI_HIST_FILE:-$HIST_DIR/ani-hsts}"
+HIST_FILE="${OMANI_HIST_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omani/history.json}"
+# An episode this far through counts as seen, so resuming moves on rather than
+# landing in the credits.
+WATCHED_FRACTION=90
 
 REPLACE="${OMANI_REPLACE:-}"
 QUALITY="${OMANI_QUALITY-best}"
@@ -37,36 +39,82 @@ usage: omani <subcommand> [args]
   previous <anime-id>                 play the episode before the one in history
   players                             pid<TAB>title<TAB>anime-id<TAB>episode, live only
   stop [pid|title|all]                stop a player this plugin started
+  progress <id> <ep> <seconds> <total>  record how far into an episode you are
+  history                             print the watch history as json
   history-clear                       empty the watch history (keeps a backup)
 
 environment:
   OMANI_PLAYER       media player               (default: mpv)
   OMANI_QUALITY      best | worst | 1080 | ...  (empty means best)
   OMANI_MODE         sub | dub
-  OMANI_HIST_FILE    watch history
+  OMANI_HIST_FILE    watch history (json)
   OMANI_REPLACE      media title of a player to close first
   OMANI_DRY_RUN      non-empty: print what would run instead of running it
 USAGE
 }
 
-history_line_for() {
-  [[ -f $HIST_FILE ]] || return 0
-  awk -F'\t' -v id="$1" 'NF >= 3 && $2 == id { print; exit }' "$HIST_FILE"
+EMPTY_HISTORY='{"version":1,"series":{}}'
+
+read_history() {
+  [[ -f $HIST_FILE ]] && jq -e . "$HIST_FILE" 2>/dev/null || printf '%s\n' "$EMPTY_HISTORY"
+}
+
+# Two players report progress every few seconds, and a read-modify-write of the
+# whole file loses one of them if they interleave.
+update_history() {
+  local tmp
+  mkdir -p "$(dirname "$HIST_FILE")"
+  tmp=$(mktemp)
+  (
+    flock 9
+    read_history | jq "$@" >"$tmp"
+    jq -e . "$tmp" >/dev/null 2>&1 || {
+      rm -f "$tmp"
+      die "refusing to write a history that is not valid json"
+    }
+    mv "$tmp" "$HIST_FILE"
+  ) 9>"$HIST_FILE.lock"
+}
+
+entry_for() {
+  read_history | jq -e --arg id "$1" '.series[$id] // empty' 2>/dev/null
 }
 
 record_history() {
-  local episode="$1" id="$2" title="$3" tmp
-  mkdir -p "$(dirname "$HIST_FILE")"
-  [[ -f $HIST_FILE ]] || : >"$HIST_FILE"
-  tmp=$(mktemp)
-  if [[ -n $(history_line_for "$id") ]]; then
-    awk -F'\t' -v OFS='\t' -v id="$id" -v ep="$episode" -v t="$title" \
-      'NF >= 3 && $2 == id { $1 = ep; $3 = t } { print }' "$HIST_FILE" >"$tmp"
-  else
-    cp "$HIST_FILE" "$tmp"
-    printf '%s\t%s\t%s\n' "$episode" "$id" "$title" >>"$tmp"
-  fi
-  mv "$tmp" "$HIST_FILE"
+  local episode="$1" id="$2" title="$3"
+  # shellcheck disable=SC2016 # $id and friends are jq variables, bound by --arg
+  update_history \
+    --arg id "$id" --arg title "$title" --arg episode "$episode" \
+    --argjson now "$(date +%s)" '
+      .series[$id] = ((.series[$id] // {watched: []}) + {
+        title: $title,
+        episode: $episode,
+        position: 0,
+        duration: 0,
+        updated: $now
+      })
+    '
+}
+
+# Called while a player runs, so the next resume starts where this one stopped.
+record_progress() {
+  local id="$1" episode="$2" position="$3" duration="$4"
+  [[ $position =~ ^[0-9]+$ && $duration =~ ^[0-9]+$ ]] || die "position and duration must be whole seconds"
+  # shellcheck disable=SC2016 # $id and friends are jq variables, bound by --arg
+  update_history \
+    --arg id "$id" --arg episode "$episode" \
+    --argjson position "$position" --argjson duration "$duration" \
+    --argjson now "$(date +%s)" --argjson fraction "$WATCHED_FRACTION" '
+      (.series[$id] // {title: "", watched: []}) as $entry
+      | ($duration > 0 and $position * 100 >= $duration * $fraction) as $seen
+      | .series[$id] = ($entry + {
+          episode: $episode,
+          position: $position,
+          duration: $duration,
+          updated: $now,
+          watched: (($entry.watched // []) + (if $seen then [$episode] else [] end) | unique)
+        })
+    '
 }
 
 record_player() {
@@ -121,8 +169,9 @@ cmd_stop() {
 }
 
 cmd_play() {
-  local id="${1:-}" title="${2:-}" episode="${3:-}"
-  [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode>"
+  local id="${1:-}" title="${2:-}" episode="${3:-}" start="${4:-0}"
+  [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode> [start-seconds]"
+  [[ $start =~ ^[0-9]+$ ]] || die "start must be whole seconds"
 
   local stream url referrer subtitles
   stream=$("$PROVIDER" stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
@@ -139,6 +188,7 @@ cmd_play() {
 
   local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
   [[ -n $subtitles ]] && args+=("--sub-file=$subtitles")
+  ((start > 0)) && args+=("--start=$start")
   args+=("$url")
 
   if dry; then
@@ -158,19 +208,28 @@ cmd_play() {
   record_history "$episode" "$id" "$title"
 }
 
+# Part way through an episode resumes it where it stopped; near the end moves on.
 cmd_resume() {
   local id="${1:-}"
   [[ -n $id ]] || die "usage: omani resume <anime-id>"
-  local line
-  line=$(history_line_for "$id")
-  [[ -n $line ]] || die "'$id' is not in history"
+  local entry
+  entry=$(entry_for "$id") || die "'$id' is not in history"
 
-  local watched title episodes next
-  watched=$(cut -f1 <<<"$line")
-  title=$(cut -f3 <<<"$line")
+  local title episode position duration
+  title=$(jq -r '.title' <<<"$entry")
+  episode=$(jq -r '.episode' <<<"$entry")
+  position=$(jq -r '.position // 0' <<<"$entry")
+  duration=$(jq -r '.duration // 0' <<<"$entry")
+
+  if ((duration > 0 && position * 100 < duration * WATCHED_FRACTION)); then
+    cmd_play "$id" "$title" "$episode" "$position"
+    return
+  fi
+
+  local episodes next
   episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
-  next=$(awk -F'\t' -v w="$watched" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes")
-  [[ -n $next ]] || die "no episode after $watched of $title"
+  next=$(awk -F'\t' -v w="$episode" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes")
+  [[ -n $next ]] || die "no episode after $episode of $title"
 
   cmd_play "$id" "$title" "$next"
 }
@@ -178,13 +237,12 @@ cmd_resume() {
 cmd_previous() {
   local id="${1:-}"
   [[ -n $id ]] || die "usage: omani previous <anime-id>"
-  local line
-  line=$(history_line_for "$id")
-  [[ -n $line ]] || die "'$id' is not in history"
+  local entry
+  entry=$(entry_for "$id") || die "'$id' is not in history"
 
   local watched title episodes earlier
-  watched=$(cut -f1 <<<"$line")
-  title=$(cut -f3 <<<"$line")
+  watched=$(jq -r '.episode' <<<"$entry")
+  title=$(jq -r '.title' <<<"$entry")
   episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
   earlier=$(awk -F'\t' -v w="$watched" '$2 == w { print previous; exit } { previous = $2 }' <<<"$episodes")
   [[ -n $earlier ]] || die "no episode before $watched of $title"
@@ -221,14 +279,26 @@ cmd_status() {
     '{ready: $ready, tracking: $tracking, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
 }
 
+cmd_progress() {
+  local id="${1:-}" episode="${2:-}" position="${3:-}" duration="${4:-}"
+  [[ -n $id && -n $episode && -n $position && -n $duration ]] ||
+    die "usage: omani progress <anime-id> <episode> <position-seconds> <duration-seconds>"
+  entry_for "$id" >/dev/null || die "'$id' is not in history"
+  if dry; then
+    printf 'progress %s %s %s %s\n' "$id" "$episode" "$position" "$duration"
+    return 0
+  fi
+  record_progress "$id" "$episode" "$position" "$duration"
+}
+
 cmd_history_clear() {
   [[ -f $HIST_FILE ]] || return 0
   if dry; then
     printf 'truncate %s\n' "$HIST_FILE"
     return 0
   fi
-  cp "$HIST_FILE" "$HIST_FILE.omani.bak"
-  : >"$HIST_FILE"
+  cp "$HIST_FILE" "$HIST_FILE.bak"
+  update_history '{version: 1, series: {}}'
 }
 
 main() {
@@ -244,6 +314,8 @@ main() {
   previous) cmd_previous "$@" ;;
   stop) cmd_stop "$@" ;;
   players) cmd_players ;;
+  progress) cmd_progress "$@" ;;
+  history) read_history ;;
   history-clear) cmd_history_clear ;;
   -h | --help | help) usage ;;
   "")

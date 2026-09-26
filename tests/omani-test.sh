@@ -55,9 +55,17 @@ live_player() {
   printf '%s\n' "$pid"
 }
 
+seed_history() {
+  printf '{"version":1,"series":%s}\n' "$1" >"$OMANI_HIST_FILE"
+}
+
+series_field() {
+  "$OMANI" history | jq -r --arg id "$1" ".series[\$id] | $2"
+}
+
 setup() {
   WORK=$(mktemp -d)
-  export OMANI_HIST_FILE="$WORK/ani-hsts"
+  export OMANI_HIST_FILE="$WORK/history.json"
   export OMANI_STATE_DIR="$WORK/state"
   export OMANI_PLAYER=mpv
   mkdir -p "$WORK/mpv-scripts"
@@ -85,7 +93,8 @@ exec sleep 60
 FAKEPLAYER
   chmod +x "$WORK/player"
 
-  printf '2\tfrieren-1\tFrieren\n5\tnaruto-2\tNaruto\n' >"$OMANI_HIST_FILE"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "position": 0, "duration": 0, "watched": []},
+                 "naruto-2":  {"title": "Naruto",  "episode": "5", "position": 0, "duration": 0, "watched": []}}'
 }
 
 teardown() {
@@ -233,23 +242,77 @@ FAKE
 
 t_play_records_a_new_series() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play new-9 "Newcomer" 1
-  assert_contains "$(cat "$OMANI_HIST_FILE")" "1	new-9	Newcomer"
+  assert_eq "$(series_field new-9 .episode)" "1"
+  assert_eq "$(series_field new-9 .title)" "Newcomer"
 }
 
 t_play_advances_a_series_already_watched() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 7
-  assert_contains "$(cat "$OMANI_HIST_FILE")" "7	frieren-1	Frieren"
-  assert_eq "$(wc -l <"$OMANI_HIST_FILE")" "2"
+  assert_eq "$(series_field frieren-1 .episode)" "7"
+  assert_eq "$("$OMANI" history | jq -r '.series | length')" "2"
 }
 
 t_play_leaves_other_series_alone() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 7
-  assert_contains "$(cat "$OMANI_HIST_FILE")" "5	naruto-2	Naruto"
+  assert_eq "$(series_field naruto-2 .episode)" "5"
 }
 
 t_history_survives_a_title_with_punctuation() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play tricky-3 'A|B&C\D' 4
-  assert_contains "$(cut -f3 "$OMANI_HIST_FILE")" 'A|B&C\D'
+  assert_eq "$(series_field tricky-3 .title)" 'A|B&C\D'
+}
+
+t_progress_records_how_far_in_you_are() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
+  assert_eq "$(series_field frieren-1 .position)" "600"
+  assert_eq "$(series_field frieren-1 .duration)" "1400"
+  assert_eq "$(series_field frieren-1 '.watched | length')" "0"
+}
+
+t_progress_marks_an_episode_watched_near_the_end() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
+  assert_contains "$(series_field frieren-1 '.watched | join(",")')" "2"
+}
+
+t_progress_does_not_record_an_episode_twice() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1390 1400
+  assert_eq "$(series_field frieren-1 '.watched | length')" "1"
+}
+
+t_progress_refuses_a_series_not_in_history() {
+  local out
+  out=$(OMANI_DRY_RUN='' "$OMANI" progress nope-0 1 10 100 2>&1)
+  assert_fails $?
+  assert_contains "$out" "not in history"
+}
+
+t_progress_refuses_a_position_that_is_not_seconds() {
+  local out
+  out=$(OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 half 1400 2>&1)
+  assert_fails $?
+}
+
+t_resume_restarts_the_episode_where_it_stopped() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
+  local out
+  out=$("$OMANI" resume frieren-1)
+  assert_contains "$out" "--force-media-title=Frieren Episode 2"
+  assert_contains "$out" "--start=600"
+}
+
+t_resume_moves_on_when_the_episode_was_nearly_finished() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
+  local out
+  out=$("$OMANI" resume frieren-1)
+  assert_contains "$out" "--force-media-title=Frieren Episode 3"
+  assert_lacks "$out" "--start="
+}
+
+t_a_history_with_no_duration_still_moves_on() {
+  local out
+  out=$("$OMANI" resume frieren-1)
+  assert_contains "$out" "Frieren Episode 3"
 }
 
 t_resume_plays_the_episode_after_the_one_watched() {
@@ -264,7 +327,7 @@ t_resume_refuses_an_unknown_series() {
 }
 
 t_resume_refuses_when_nothing_follows() {
-  printf '3\tfrieren-1\tFrieren\n' >"$OMANI_HIST_FILE"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "position": 0, "duration": 0, "watched": []}}'
   local out
   out=$("$OMANI" resume frieren-1 2>&1)
   assert_fails $?
@@ -276,7 +339,7 @@ t_previous_plays_the_episode_before_the_one_watched() {
 }
 
 t_previous_refuses_at_the_first_episode() {
-  printf '1\tfrieren-1\tFrieren\n' >"$OMANI_HIST_FILE"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "position": 0, "duration": 0, "watched": []}}'
   local out
   out=$("$OMANI" previous frieren-1 2>&1)
   assert_fails $?
@@ -423,8 +486,9 @@ t_stop_without_any_player_is_not_an_error() {
 t_history_clear_empties_and_backs_up() {
   OMANI_DRY_RUN='' "$OMANI" history-clear
   assert_ok $?
-  [[ -s $OMANI_HIST_FILE ]] && fail "$current" "history is not empty"
-  assert_file "$OMANI_HIST_FILE.omani.bak"
+  assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
+  assert_file "$OMANI_HIST_FILE.bak"
+  assert_contains "$(cat "$OMANI_HIST_FILE.bak")" "frieren-1"
 }
 
 t_history_clear_on_an_absent_history_is_not_an_error() {
@@ -475,6 +539,14 @@ check "play records a series not seen before" t_play_records_a_new_series
 check "play advances a series already in history" t_play_advances_a_series_already_watched
 check "play leaves other series alone" t_play_leaves_other_series_alone
 check "history survives a title with punctuation" t_history_survives_a_title_with_punctuation
+check "progress records how far into an episode you are" t_progress_records_how_far_in_you_are
+check "an episode near its end counts as watched" t_progress_marks_an_episode_watched_near_the_end
+check "an episode is not recorded as watched twice" t_progress_does_not_record_an_episode_twice
+check "progress refuses a series not in history" t_progress_refuses_a_series_not_in_history
+check "progress refuses a position that is not seconds" t_progress_refuses_a_position_that_is_not_seconds
+check "resume restarts the episode where it stopped" t_resume_restarts_the_episode_where_it_stopped
+check "resume moves on when the episode was nearly finished" t_resume_moves_on_when_the_episode_was_nearly_finished
+check "a history with no duration still moves on" t_a_history_with_no_duration_still_moves_on
 check "resume plays the episode after the one watched" t_resume_plays_the_episode_after_the_one_watched
 check "resume refuses a series not in history" t_resume_refuses_an_unknown_series
 check "resume refuses when nothing follows" t_resume_refuses_when_nothing_follows
