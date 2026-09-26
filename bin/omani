@@ -204,7 +204,7 @@ cmd_status() {
 
   jq -n \
     --arg version "$version" \
-    --argjson ready "$([[ ${#missing[@]} -eq 0 ]] && echo true || echo false)" \
+    --argjson ready "$( ((${#missing[@]} == 0)) && echo true || echo false)" \
     --arg missing "${missing[*]:-}" \
     --arg historyPath "$HIST_FILE" \
     --arg playersPath "$PLAYERS_FILE" \

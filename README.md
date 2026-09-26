@@ -4,7 +4,7 @@ Watch anime from the Omarchy bar. Search, resume what you are part-way through,
 and follow a series without leaving the panel — all keyboard-driven, with vim
 motions. Inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 
-![The Omani panel, open below the bar](preview.png)
+![The Omani panel: a search field, the episode currently playing, and the watch history](preview.png)
 
 ## Install
 
