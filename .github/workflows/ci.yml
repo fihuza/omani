@@ -10,7 +10,6 @@ on:
 permissions:
   contents: read
 
-# A new push supersedes a run in progress for the same ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -29,8 +28,6 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # qmllint resolves qs.* against Omarchy's shell tree, and the same
-      # checkout carries the manifest validator this gate runs.
       - name: Fetch Omarchy
         run: |
           git config --global --add safe.directory '*'
@@ -38,8 +35,6 @@ jobs:
           echo "OMARCHY_PATH=/opt/omarchy" >>"$GITHUB_ENV"
           echo "/opt/omarchy/bin" >>"$GITHUB_PATH"
 
-      # One step per gate, so a failure names itself in the UI. Each runs the
-      # same definition the commit hook runs, so the two cannot drift.
       - name: Format (QML)
         run: ./scripts/pre-commit qml-format
       - name: Format (shell)
@@ -71,7 +66,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # The repository's own hook, so a commit that passes locally passes here.
       - name: Check every commit on the branch
         run: |
           set -uo pipefail
@@ -147,8 +141,6 @@ jobs:
             exit 1
           }
 
-      # Notes come from the same cliff.toml the repository uses, so a release
-      # cannot describe something other than its commits.
       - uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
         with:
           args: --latest --strip header
@@ -158,3 +150,47 @@ jobs:
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           body_path: /tmp/notes.md
+
+  back-merge:
+    name: Back-merge to develop
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Merge main into develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --quiet origin develop main
+
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo 'develop already contains main'
+            exit 0
+          fi
+
+          git checkout -B develop origin/develop
+          if git merge --no-ff origin/main -m "Merge branch 'main' into develop"; then
+            git push origin develop
+            exit 0
+          fi
+
+          git merge --abort
+          branch="chore/back-merge-${GITHUB_SHA::7}"
+          git checkout -B "$branch" origin/main
+          git push --force origin "$branch"
+          gh pr create --base develop --head "$branch" \
+            --title 'chore: back-merge main into develop' \
+            --body 'The automatic back-merge conflicted. Resolve it here and merge with a merge commit.'
+          echo "::error::back-merge conflicted; resolve $branch"
+          exit 1
