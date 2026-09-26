@@ -144,11 +144,18 @@ fi
 
 if wanted version; then
   step "Version"
-  BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
+  BRANCH="${OMANI_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)}"
   MV=$(jq -r '.version' manifest.json 2>/dev/null || echo "")
   case "$BRANCH" in
   release/* | hotfix/*)
     [[ ${BRANCH#*/} == "$MV" ]] || fail "branch $BRANCH does not match manifest version $MV"
+    LAST=$(git tag --list 'v*' --sort=-v:refname | head -1)
+    LAST="${LAST#v}"
+    if [[ -n $LAST ]]; then
+      HIGHEST=$(printf '%s\n%s\n' "$LAST" "$MV" | sort -V | tail -1)
+      [[ $MV != "$LAST" && $HIGHEST == "$MV" ]] ||
+        fail "manifest version $MV must be higher than the last release v$LAST"
+    fi
     ;;
   main) ;;
   *)
