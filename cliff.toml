@@ -57,7 +57,7 @@ commit_parsers = [
   { message = "^Merge pull request", skip = true },
   { message = "^Merge branch", skip = true },
   { message = "^Merge remote-tracking", skip = true },
-  { message = "^chore: back-merge main into develop", skip = true },
+  { message = "^chore: back-merge", skip = true },
   { message = "^Revert \"", skip = true },
   # The version bump describes the release rather than a change within it.
   { message = "^chore: bump version", skip = true },
