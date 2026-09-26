@@ -13,7 +13,13 @@ omarchy plugin add https://github.com/fihuza/omani.git --enable
 ```
 
 Nothing else to install: Omani's dependencies all ship with Omarchy. If one
-is missing anyway, the panel names it rather than failing silently.
+is missing anyway, the panel names it instead of failing silently — for
+example if `mpv-mpris` has been removed, since mpv does not report what it is
+playing without it:
+
+```bash
+omarchy pkg add mpv-mpris
+```
 
 ## Usage
 
@@ -103,7 +109,6 @@ external command it can invoke is listed here.
 | `mpv` | playback | Omarchy's base packages |
 | `mpv-mpris` | how mpv reports what it is playing, which is how a player is tracked | Omarchy's base packages |
 | `jq` | status and manifest reading | Omarchy's base packages |
-| `omarchy-notification-send` | "now playing" notification | Omarchy |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
 

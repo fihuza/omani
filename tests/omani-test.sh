@@ -59,8 +59,10 @@ setup() {
   WORK=$(mktemp -d)
   export OMANI_HIST_FILE="$WORK/ani-hsts"
   export OMANI_STATE_DIR="$WORK/state"
-  export OMANI_NOTIFY=true
   export OMANI_PLAYER=mpv
+  mkdir -p "$WORK/mpv-scripts"
+  : >"$WORK/mpv-scripts/mpris.so"
+  export OMANI_MPV_SCRIPT_DIRS="$WORK/mpv-scripts"
   export OMANI_DRY_RUN=1
   unset OMANI_QUALITY OMANI_MODE
 
@@ -132,6 +134,21 @@ t_status_survives_a_missing_manifest() {
   out=$(OMANI_MANIFEST="$WORK/absent.json" "$OMANI" status)
   assert_ok $?
   assert_eq "$(jq -r .version <<<"$out")" ""
+}
+
+t_status_names_mpv_mpris_when_absent() {
+  local out
+  out=$(OMANI_MPV_SCRIPT_DIRS="$WORK/nowhere" "$OMANI" status)
+  assert_contains "$(jq -r .missing <<<"$out")" "mpv-mpris"
+  assert_eq "$(jq -r .ready <<<"$out")" "false"
+}
+
+t_status_accepts_mpris_from_any_script_dir() {
+  mkdir -p "$WORK/second"
+  : >"$WORK/second/mpris.so"
+  local out
+  out=$(OMANI_MPV_SCRIPT_DIRS="$WORK/nowhere:$WORK/second" "$OMANI" status)
+  assert_lacks "$(jq -r .missing <<<"$out")" "mpv-mpris"
 }
 
 t_status_names_a_missing_player() {
@@ -417,6 +434,8 @@ check "status reports the history path" t_status_reports_the_history_path
 check "status reports the plugin version" t_status_reports_the_plugin_version
 check "status survives a missing manifest" t_status_survives_a_missing_manifest
 check "status names a player that is missing" t_status_names_a_missing_player
+check "status names mpv-mpris when the script is absent" t_status_names_mpv_mpris_when_absent
+check "mpris found in any configured script directory counts" t_status_accepts_mpris_from_any_script_dir
 check "search passes provider rows through" t_search_returns_provider_rows
 check "episodes passes provider rows through" t_episodes_returns_provider_rows
 check "play builds a player command" t_play_builds_a_player_command
