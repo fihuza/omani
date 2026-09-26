@@ -135,7 +135,7 @@ the manifest, and the three test suites with a 90% coverage floor on `Model.js`.
 
 The layers are kept apart on purpose:
 
-| | |
+| Layer | Responsibility |
 |---|---|
 | `Model.js` | pure functions — parsing, the key reducer, view decisions. Tested with `node --test`. |
 | `*.qml` | presentation and wiring only; no branching logic |
