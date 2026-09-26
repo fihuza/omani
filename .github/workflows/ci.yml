@@ -156,22 +156,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: quality
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Merge main into develop
+      - name: Open a back-merge pull request
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch --quiet origin develop main
 
           if git merge-base --is-ancestor origin/main origin/develop; then
@@ -179,18 +176,11 @@ jobs:
             exit 0
           fi
 
-          git checkout -B develop origin/develop
-          if git merge --no-ff origin/main -m "Merge branch 'main' into develop"; then
-            git push origin develop
+          if [ -n "$(gh pr list --base develop --head main --state open --json number --jq '.[].number')" ]; then
+            echo 'a back-merge pull request is already open'
             exit 0
           fi
 
-          git merge --abort
-          branch="chore/back-merge-${GITHUB_SHA::7}"
-          git checkout -B "$branch" origin/main
-          git push --force origin "$branch"
-          gh pr create --base develop --head "$branch" \
-            --title 'chore: back-merge main into develop' \
-            --body 'The automatic back-merge conflicted. Resolve it here and merge with a merge commit.'
-          echo "::error::back-merge conflicted; resolve $branch"
-          exit 1
+          gh pr create --base develop --head main \
+            --title 'chore: back-merge into develop' \
+            --body 'Brings the release merge commit on main back into develop, so main stays an ancestor and the next release branch is cut from a develop that knows the last release happened. Opened automatically; merge it with a merge commit.'
