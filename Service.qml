@@ -42,6 +42,26 @@ Item {
     readonly property var liveTitles: playerList.map(function (p) {
         return String(p.trackTitle || "");
     })
+
+    // mpris reports microseconds, and a player that cannot say where it is has
+    // nothing to contribute.
+    function livePositions() {
+        return playerList.map(function (p) {
+            return {
+                title: String(p.trackTitle || ""),
+                position: (Number(p.position) || 0) / 1000000,
+                duration: (Number(p.length) || 0) / 1000000
+            };
+        });
+    }
+
+    function reportProgress() {
+        if (!ready)
+            return;
+        var reports = Model.progressReports(Model.playerRecords(playersFile.text()), livePositions());
+        for (var i = 0; i < reports.length; i++)
+            Quickshell.execDetached(command(["progress", reports[i].animeId, reports[i].episode, String(reports[i].position), String(reports[i].duration)]));
+    }
     readonly property bool playing: players.length > 0
     readonly property string nowPlaying: players.length > 0 ? players[0].title : ""
 
@@ -229,6 +249,15 @@ Item {
 
     onLiveTitlesChanged: reloadPlayers()
 
+    // Sampled rather than read on exit: a player that has gone is no longer on
+    // the bus to ask, so the last sample is what a resume has to go on.
+    Timer {
+        interval: 10000
+        running: root.playing
+        repeat: true
+        onTriggered: root.reportProgress()
+    }
+
     Timer {
         interval: 20000
         running: root.launching
@@ -277,7 +306,7 @@ Item {
         onExited: function (exitCode) {
             root.busy = false;
             if (exitCode === 0)
-                root.episodes = Model.episodeRows(String(episodesOut.text || ""));
+                root.episodes = Model.episodeRows(String(episodesOut.text || ""), Model.watchedOf(historyFile.text(), root.selectedId));
         }
     }
 

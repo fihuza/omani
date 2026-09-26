@@ -3,18 +3,44 @@
 
 function parseHistory(raw) {
   if (!raw) return []
-  var rows = []
-  var lines = String(raw).split("\n")
-  for (var i = 0; i < lines.length; i++) {
-    var fields = lines[i].replace(/\r$/, "").split("\t")
-    if (fields.length < 3) continue
-    var episode = fields[0].trim()
-    var animeId = fields[1].trim()
-    var title = fields[2].trim()
-    if (!episode || !animeId || !title) continue
-    rows.push({ episode: episode, animeId: animeId, title: title })
+  var parsed
+  try {
+    parsed = JSON.parse(String(raw))
+  } catch (e) {
+    return []
   }
+  var series = parsed && parsed.series
+  if (!series) return []
+  var rows = []
+  for (var animeId in series) {
+    var entry = series[animeId]
+    if (!entry || !entry.title || !entry.episode) continue
+    rows.push({
+      animeId: animeId,
+      title: String(entry.title),
+      episode: String(entry.episode),
+      position: Number(entry.position) || 0,
+      duration: Number(entry.duration) || 0,
+      watched: entry.watched || [],
+      updated: Number(entry.updated) || 0
+    })
+  }
+  // Most recently watched first, which is the order someone continuing looks in.
+  rows.sort(function (a, b) {
+    return b.updated - a.updated
+  })
   return rows
+}
+
+function watchedFraction(row) {
+  if (!row || !row.duration) return 0
+  return Math.min(100, Math.round(row.position * 100 / row.duration))
+}
+
+function progressLabel(row) {
+  var percent = watchedFraction(row)
+  if (percent === 0) return "ep " + row.episode
+  return "ep " + row.episode + " \u00b7 " + percent + "%"
 }
 
 var BACK_FROM = {
@@ -54,6 +80,30 @@ function playerRecords(raw) {
     })
   }
   return records
+}
+
+// What to tell the history about each player on the bus: the record says which
+// series and episode a title belongs to, and mpris reports seconds as
+// microseconds.
+function progressReports(records, players) {
+  var reports = []
+  for (var i = 0; i < players.length; i++) {
+    var title = String(players[i].title || "")
+    var position = Math.floor(Number(players[i].position) || 0)
+    var duration = Math.floor(Number(players[i].duration) || 0)
+    if (title === "" || duration <= 0 || position <= 0) continue
+    for (var r = 0; r < records.length; r++) {
+      if (records[r].title !== title) continue
+      reports.push({
+        animeId: records[r].animeId,
+        episode: records[r].episode,
+        position: position,
+        duration: duration
+      })
+      break
+    }
+  }
+  return reports
 }
 
 function livePlayers(records, liveTitles) {
@@ -149,7 +199,7 @@ function historyRows(raw, limit) {
       episode: row.episode,
       animeId: row.animeId,
       title: row.title,
-      label: "ep " + row.episode
+      label: progressLabel(row)
     }
   })
 }
@@ -260,10 +310,21 @@ function seriesRows(raw) {
   })
 }
 
-function episodeRows(raw) {
+function episodeRows(raw, watched) {
+  var seen = watched || []
   return tabRows(raw).map(function (fields) {
-    return { episodeId: fields[0], number: fields[1], title: "Episode " + fields[1] }
+    return {
+      episodeId: fields[0],
+      number: fields[1],
+      title: "Episode " + fields[1],
+      label: seen.indexOf(fields[1]) === -1 ? "" : "watched"
+    }
   })
+}
+
+function watchedOf(raw, animeId) {
+  var entry = historyEntry(raw, animeId)
+  return entry ? entry.watched : []
 }
 
 function sectionLabel(text) {
@@ -394,10 +455,13 @@ function reduceKey(state, key, ctx) {
 if (typeof module !== "undefined") {
   module.exports = {
     parseHistory: parseHistory,
+    watchedFraction: watchedFraction,
+    progressLabel: progressLabel,
     backFrom: backFrom,
     replaces: replaces,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
+    progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
     launchedPlayer: launchedPlayer,
     qualitiesOf: qualitiesOf,
@@ -415,6 +479,7 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
+    watchedOf: watchedOf,
     heading: heading,
     heroMeta: heroMeta,
     sectionLabel: sectionLabel,
