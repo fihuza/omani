@@ -63,14 +63,6 @@ function livePlayers(records, liveTitles) {
   return live
 }
 
-function isPlaying(players, title) {
-  if (!title) return false
-  for (var i = 0; i < players.length; i++) {
-    if (players[i].title === title) return true
-  }
-  return false
-}
-
 function seriesOf(players, animeId, fallback) {
   for (var i = 0; i < players.length; i++) {
     if (players[i].animeId === animeId)
@@ -359,7 +351,6 @@ if (typeof module !== "undefined") {
     replaces: replaces,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
-    isPlaying: isPlaying,
     isPlayingSeries: isPlayingSeries,
     seriesOf: seriesOf,
     episodeOf: episodeOf,

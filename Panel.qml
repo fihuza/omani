@@ -217,9 +217,6 @@ Panel {
         Qt.callLater(applyScroll);
     }
 
-    // Re-applied when the column settles: contentHeight is a binding on the
-    // column's implicit height, so a position computed before layout finishes
-    // clamps against a height that is still growing.
     function applyScroll() {
         if (!scrollItem || !panelFlick || !cursorActive)
             return;
@@ -328,6 +325,8 @@ Panel {
                 boundsBehavior: Flickable.StopAtBounds
                 flickableDirection: Flickable.VerticalFlick
                 interactive: contentHeight > height
+                // Re-applied because a position computed before the column
+                // finishes laying out clamps against a height still growing.
                 onContentHeightChanged: root.applyScroll()
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded

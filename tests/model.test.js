@@ -92,22 +92,6 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
-test("an episode still on the bus is playing", () => {
-  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
-  assert.equal(Model.isPlaying(players, "A Episode 1"), true)
-})
-
-test("an episode whose player has gone is not playing", () => {
-  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
-  assert.equal(Model.isPlaying(players, "B Episode 2"), false)
-  assert.equal(Model.isPlaying([], "A Episode 1"), false)
-})
-
-test("nothing selected is never playing", () => {
-  assert.equal(Model.isPlaying([{ title: "A Episode 1" }], ""), false)
-  assert.equal(Model.isPlaying([], ""), false)
-})
-
 test("the series name comes from the player that is actually running", () => {
   const players = [{ pid: "1", title: "Naruto Episode 34", animeId: "naruto-1335", episode: "34" }]
   assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
