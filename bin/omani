@@ -8,6 +8,7 @@ MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
 PLAYER="${OMANI_PLAYER:-mpv}"
 PLAYER_RECORD_CAP=20
 MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts:/usr/lib/mpv-mpris}"
+MPV_CONF_FILES="${OMANI_MPV_CONF_FILES:-${MPV_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv}/mpv.conf:/etc/mpv/mpv.conf}"
 
 STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
@@ -56,6 +57,8 @@ environment:
   OMANI_MANIFEST     manifest.json, for the version
   OMANI_MPV_SCRIPT_DIRS
                      colon-separated dirs searched for mpv's mpris script
+  OMANI_MPV_CONF_FILES
+                     colon-separated mpv configs read for a script= line
 USAGE
 }
 
@@ -256,14 +259,23 @@ cmd_previous() {
   cmd_play "$id" "$title" "$earlier"
 }
 
+# mpv loads scripts from its script directories and from whatever script= or
+# scripts-append= lines its config carries, so both are consulted rather than
+# assuming the packaged location.
 mpris_present() {
-  local dir file dirs
+  local dir file dirs conf confs
   IFS=: read -ra dirs <<<"$MPV_SCRIPT_DIRS"
   for dir in "${dirs[@]}"; do
     [[ -n $dir ]] || continue
     for file in "$dir"/mpris.*; do
       [[ -e $file ]] && return 0
     done
+  done
+
+  IFS=: read -ra confs <<<"$MPV_CONF_FILES"
+  for conf in "${confs[@]}"; do
+    [[ -n $conf && -f $conf ]] || continue
+    grep -qE '^[[:space:]]*scripts?(-append)?[[:space:]]*=.*mpris' "$conf" && return 0
   done
   return 1
 }

@@ -71,6 +71,7 @@ setup() {
   mkdir -p "$WORK/mpv-scripts"
   : >"$WORK/mpv-scripts/mpris.so"
   export OMANI_MPV_SCRIPT_DIRS="$WORK/mpv-scripts"
+  export OMANI_MPV_CONF_FILES="$WORK/absent.conf"
   export OMANI_DRY_RUN=1
   unset OMANI_QUALITY OMANI_MODE
 
@@ -150,6 +151,20 @@ t_status_uses_the_real_script_dirs_by_default() {
   out=$(env -u OMANI_MPV_SCRIPT_DIRS "$OMANI" status)
   assert_ok $?
   assert_contains "$(jq -r 'has("tracking") | tostring' <<<"$out")" "true"
+}
+
+t_status_finds_mpris_loaded_by_path_in_the_config() {
+  printf 'script=/usr/lib/mpv-mpris/mpris.so\n' >"$WORK/mpv.conf"
+  local out
+  out=$(OMANI_MPV_SCRIPT_DIRS="$WORK/nowhere" OMANI_MPV_CONF_FILES="$WORK/mpv.conf" "$OMANI" status)
+  assert_eq "$(jq -r .tracking <<<"$out")" "true"
+}
+
+t_status_ignores_an_unrelated_script_line() {
+  printf 'script=/usr/lib/mpv/other.so\nvolume=80\n' >"$WORK/mpv.conf"
+  local out
+  out=$(OMANI_MPV_SCRIPT_DIRS="$WORK/nowhere" OMANI_MPV_CONF_FILES="$WORK/mpv.conf" "$OMANI" status)
+  assert_eq "$(jq -r .tracking <<<"$out")" "false"
 }
 
 t_status_names_mpv_mpris_when_absent() {
@@ -558,6 +573,8 @@ check "status reports the plugin version" t_status_reports_the_plugin_version
 check "status survives a missing manifest" t_status_survives_a_missing_manifest
 check "status names a player that is missing" t_status_names_a_missing_player
 check "status reads the real script directories when nothing overrides them" t_status_uses_the_real_script_dirs_by_default
+check "mpris loaded by path in mpv.conf counts" t_status_finds_mpris_loaded_by_path_in_the_config
+check "an unrelated script line does not count" t_status_ignores_an_unrelated_script_line
 check "status names mpv-mpris when the script is absent" t_status_names_mpv_mpris_when_absent
 check "mpris found in any configured script directory counts" t_status_accepts_mpris_from_any_script_dir
 check "search passes provider rows through" t_search_returns_provider_rows
