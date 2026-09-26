@@ -387,6 +387,27 @@ test("a label that is missing heads nothing rather than the word undefined", () 
   assert.equal(Model.sectionLabel(null), "")
 })
 
+function hero(over) {
+  const base = { ready: true, tracking: true, missing: "", playing: false, nowPlaying: "", quality: "best", mode: "sub" }
+  return Object.assign(base, over)
+}
+
+test("a missing dependency is what the hero says", () => {
+  assert.equal(Model.heroMeta(hero({ ready: false, missing: "mpv" })), "missing: mpv")
+})
+
+test("losing player tracking is said without claiming the plugin is broken", () => {
+  assert.equal(Model.heroMeta(hero({ tracking: false })), "mpv-mpris missing \u00b7 players are not tracked")
+})
+
+test("what is playing outranks the settings summary", () => {
+  assert.equal(Model.heroMeta(hero({ playing: true, nowPlaying: "Naruto Episode 3" })), "Naruto Episode 3")
+})
+
+test("with nothing playing the hero summarises the settings", () => {
+  assert.equal(Model.heroMeta(hero({ quality: "1080", mode: "dub" })), "1080 \u00b7 dub")
+})
+
 test("a launch that has not produced a player yet says so", () => {
   const labels = { history: "Continue watching" }
   assert.equal(Model.heading(labels, "history", false, true), "STARTING\u2026")

@@ -107,16 +107,16 @@ external command it can invoke is listed here.
 | Command | Used for | Comes from |
 |---|---|---|
 | `mpv` | playback | Omarchy's base packages |
-| `mpv-mpris` | how mpv reports what it is playing, which is how a player is tracked | Omarchy's base packages |
 | `jq` | status and manifest reading | Omarchy's base packages |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
 
 **On Omarchy there is nothing to install.** Every one of these is already
-there. `mpv-mpris` is worth naming even so: mpv does not speak MPRIS on its
-own, and without that script Omani cannot see what is playing — playback
-works, but nothing appears under **Playing** and the player menu has nothing
-to control.
+there, and `mpv-mpris` is too. That last one is not a command Omani runs — it
+is a script mpv loads, and without it mpv does not report what it is playing.
+Search and playback still work; what stops is tracking, so nothing appears
+under **Playing** and the player menu has nothing to control. The panel says
+so rather than leaving you to guess.
 
 `curl-impersonate` is used when present, which gets past Cloudflare where plain
 `curl` is blocked.
