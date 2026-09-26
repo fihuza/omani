@@ -85,6 +85,10 @@ parse_qualities() {
     sort -g -r -s
 }
 
+heights_of() {
+  sed -nE 's#^([0-9]+)p? *>.*#\1#p' <<<"$1" | tr '\n' ' ' | sed 's# *$##'
+}
+
 pick_quality() {
   local wanted="$1" links="$2" chosen
   case "$wanted" in
@@ -139,7 +143,8 @@ cmd_stream() {
   [[ -n $links ]] || die "no playable qualities"
   url=$(pick_quality "$quality" "$links")
 
-  printf 'url\t%s\nreferrer\t%s\nsubtitles\t%s\n' "$url" "$referrer" "$subs"
+  printf 'url\t%s\nreferrer\t%s\nsubtitles\t%s\nqualities\t%s\n' \
+    "$url" "$referrer" "$subs" "$(heights_of "$links")"
 }
 
 usage() {

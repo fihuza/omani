@@ -49,7 +49,8 @@ function playerRecords(raw) {
       pid: fields[0].trim(),
       title: fields[1].trim(),
       animeId: fields[2].trim(),
-      episode: fields[3].trim()
+      episode: fields[3].trim(),
+      qualities: fields.length > 4 ? fields[4].trim() : ""
     })
   }
   return records
@@ -73,6 +74,14 @@ function launchedPlayer(players, before) {
 
 function remembered(fallback) {
   return fallback ? String(fallback) : ""
+}
+
+function qualitiesOf(players, animeId) {
+  if (!animeId) return ""
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return players[i].qualities
+  }
+  return ""
 }
 
 function seriesOf(players, animeId, fallback) {
@@ -207,13 +216,18 @@ function settingChange(row) {
   return { key: row.key, value: next }
 }
 
-function qualityRows(current) {
+// Only what this episode actually has: the provider reports the variants its
+// master playlist carries, and offering a height that is not there would pick
+// the best one instead and look like the choice was ignored.
+function qualityRows(available, current) {
   var rows = []
-  for (var i = 0; i < QUALITIES.length; i++) {
+  var heights = String(available || "").split(/\s+/)
+  for (var i = 0; i < heights.length; i++) {
+    if (heights[i] === "") continue
     rows.push({
-      key: QUALITIES[i],
-      title: QUALITIES[i],
-      label: QUALITIES[i] === current ? "playing" : ""
+      key: heights[i],
+      title: heights[i] + "p",
+      label: heights[i] === current ? "playing" : ""
     })
   }
   return rows
@@ -386,6 +400,7 @@ if (typeof module !== "undefined") {
     livePlayers: livePlayers,
     isPlayingSeries: isPlayingSeries,
     launchedPlayer: launchedPlayer,
+    qualitiesOf: qualitiesOf,
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,

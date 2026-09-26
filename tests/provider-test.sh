@@ -172,6 +172,12 @@ t_stream_resolves_url_referrer_and_subtitles() {
   assert_contains "$out" "subtitles	https://cdn/en.vtt"
 }
 
+t_stream_reports_the_variants_the_episode_has() {
+  local out
+  out=$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
+  assert_contains "$out" "qualities	1080 360"
+}
+
 t_stream_honours_the_requested_quality() {
   assert_contains "$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub 360)" "url	https://cdn/360/i.m3u8"
 }
@@ -220,6 +226,7 @@ check "search needs a query" t_search_needs_a_query
 check "episodes works end to end" t_episodes_end_to_end
 check "episodes needs an id" t_episodes_needs_an_id
 check "stream resolves url, referrer and subtitles" t_stream_resolves_url_referrer_and_subtitles
+check "stream reports the variants the episode has" t_stream_reports_the_variants_the_episode_has
 check "stream honours the requested quality" t_stream_honours_the_requested_quality
 check "stream falls back when the quality is absent" t_stream_falls_back_when_the_quality_is_absent
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked

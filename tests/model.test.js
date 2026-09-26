@@ -71,8 +71,8 @@ test("with nothing playing there is nothing to replace", () => {
 })
 
 test("player records are read back with every field", () => {
-  const [record] = Model.playerRecords("4242\tNaruto Episode 79\tnaruto-1335\t79\n")
-  assert.deepEqual(record, { pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79" })
+  const [record] = Model.playerRecords("4242\tNaruto Episode 79\tnaruto-1335\t79\t1080 720\n")
+  assert.deepEqual(record, { pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79", qualities: "1080 720" })
 })
 
 test("incomplete records are skipped", () => {
@@ -269,15 +269,38 @@ test("the shortcut list is non-empty and fully labelled", () => {
   }
 })
 
-test("the quality list marks the one that is playing", () => {
-  const rows = Model.qualityRows("720")
-  assert.deepEqual(rows.map(r => r.key), ["best", "1080", "720", "480", "360", "worst"])
+test("the variants come from the player that is running", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "1080 720" }]
+  assert.equal(Model.qualitiesOf(players, "a"), "1080 720")
+  assert.equal(Model.qualitiesOf(players, "other"), "")
+  assert.equal(Model.qualitiesOf(players, ""), "")
+})
+
+test("the quality list offers only what the episode has", () => {
+  const rows = Model.qualityRows("1080 720 360", "720")
+  assert.deepEqual(rows.map(r => r.key), ["1080", "720", "360"])
+  assert.deepEqual(rows.map(r => r.title), ["1080p", "720p", "360p"])
   assert.equal(rows.find(r => r.key === "720").label, "playing")
   assert.equal(rows.filter(r => r.label === "playing").length, 1)
 })
 
+test("an episode reporting no variants offers nothing to choose", () => {
+  assert.deepEqual(Model.qualityRows("", "720"), [])
+  assert.deepEqual(Model.qualityRows(null, ""), [])
+})
+
 test("a quality nothing is playing at marks nothing", () => {
-  assert.equal(Model.qualityRows("").filter(r => r.label !== "").length, 0)
+  assert.equal(Model.qualityRows("1080 720", "").filter(r => r.label !== "").length, 0)
+})
+
+test("a record carries the variants the episode was resolved with", () => {
+  const rows = Model.playerRecords("9\tA Episode 1\ta\t1\t1080 720 480\n")
+  assert.equal(rows[0].qualities, "1080 720 480")
+})
+
+test("a record written before variants were tracked still parses", () => {
+  const rows = Model.playerRecords("9\tA Episode 1\ta\t1\n")
+  assert.equal(rows[0].qualities, "")
 })
 
 test("leaving the quality list returns to the player it was opened from", () => {
