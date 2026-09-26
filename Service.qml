@@ -11,6 +11,7 @@ Item {
     property string scriptPath: ""
 
     property bool ready: false
+    property bool tracking: true
     property string missing: ""
     property string version: ""
     property string historyPath: ""
@@ -70,6 +71,7 @@ Item {
     function applyStatus(raw) {
         var parsed = JSON.parse(raw);
         ready = parsed.ready === true;
+        tracking = parsed.tracking !== false;
         missing = String(parsed.missing || "");
         version = String(parsed.version || "");
         historyPath = String(parsed.historyPath || "");

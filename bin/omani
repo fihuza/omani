@@ -6,7 +6,7 @@ SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]
 PROVIDER="${OMANI_PROVIDER:-$(dirname "$SELF")/omani-provider}"
 MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
 PLAYER="${OMANI_PLAYER:-mpv}"
-MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts}"
+MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts:/usr/lib/mpv-mpris}"
 
 STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
@@ -191,9 +191,10 @@ cmd_previous() {
 }
 
 mpris_present() {
-  local dir file
+  local dir file dirs
   IFS=: read -ra dirs <<<"$MPV_SCRIPT_DIRS"
   for dir in "${dirs[@]}"; do
+    [[ -n $dir ]] || continue
     for file in "$dir"/mpris.*; do
       [[ -e $file ]] && return 0
     done
@@ -205,17 +206,17 @@ cmd_status() {
   local missing=()
   command -v "$PLAYER" >/dev/null || missing+=("$PLAYER")
   command -v curl >/dev/null || command -v curl_chrome136 >/dev/null || missing+=(curl)
-  mpris_present || missing+=(mpv-mpris)
   local version=""
   [[ -f $MANIFEST ]] && version=$(jq -r '.version // ""' "$MANIFEST" 2>/dev/null)
 
   jq -n \
     --arg version "$version" \
     --argjson ready "$( ((${#missing[@]} == 0)) && echo true || echo false)" \
+    --argjson tracking "$(mpris_present && echo true || echo false)" \
     --arg missing "${missing[*]:-}" \
     --arg historyPath "$HIST_FILE" \
     --arg playersPath "$PLAYERS_FILE" \
-    '{ready: $ready, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
+    '{ready: $ready, tracking: $tracking, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
 }
 
 cmd_history_clear() {

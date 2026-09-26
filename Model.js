@@ -243,6 +243,13 @@ function sectionLabel(text) {
   return String(text === null || text === undefined ? "" : text).toUpperCase()
 }
 
+function heroMeta(state) {
+  if (!state.ready) return "missing: " + state.missing
+  if (!state.tracking) return "mpv-mpris missing \u00b7 players are not tracked"
+  if (state.playing) return state.nowPlaying
+  return state.quality + " \u00b7 " + state.mode
+}
+
 function heading(labels, view, busy, launching) {
   if (launching) return sectionLabel("Starting\u2026")
   if (busy) return sectionLabel("Loading\u2026")
@@ -380,6 +387,7 @@ if (typeof module !== "undefined") {
     seriesRows: seriesRows,
     episodeRows: episodeRows,
     heading: heading,
+    heroMeta: heroMeta,
     sectionLabel: sectionLabel,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,

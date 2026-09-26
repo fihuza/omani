@@ -187,8 +187,8 @@ jobs:
             --jq '[.[] | select(.isCrossRepository == false) | .number] | join(", ")')
 
           if [ -n "$waiting" ]; then
-            echo "::error::back-merge #$waiting is still open and develop does not contain main; merge it before releasing again"
-            exit 1
+            echo "::warning::back-merge #$waiting is open and already carries this commit; merge it to put main back into develop"
+            exit 0
           fi
 
           gh pr create --base develop --head main \

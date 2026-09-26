@@ -330,7 +330,15 @@ Panel {
                     PanelHero {
                         width: parent.width
                         title: "Omani"
-                        meta: root.ready ? (root.service && root.service.playing ? root.service.nowPlaying : root.quality + " · " + root.mode) : "missing: " + root.missing
+                        meta: Model.heroMeta({
+                            ready: root.ready,
+                            tracking: root.service ? root.service.tracking : true,
+                            missing: root.missing,
+                            playing: root.service ? root.service.playing : false,
+                            nowPlaying: root.service ? root.service.nowPlaying : "",
+                            quality: root.quality,
+                            mode: root.mode
+                        })
                         foreground: root.ready ? root.foreground : root.urgent
                         fontFamily: root.fontFamily
                         iconComponent: Component {
