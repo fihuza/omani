@@ -268,6 +268,22 @@ t_progress_records_how_far_in_you_are() {
   assert_eq "$(series_field frieren-1 '.episodes["2"].duration')" "1400"
 }
 
+t_finishing_an_episode_moves_the_series_on() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1390 1400
+  assert_eq "$(series_field frieren-1 .episode)" "3"
+}
+
+t_finishing_looks_up_the_next_episode_once() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1390 1400
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1395 1400
+  assert_eq "$(series_field frieren-1 .episode)" "3"
+}
+
+t_part_way_through_leaves_the_series_where_it_is() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
+  assert_eq "$(series_field frieren-1 .episode)" "2"
+}
+
 t_progress_keeps_each_episode_apart() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 3 100 1400
@@ -544,6 +560,9 @@ check "play advances a series already in history" t_play_advances_a_series_alrea
 check "play leaves other series alone" t_play_leaves_other_series_alone
 check "history survives a title with punctuation" t_history_survives_a_title_with_punctuation
 check "progress records how far into an episode you are" t_progress_records_how_far_in_you_are
+check "finishing an episode moves the series on" t_finishing_an_episode_moves_the_series_on
+check "the next episode is looked up once, not on every report" t_finishing_looks_up_the_next_episode_once
+check "part way through leaves the series where it is" t_part_way_through_leaves_the_series_where_it_is
 check "each episode keeps its own position" t_progress_keeps_each_episode_apart
 check "reporting the same episode again replaces its position" t_progress_replaces_the_position_of_the_same_episode
 check "progress refuses a series not in history" t_progress_refuses_a_series_not_in_history

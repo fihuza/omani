@@ -96,6 +96,8 @@ record_history() {
 }
 
 # Called while a player runs, so the next resume starts where this one stopped.
+# Which episode the series is on is not touched here: that belongs to starting
+# one and to finishing one, and a report arriving after either would undo it.
 record_progress() {
   local id="$1" episode="$2" position="$3" duration="$4"
   [[ $position =~ ^[0-9]+$ && $duration =~ ^[0-9]+$ ]] || die "position and duration must be whole seconds"
@@ -106,7 +108,6 @@ record_progress() {
     --argjson now "$(date +%s)" '
       (.series[$id] // {title: "", episodes: {}}) as $entry
       | .series[$id] = ($entry + {
-          episode: $episode,
           updated: $now,
           episodes: (($entry.episodes // {}) + {
             ($episode): {position: $position, duration: $duration}
@@ -279,16 +280,35 @@ cmd_status() {
     '{ready: $ready, tracking: $tracking, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
 }
 
+# Finishing an episode moves the series on, so what the panel offers to
+# continue is the episode that would actually play. The lookup happens once,
+# when the threshold is crossed, not on every report.
+advance_past() {
+  local id="$1" episode="$2" episodes next
+  episodes=$("$PROVIDER" episodes "$id" 2>/dev/null) || return 0
+  next=$(awk -F'\t' -v w="$episode" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes")
+  [[ -n $next ]] || return 0
+  # shellcheck disable=SC2016 # $id and $next are jq variables, bound by --arg
+  update_history --arg id "$id" --arg next "$next" '.series[$id].episode = $next'
+}
+
 cmd_progress() {
   local id="${1:-}" episode="${2:-}" position="${3:-}" duration="${4:-}"
   [[ -n $id && -n $episode && -n $position && -n $duration ]] ||
     die "usage: omani progress <anime-id> <episode> <position-seconds> <duration-seconds>"
-  entry_for "$id" >/dev/null || die "'$id' is not in history"
+  local entry
+  entry=$(entry_for "$id") || die "'$id' is not in history"
   if dry; then
     printf 'progress %s %s %s %s\n' "$id" "$episode" "$position" "$duration"
     return 0
   fi
   record_progress "$id" "$episode" "$position" "$duration"
+
+  local current
+  current=$(jq -r '.episode' <<<"$entry")
+  if [[ $current == "$episode" ]] && ((duration > 0 && position * 100 >= duration * WATCHED_FRACTION)); then
+    advance_past "$id" "$episode"
+  fi
 }
 
 cmd_history_clear() {

@@ -63,10 +63,23 @@ Item {
     readonly property bool playing: players.length > 0
     readonly property string nowPlaying: players.length > 0 ? players[0].title : ""
 
-    // Bound to the player on the bus rather than sampled, so the clock in the
-    // hero moves with playback instead of with the ten-second history sample.
     readonly property var currentPlayer: Model.playerFor(playerList, nowPlaying)
-    readonly property string elapsed: currentPlayer ? Model.elapsed(currentPlayer.position, currentPlayer.length) : ""
+
+    // mpris position is not a notifying property: quickshell reads it fresh
+    // every time, but nothing tells a binding to look again. The tick is what
+    // makes the clock move.
+    property int clockTick: 0
+    readonly property string elapsed: {
+        clockTick;
+        return currentPlayer ? Model.elapsed(currentPlayer.position, currentPlayer.length) : "";
+    }
+
+    Timer {
+        interval: 1000
+        running: root.playing
+        repeat: true
+        onTriggered: root.clockTick++
+    }
 
     function setting(name, fallback) {
         var value = settings ? settings[name] : undefined;
