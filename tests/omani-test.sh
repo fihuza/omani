@@ -369,6 +369,42 @@ t_resume_refuses_when_nothing_follows() {
   assert_contains "$out" "no episode after"
 }
 
+t_next_plays_the_episode_after_the_one_watched() {
+  assert_contains "$("$OMANI" next frieren-1)" "--force-media-title=Frieren Episode 3"
+}
+
+t_next_moves_on_from_an_episode_barely_started() {
+  # Asking for the next episode is the answer: how much of this one is left is
+  # not a question any more.
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
+  local out
+  out=$("$OMANI" next frieren-1)
+  assert_contains "$out" "--force-media-title=Frieren Episode 3"
+  assert_lacks "$out" "--start="
+}
+
+t_next_leaves_the_progress_of_the_episode_it_leaves() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
+  OMANI_DRY_RUN='' "$OMANI" next frieren-1
+  assert_eq "$(series_field frieren-1 '.episodes["2"].position')" "30"
+  assert_eq "$(series_field frieren-1 .episode)" "3"
+}
+
+t_next_refuses_at_the_last_episode() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "episodes": {}}}'
+  local out
+  out=$("$OMANI" next frieren-1 2>&1)
+  assert_fails $?
+  assert_contains "$out" "no episode after"
+}
+
+t_next_refuses_an_unknown_series() {
+  local out
+  out=$("$OMANI" next nope-0 2>&1)
+  assert_fails $?
+  assert_contains "$out" "not in history"
+}
+
 t_previous_plays_the_episode_before_the_one_watched() {
   assert_contains "$("$OMANI" previous frieren-1)" "--force-media-title=Frieren Episode 1"
 }
@@ -604,6 +640,11 @@ check "a series with no progress plays the episode it is on" t_a_series_with_no_
 check "resume plays the episode after one watched to the end" t_resume_plays_the_episode_after_one_watched_to_the_end
 check "resume refuses a series not in history" t_resume_refuses_an_unknown_series
 check "resume refuses when nothing follows" t_resume_refuses_when_nothing_follows
+check "next plays the episode after the one watched" t_next_plays_the_episode_after_the_one_watched
+check "next moves on from an episode barely started" t_next_moves_on_from_an_episode_barely_started
+check "next leaves the progress of the episode it leaves" t_next_leaves_the_progress_of_the_episode_it_leaves
+check "next refuses at the last episode" t_next_refuses_at_the_last_episode
+check "next refuses a series not in history" t_next_refuses_an_unknown_series
 check "previous plays the episode before the one watched" t_previous_plays_the_episode_before_the_one_watched
 check "previous refuses at the first episode" t_previous_refuses_at_the_first_episode
 check "previous refuses a series not in history" t_previous_refuses_an_unknown_series

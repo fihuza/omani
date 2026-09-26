@@ -37,7 +37,8 @@ usage: omani <subcommand> [args]
   search <query>                      anime-id<TAB>title
   episodes <anime-id>                 episode-id<TAB>number
   play <anime-id> <title> <episode>   resolve and start playback
-  resume <anime-id>                   play the episode after the one in history
+  resume <anime-id>                   continue where the series was left off
+  next <anime-id>                     play the episode after the one in history
   previous <anime-id>                 play the episode before the one in history
   players                             pid<TAB>title<TAB>anime-id<TAB>episode, live only
   stop [pid|title|all]                stop a player this plugin started
@@ -213,6 +214,18 @@ cmd_play() {
   record_history "$episode" "$id" "$title"
 }
 
+# Episode numbers are not always contiguous -- specials and recaps sit between
+# them -- so what follows or precedes an episode is read from the provider's own
+# list rather than counted.
+neighbour_episode() {
+  local current="$1" side="$2" episodes="$3"
+  if [[ $side == after ]]; then
+    awk -F'\t' -v w="$current" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes"
+  else
+    awk -F'\t' -v w="$current" '$2 == w { print previous; exit } { previous = $2 }' <<<"$episodes"
+  fi
+}
+
 # The history holds the episode you are on, so continuing plays that one --
 # where you stopped if that is known. Only an episode watched to the end moves
 # on to the next.
@@ -237,26 +250,31 @@ cmd_resume() {
 
   local episodes next
   episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
-  next=$(awk -F'\t' -v w="$episode" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes")
+  next=$(neighbour_episode "$episode" after "$episodes")
   [[ -n $next ]] || die "no episode after $episode of $title"
 
   cmd_play "$id" "$title" "$next"
 }
 
-cmd_previous() {
-  local id="${1:-}"
-  [[ -n $id ]] || die "usage: omani previous <anime-id>"
+# Next and previous step from the episode the series is on however much of it
+# was watched: asking for another episode is the answer, so the one being left
+# keeps the progress it had rather than counting as finished.
+cmd_step() {
+  local side="$1" id="${2:-}"
+  local sub=next
+  [[ $side == after ]] || sub=previous
+  [[ -n $id ]] || die "usage: omani $sub <anime-id>"
   local entry
   entry=$(entry_for "$id") || die "'$id' is not in history"
 
-  local watched title episodes earlier
-  watched=$(jq -r '.episode' <<<"$entry")
+  local current title episodes target
+  current=$(jq -r '.episode' <<<"$entry")
   title=$(jq -r '.title' <<<"$entry")
   episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
-  earlier=$(awk -F'\t' -v w="$watched" '$2 == w { print previous; exit } { previous = $2 }' <<<"$episodes")
-  [[ -n $earlier ]] || die "no episode before $watched of $title"
+  target=$(neighbour_episode "$current" "$side" "$episodes")
+  [[ -n $target ]] || die "no episode $side $current of $title"
 
-  cmd_play "$id" "$title" "$earlier"
+  cmd_play "$id" "$title" "$target"
 }
 
 # mpv loads scripts from its script directories and from whatever script= or
@@ -304,7 +322,7 @@ cmd_status() {
 advance_past() {
   local id="$1" episode="$2" episodes next
   episodes=$("$PROVIDER" episodes "$id" 2>/dev/null) || return 0
-  next=$(awk -F'\t' -v w="$episode" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes")
+  next=$(neighbour_episode "$episode" after "$episodes")
   [[ -n $next ]] || return 0
   # shellcheck disable=SC2016 # $id and $next are jq variables, bound by --arg
   update_history --arg id "$id" --arg next "$next" '.series[$id].episode = $next'
@@ -349,7 +367,8 @@ main() {
   episodes) "$PROVIDER" episodes "$@" ;;
   play) cmd_play "$@" ;;
   resume) cmd_resume "$@" ;;
-  previous) cmd_previous "$@" ;;
+  next) cmd_step after "$@" ;;
+  previous) cmd_step before "$@" ;;
   stop) cmd_stop "$@" ;;
   players) cmd_players ;;
   progress) cmd_progress "$@" ;;

@@ -201,7 +201,7 @@ Item {
     }
 
     function playNext() {
-        step("resume");
+        step("next");
     }
 
     function playPrevious() {
