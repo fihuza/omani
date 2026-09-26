@@ -195,10 +195,12 @@ Panel {
             handler(result.command);
     }
 
-    readonly property bool watchedPlayerGone: view === "player" && service && !service.launching && !Model.isPlayingSeries(service.players, service.playingId)
+    // Asks only about the player. Including the view made setView, which this
+    // handler calls, feed back into the property it is reacting to.
+    readonly property bool watchedPlayerGone: service && !service.launching && !Model.isPlayingSeries(service.players, service.playingId)
 
     onWatchedPlayerGoneChanged: {
-        if (watchedPlayerGone)
+        if (watchedPlayerGone && view === "player")
             setView("history");
     }
 
