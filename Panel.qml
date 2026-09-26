@@ -158,6 +158,11 @@ Panel {
             "focusSearch": function () {
                 searchField.forceActiveFocus();
             },
+            "forget": function (c) {
+                var row = root.rows[c.index];
+                if (Model.forgettable(root.view, row))
+                    root.service.forget(row.animeId);
+            },
             "clearHistory": function () {
                 confirmClear.opened = true;
             },
@@ -521,7 +526,7 @@ Panel {
                                     Text {
                                         id: rowMeta
                                         anchors.verticalCenter: parent.verticalCenter
-                                        anchors.right: parent.right
+                                        anchors.right: rowForget.visible ? rowForget.left : parent.right
                                         anchors.rightMargin: Style.space(8)
                                         textFormat: Text.PlainText
                                         text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
@@ -536,6 +541,19 @@ Panel {
                                         cursorShape: Qt.PointingHandCursor
                                         onEntered: root.selectRow(rowItem.index)
                                         onClicked: root.activateRow(rowItem.index)
+                                    }
+
+                                    PanelActionButton {
+                                        id: rowForget
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: Style.space(4)
+                                        visible: rowItem.selected && Model.forgettable(root.view, rowItem.modelData)
+                                        iconText: "󰅖"
+                                        tooltipText: "Forget this series (d)"
+                                        foreground: root.dim
+                                        fontFamily: root.fontFamily
+                                        onClicked: root.service.forget(rowItem.modelData.animeId)
                                     }
                                 }
                             }

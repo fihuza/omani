@@ -254,6 +254,10 @@ Item {
         Quickshell.execDetached(command(["stop", "all"]));
     }
 
+    function forget(animeId) {
+        Quickshell.execDetached(command(["forget", animeId]));
+    }
+
     function clearHistory() {
         Quickshell.execDetached(command(["history-clear"]));
     }

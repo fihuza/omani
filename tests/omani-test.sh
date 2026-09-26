@@ -405,6 +405,26 @@ t_next_refuses_an_unknown_series() {
   assert_contains "$out" "not in history"
 }
 
+t_forget_drops_one_series() {
+  OMANI_DRY_RUN='' "$OMANI" forget frieren-1
+  assert_ok $?
+  assert_eq "$("$OMANI" history | jq -r '.series | keys | join(",")')" "naruto-2"
+}
+
+t_forget_refuses_a_series_not_in_history() {
+  local out
+  out=$("$OMANI" forget nope-0 2>&1)
+  assert_fails $?
+  assert_contains "$out" "not in history"
+}
+
+t_forget_needs_an_id() {
+  local out
+  out=$("$OMANI" forget 2>&1)
+  assert_fails $?
+  assert_contains "$out" "usage"
+}
+
 t_previous_plays_the_episode_before_the_one_watched() {
   assert_contains "$("$OMANI" previous frieren-1)" "--force-media-title=Frieren Episode 1"
 }
@@ -672,6 +692,9 @@ check "stop all targets every player" t_stop_all_targets_every_player
 check "stop forgets the player it stopped" t_stop_forgets_the_player_it_stopped
 check "stopping an unknown player is not an error" t_stop_an_unknown_player_is_not_an_error
 check "stopping with no players is not an error" t_stop_without_any_player_is_not_an_error
+check "forget drops one series and leaves the rest" t_forget_drops_one_series
+check "forget refuses a series not in history" t_forget_refuses_a_series_not_in_history
+check "forget needs an id" t_forget_needs_an_id
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
 check "history-clear on an absent history is not an error" t_history_clear_on_an_absent_history_is_not_an_error
 check "an unknown subcommand fails loudly" t_unknown_subcommand_fails_loudly

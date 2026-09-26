@@ -23,6 +23,7 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Search | Type in the field, or press `/` |
 | Play a series | Click its row, or select it and press Enter |
 | Control what is playing | Pick it under **Playing** — pause, follow the series, change quality, stop |
+| Forget a series | Hover its row and click ✕, or select it and press `d` |
 | Settings | The gear button in the header, or press `s` |
 
 ### Keyboard
@@ -42,6 +43,7 @@ moving under the same keys.
 | `Enter` | Open or play the row under the cursor |
 | `s` | Settings — quality and subbed/dubbed |
 | `?` | Keyboard shortcuts |
+| `d` | Forget the series under the cursor |
 | `r` | Re-read status and history |
 | `x` | Clear watch history (asks first) |
 | `Esc` | Back, then close |
@@ -58,10 +60,18 @@ the second you stopped, and opens its menu:
 
 ![The player menu: next episode, replay, previous episode, select episode, change quality and stop](controls.png)
 
+**Next episode** and **Previous episode** move through the series whatever is
+left of the episode you are on: the one you leave keeps the progress it had
+rather than counting as watched.
+
 Those choices **replace** the episode they were opened for, so following a
 series never leaves a trail of players behind. Starting something from the
 watch history is what adds one, so two series can run side by side — each
 listed under **Playing**, each with its own menu.
+
+**Change quality** applies to the episode playing, not to the setting, and is
+offered only when the provider has more than one variant of it. The next
+episode starts at the `quality` setting again.
 
 A player counts as live only while Omani started it *and* it is still on the
 bus, so a video you started yourself is never listed and never stopped.
@@ -95,6 +105,8 @@ episode up where you stopped rather than at the beginning. Only an episode
 watched past ninety percent counts as finished; continuing then moves to the
 next one, which the provider's episode list decides — so numbering that skips
 or carries decimals is handled by the real list rather than by adding one.
+
+A series you are done with is dropped with `d`, and `x` clears the lot.
 
 ## Dependencies
 

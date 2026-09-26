@@ -235,6 +235,7 @@ function shortcuts() {
     { keys: "/ or i", action: "Search field" },
     { keys: "s", action: "Settings" },
     { keys: "?", action: "This list" },
+    { keys: "d", action: "Forget the series" },
     { keys: "r", action: "Refresh" },
     { keys: "x", action: "Clear history" },
     { keys: "Esc", action: "Back, then close" },
@@ -341,6 +342,13 @@ function episodeRows(raw, progress, fraction) {
       label: episodeLabel(seen[fields[1]], fraction)
     }
   })
+}
+
+// Only a series the history remembers can be forgotten: the episode playing is
+// written back by the next progress report, and no other view lists anything
+// the history holds.
+function forgettable(view, row) {
+  return view === "history" && !!row && row.kind === "series"
 }
 
 function progressOf(raw, animeId) {
@@ -491,6 +499,7 @@ function reduceKey(state, key, ctx) {
   if (key === "s") return done({ type: "toggleSettings" })
   if (key === "?") return done({ type: "toggleShortcuts" })
   if (key === "/" || key === "i") return done({ type: "focusSearch" })
+  if (key === "d") return done(rowCount > 0 ? { type: "forget", index: next.index } : null)
   if (key === "x") return done({ type: "clearHistory" })
   if (key === "r") return done({ type: "refresh" })
   if (key === "q") return done({ type: "close" })
@@ -531,6 +540,7 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
+    forgettable: forgettable,
     progressOf: progressOf,
     episodeLabel: episodeLabel,
     heading: heading,

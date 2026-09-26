@@ -762,6 +762,21 @@ test("slash and i open the search field", () => {
   assert.deepEqual(press("i").command, { type: "focusSearch" })
 })
 
+test("d forgets the selected row", () => {
+  assert.deepEqual(press(["2", "j", "d"]).command, { type: "forget", index: 2 })
+})
+
+test("d on an empty list forgets nothing", () => {
+  assert.equal(press("d", { rowCount: 0, pageSize: 4 }).command, null)
+})
+
+test("only a series in the watch history can be forgotten", () => {
+  assert.equal(Model.forgettable("history", { kind: "series" }), true)
+  assert.equal(Model.forgettable("history", { kind: "playing" }), false)
+  assert.equal(Model.forgettable("episodes", { kind: "series" }), false)
+  assert.equal(Model.forgettable("history", undefined), false)
+})
+
 test("x clears history and r refreshes", () => {
   assert.deepEqual(press("x").command, { type: "clearHistory" })
   assert.deepEqual(press("r").command, { type: "refresh" })

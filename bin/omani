@@ -44,6 +44,7 @@ usage: omani <subcommand> [args]
   stop [pid|title|all]                stop a player this plugin started
   progress <id> <ep> <seconds> <total>  record how far into an episode you are
   history                             print the watch history as json
+  forget <anime-id>                   drop one series from the history
   history-clear                       empty the watch history (keeps a backup)
 
 environment:
@@ -351,6 +352,18 @@ cmd_progress() {
   fi
 }
 
+cmd_forget() {
+  local id="${1:-}"
+  [[ -n $id ]] || die "usage: omani forget <anime-id>"
+  entry_for "$id" >/dev/null || die "'$id' is not in history"
+  if dry; then
+    printf 'forget %s\n' "$id"
+    return 0
+  fi
+  # shellcheck disable=SC2016 # $id is a jq variable, bound by --arg
+  update_history --arg id "$id" 'del(.series[$id])'
+}
+
 cmd_history_clear() {
   [[ -f $HIST_FILE ]] || return 0
   if dry; then
@@ -377,6 +390,7 @@ main() {
   players) cmd_players ;;
   progress) cmd_progress "$@" ;;
   history) read_history ;;
+  forget) cmd_forget "$@" ;;
   history-clear) cmd_history_clear ;;
   -h | --help | help) usage ;;
   "")
