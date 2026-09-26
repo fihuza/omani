@@ -186,7 +186,7 @@ Panel {
             handler(result.command);
     }
 
-    readonly property bool watchedPlayerGone: view === "player" && service && !Model.isPlaying(service.players, service.playingTitle)
+    readonly property bool watchedPlayerGone: view === "player" && service && !service.launching && !Model.isPlayingSeries(service.players, service.playingId)
 
     onWatchedPlayerGoneChanged: {
         if (watchedPlayerGone)

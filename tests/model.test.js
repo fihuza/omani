@@ -108,6 +108,26 @@ test("nothing selected is never playing", () => {
   assert.equal(Model.isPlaying([], ""), false)
 })
 
+test("a series is playing when a live player carries its id", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 22", animeId: "naruto-1335", episode: "22" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("the episode may change without the series stopping", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 23", animeId: "naruto-1335", episode: "23" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("another series playing does not count", () => {
+  const players = [{ pid: "1", title: "Frieren Episode 1", animeId: "frieren-1", episode: "1" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), false)
+})
+
+test("no series selected is never playing", () => {
+  assert.equal(Model.isPlayingSeries([{ animeId: "a" }], ""), false)
+  assert.equal(Model.isPlayingSeries([], "naruto-1335"), false)
+})
+
 test("every playing episode leads the history, under one section", () => {
   const players = [
     { pid: "1", title: "A Episode 1", animeId: "a", episode: "1" },

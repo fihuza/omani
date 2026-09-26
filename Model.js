@@ -71,6 +71,18 @@ function isPlaying(players, title) {
   return false
 }
 
+// Resume does not know the episode until bin/omani computes it, and mpv reaches
+// the bus a moment after its record is written, so a title cannot answer whether
+// the series being watched is still playing. Its id can, from the moment the
+// play is requested.
+function isPlayingSeries(players, animeId) {
+  if (!animeId) return false
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return true
+  }
+  return false
+}
+
 function historyView(rows, players) {
   var view = []
   for (var p = 0; p < players.length; p++) {
@@ -324,6 +336,7 @@ if (typeof module !== "undefined") {
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     isPlaying: isPlaying,
+    isPlayingSeries: isPlayingSeries,
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
