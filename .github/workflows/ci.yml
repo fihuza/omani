@@ -105,6 +105,14 @@ jobs:
         env:
           HEAD: ${{ github.head_ref }}
 
+      - name: A release must carry a version no one has had
+        if: startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')
+        env:
+          OMANI_BRANCH: ${{ github.head_ref }}
+        run: |
+          git fetch --quiet --tags origin
+          ./scripts/pre-commit version
+
       - name: Only release and hotfix branches may change the version
         if: ${{ github.head_ref != 'main' && !startsWith(github.head_ref, 'release/') && !startsWith(github.head_ref, 'hotfix/') }}
         run: |

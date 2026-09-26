@@ -46,8 +46,12 @@ mapfile -t QML < <(git ls-files '*.qml' 2>/dev/null)
 ((${#QML[@]})) || mapfile -t QML < <(find . -name '*.qml' -not -path './.git/*')
 SHELL_FILES=(bin/omani bin/omani-provider tests/omani-test.sh tests/provider-test.sh scripts/pre-commit scripts/commit-msg)
 
-QMLFORMAT=$(qt6_tool qmlformat) || fail "no Qt6 qmlformat -- needs the qt6-declarative package"
-QMLLINT=$(qt6_tool qmllint) || fail "no Qt6 qmllint -- needs the qt6-declarative package"
+if wanted qml-format; then
+  QMLFORMAT=$(qt6_tool qmlformat) || fail "no Qt6 qmlformat -- needs the qt6-declarative package"
+fi
+if wanted qml-lint; then
+  QMLLINT=$(qt6_tool qmllint) || fail "no Qt6 qmllint -- needs the qt6-declarative package"
+fi
 
 if wanted qml-format; then
   step "Format (QML)"
@@ -144,11 +148,18 @@ fi
 
 if wanted version; then
   step "Version"
-  BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
+  BRANCH="${OMANI_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)}"
   MV=$(jq -r '.version' manifest.json 2>/dev/null || echo "")
   case "$BRANCH" in
   release/* | hotfix/*)
     [[ ${BRANCH#*/} == "$MV" ]] || fail "branch $BRANCH does not match manifest version $MV"
+    LAST=$(git tag --list 'v*' --sort=-v:refname | head -1)
+    LAST="${LAST#v}"
+    if [[ -n $LAST ]]; then
+      HIGHEST=$(printf '%s\n%s\n' "$LAST" "$MV" | sort -V | tail -1)
+      [[ $MV != "$LAST" && $HIGHEST == "$MV" ]] ||
+        fail "manifest version $MV must be higher than the last release v$LAST"
+    fi
     ;;
   main) ;;
   *)
