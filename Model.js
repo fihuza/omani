@@ -116,6 +116,17 @@ function historyRows(raw, limit) {
   })
 }
 
+function scrollTarget(list) {
+  var limit = Math.max(0, list.content - list.viewport)
+  if (list.index <= 0) return 0
+  if (list.index >= list.lastIndex) return limit
+  var above = list.rowTop - list.margin
+  if (above < list.current) return Math.max(0, Math.min(limit, above))
+  var below = list.rowTop + list.rowHeight + list.margin
+  if (below > list.current + list.viewport) return Math.min(limit, below - list.viewport)
+  return Math.max(0, Math.min(limit, list.current))
+}
+
 function shortcuts() {
   return [
     { keys: "j / k", action: "Move down / up" },
@@ -319,6 +330,7 @@ if (typeof module !== "undefined") {
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
+    scrollTarget: scrollTarget,
     shortcuts: shortcuts,
     nextSetting: nextSetting,
     settingChange: settingChange,
