@@ -108,6 +108,26 @@ test("nothing selected is never playing", () => {
   assert.equal(Model.isPlaying([], ""), false)
 })
 
+test("a series is playing when a live player carries its id", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 22", animeId: "naruto-1335", episode: "22" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("the episode may change without the series stopping", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 23", animeId: "naruto-1335", episode: "23" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("another series playing does not count", () => {
+  const players = [{ pid: "1", title: "Frieren Episode 1", animeId: "frieren-1", episode: "1" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), false)
+})
+
+test("no series selected is never playing", () => {
+  assert.equal(Model.isPlayingSeries([{ animeId: "a" }], ""), false)
+  assert.equal(Model.isPlayingSeries([], "naruto-1335"), false)
+})
+
 test("every playing episode leads the history, under one section", () => {
   const players = [
     { pid: "1", title: "A Episode 1", animeId: "a", episode: "1" },
@@ -168,6 +188,47 @@ test("a non-positive or missing limit falls back to showing everything", () => {
 test("labels a row with the episode last watched", () => {
   const [row] = Model.historyRows("12\tid\tRe:Zero", 1)
   assert.equal(row.label, "ep 12")
+})
+
+function list(over) {
+  const base = { current: 0, viewport: 300, content: 1000, rowTop: 0, rowHeight: 40, index: 5, lastIndex: 20, margin: 6 }
+  return Object.assign(base, over)
+}
+
+test("the first row shows the header above it rather than just itself", () => {
+  assert.equal(Model.scrollTarget(list({ index: 0, current: 500 })), 0)
+})
+
+test("the last row goes to the very bottom", () => {
+  assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
+})
+
+test("a list shorter than the viewport never scrolls", () => {
+  assert.equal(Model.scrollTarget(list({ content: 120, index: 20, lastIndex: 20 })), 0)
+})
+
+test("a row above the viewport scrolls up to it, with a margin", () => {
+  assert.equal(Model.scrollTarget(list({ current: 400, rowTop: 380 })), 374)
+})
+
+test("a row below the viewport scrolls down just far enough", () => {
+  assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 320 })), 66)
+})
+
+test("a row already in view leaves the list where it is", () => {
+  assert.equal(Model.scrollTarget(list({ current: 100, rowTop: 150 })), 100)
+})
+
+test("a position left beyond the end still lands on the row", () => {
+  assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 120, content: 1000 })), 114)
+})
+
+test("a stale position with the row already in view is pulled back into range", () => {
+  assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
+})
+
+test("scrolling never goes past the end to reach a row", () => {
+  assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 990, content: 1000 })), 700)
 })
 
 test("the shortcut list is non-empty and fully labelled", () => {
@@ -285,6 +346,28 @@ test("keeps a title containing spaces and punctuation intact", () => {
 
 test("tolerates carriage returns from the provider", () => {
   assert.equal(Model.seriesRows("a-1\tAlpha\r\n")[0].title, "Alpha")
+})
+
+test("a launch that has not produced a player yet says so", () => {
+  const labels = { history: "Continue watching" }
+  assert.equal(Model.heading(labels, "history", false, true), "Starting\u2026")
+})
+
+test("a launch outranks a query still loading", () => {
+  assert.equal(Model.heading({}, "history", true, true), "Starting\u2026")
+})
+
+test("a query in flight reports loading", () => {
+  assert.equal(Model.heading({}, "results", true, false), "Loading\u2026")
+})
+
+test("with nothing in flight the view names itself", () => {
+  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "Results")
+})
+
+test("a view with no label heads nothing rather than undefined", () => {
+  assert.equal(Model.heading({}, "nowhere", false, false), "")
+  assert.equal(Model.heading(null, "nowhere", false, false), "")
 })
 
 test("maps the control characters Qt reports for ctrl-d and ctrl-u", () => {

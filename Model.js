@@ -71,6 +71,14 @@ function isPlaying(players, title) {
   return false
 }
 
+function isPlayingSeries(players, animeId) {
+  if (!animeId) return false
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return true
+  }
+  return false
+}
+
 function historyView(rows, players) {
   var view = []
   for (var p = 0; p < players.length; p++) {
@@ -114,6 +122,17 @@ function historyRows(raw, limit) {
       label: "ep " + row.episode
     }
   })
+}
+
+function scrollTarget(list) {
+  var limit = Math.max(0, list.content - list.viewport)
+  if (list.index <= 0) return 0
+  if (list.index >= list.lastIndex) return limit
+  var above = list.rowTop - list.margin
+  if (above < list.current) return Math.max(0, Math.min(limit, above))
+  var below = list.rowTop + list.rowHeight + list.margin
+  if (below > list.current + list.viewport) return Math.min(limit, below - list.viewport)
+  return Math.max(0, Math.min(limit, list.current))
 }
 
 function shortcuts() {
@@ -198,6 +217,12 @@ function episodeRows(raw) {
   return tabRows(raw).map(function (fields) {
     return { episodeId: fields[0], number: fields[1], title: "Episode " + fields[1] }
   })
+}
+
+function heading(labels, view, busy, launching) {
+  if (launching) return "Starting\u2026"
+  if (busy) return "Loading\u2026"
+  return labels && labels[view] ? labels[view] : ""
 }
 
 function normalizeKey(text) {
@@ -316,9 +341,11 @@ if (typeof module !== "undefined") {
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     isPlaying: isPlaying,
+    isPlayingSeries: isPlayingSeries,
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
+    scrollTarget: scrollTarget,
     shortcuts: shortcuts,
     nextSetting: nextSetting,
     settingChange: settingChange,
@@ -326,6 +353,7 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
+    heading: heading,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey
