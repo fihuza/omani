@@ -6,6 +6,7 @@ SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]
 PROVIDER="${OMANI_PROVIDER:-$(dirname "$SELF")/omani-provider}"
 MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
 PLAYER="${OMANI_PLAYER:-mpv}"
+PLAYER_RECORD_CAP=20
 MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts:/usr/lib/mpv-mpris}"
 
 STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
@@ -74,9 +75,7 @@ record_player() {
   mkdir -p "$STATE_DIR"
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
   tmp=$(mktemp)
-  # Capped, because a record is written on every play and nothing prunes the
-  # ones whose players have exited.
-  awk -F'\t' -v t="$title" 'NF >= 4 && $2 != t' "$PLAYERS_FILE" | tail -n 19 >"$tmp"
+  awk -F'\t' -v t="$title" 'NF >= 4 && $2 != t' "$PLAYERS_FILE" | tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
   printf '%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" >>"$tmp"
   mv "$tmp" "$PLAYERS_FILE"
 }

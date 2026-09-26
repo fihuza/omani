@@ -227,7 +227,10 @@ Item {
 
     onLiveTitlesChanged: reloadPlayers()
 
+    // A detached launch reports no exit status, so a launch that never produces
+    // a player would otherwise hold every later one out for good.
     Timer {
+        id: launchGivesUp
         interval: 20000
         running: root.launching
         onTriggered: root.launching = false
