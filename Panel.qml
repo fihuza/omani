@@ -43,6 +43,7 @@ Panel {
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],
             "player": service ? Model.playerRows(liveSeries, liveEpisode) : [],
+            "quality": service ? Model.qualityRows(service.playingQuality || root.quality) : [],
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
@@ -56,6 +57,7 @@ Panel {
             "results": "Results",
             "episodes": seriesTitle,
             "settings": "Settings",
+            "quality": "Quality for this episode",
             "player": liveSeries !== "" ? liveSeries : "Playing",
             "shortcuts": "Shortcuts"
         })
@@ -74,6 +76,10 @@ Panel {
             "episodes": function (i) {
                 root.service.play(root.service.selectedId, root.service.selectedTitle, root.rows[i].number, root.replaceTarget);
                 root.replaceTarget = "";
+                root.showPlayer();
+            },
+            "quality": function (i) {
+                root.service.playAtQuality(root.rows[i].key);
                 root.showPlayer();
             },
             "settings": function (i) {
@@ -117,7 +123,7 @@ Panel {
                 root.cursorActive = false;
             },
             "quality": function () {
-                root.setView("settings");
+                root.setView("quality");
             },
             "stop": function () {
                 root.service.stopPlayer({

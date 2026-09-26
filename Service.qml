@@ -57,8 +57,8 @@ Item {
         return Math.max(min, Math.min(max, n));
     }
 
-    function command(args, replacing) {
-        return ["env", "OMANI_QUALITY=" + quality, "OMANI_MODE=" + mode, "OMANI_REPLACE=" + (replacing || ""), scriptPath].concat(args);
+    function command(args, replacing, qualityOverride) {
+        return ["env", "OMANI_QUALITY=" + (qualityOverride || quality), "OMANI_MODE=" + mode, "OMANI_REPLACE=" + (replacing || ""), scriptPath].concat(args);
     }
 
     function refresh() {
@@ -131,6 +131,7 @@ Item {
         if (!ready || launching)
             return;
         beginLaunch();
+        playingQuality = "";
         playingId = String(id);
         playingSeries = String(title);
         playingEpisode = String(episode);
@@ -142,6 +143,7 @@ Item {
         if (!ready || !row || launching)
             return;
         beginLaunch();
+        playingQuality = "";
         playingId = String(row.animeId);
         playingSeries = String(row.title);
         playingEpisode = "";
@@ -164,10 +166,29 @@ Item {
         if (!ready || playingId === "" || launching)
             return;
         beginLaunch();
+        playingQuality = "";
         var replacing = playingTitle;
         playingEpisode = "";
         playingTitle = "";
         Quickshell.execDetached(command([action, playingId], replacing));
+    }
+
+    // The chosen quality is passed to this play only. Writing it to the settings
+    // would change every later play as well, which is not what picking a quality
+    // for the episode on screen asks for.
+    property string playingQuality: ""
+
+    function playAtQuality(value) {
+        if (!ready || playingId === "" || launching)
+            return;
+        var series = Model.seriesOf(players, playingId, playingSeries);
+        var episode = Model.episodeOf(players, playingId, playingEpisode);
+        if (series === "" || episode === "")
+            return;
+        var replacing = playingTitle;
+        beginLaunch();
+        playingQuality = String(value);
+        Quickshell.execDetached(command(["play", playingId, series, episode], replacing, playingQuality));
     }
 
     function replayCurrent() {
@@ -178,6 +199,7 @@ Item {
 
     function stop() {
         launching = false;
+        playingQuality = "";
         playingId = "";
         playingSeries = "";
         playingEpisode = "";

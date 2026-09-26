@@ -22,7 +22,8 @@ var BACK_FROM = {
   results: "history",
   settings: "history",
   shortcuts: "history",
-  player: "history"
+  player: "history",
+  quality: "player"
 }
 
 function backFrom(view) {
@@ -206,6 +207,18 @@ function settingChange(row) {
   return { key: row.key, value: next }
 }
 
+function qualityRows(current) {
+  var rows = []
+  for (var i = 0; i < QUALITIES.length; i++) {
+    rows.push({
+      key: QUALITIES[i],
+      title: QUALITIES[i],
+      label: QUALITIES[i] === current ? "playing" : ""
+    })
+  }
+  return rows
+}
+
 function settingRows(quality, mode, version) {
   return [
     { key: "quality", value: quality, title: "Quality", label: quality },
@@ -383,6 +396,7 @@ if (typeof module !== "undefined") {
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,
+    qualityRows: qualityRows,
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
