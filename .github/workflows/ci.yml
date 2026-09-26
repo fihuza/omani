@@ -169,6 +169,12 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           set -euo pipefail
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo '::error::RELEASE_PAT is unset or expired, so no pull request can be opened'
+            exit 1
+          fi
+
           git fetch --quiet origin develop main
 
           if git merge-base --is-ancestor origin/main origin/develop; then
@@ -176,9 +182,13 @@ jobs:
             exit 0
           fi
 
-          if [ -n "$(gh pr list --base develop --head main --state open --json number --jq '.[].number')" ]; then
-            echo 'a back-merge pull request is already open'
-            exit 0
+          waiting=$(gh pr list --base develop --head main --state open \
+            --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository == false) | .number] | join(", ")')
+
+          if [ -n "$waiting" ]; then
+            echo "::error::back-merge #$waiting is still open and develop does not contain main; merge it before releasing again"
+            exit 1
           fi
 
           gh pr create --base develop --head main \
