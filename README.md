@@ -88,9 +88,13 @@ and no terminal window is ever involved.
 are separate subcommands, so the parsers are driven from saved pages in tests
 and reach no network.
 
-Resuming asks the provider which episode follows the one in your history rather
-than adding one, so numbering that skips or carries decimals is handled by the
-real list.
+Omani keeps its own watch history: which episode of a series you are on, how
+far into it you are, how long it runs, and every episode you have finished. It
+samples the player's position while it runs, so continuing a series picks the
+episode up where you stopped rather than at the beginning. Past ninety percent
+an episode counts as watched and continuing moves to the next one, which the
+provider's episode list decides — so numbering that skips or carries decimals
+is handled by the real list rather than by adding one.
 
 ## Dependencies
 
@@ -114,9 +118,9 @@ so rather than leaving you to guess.
 `curl-impersonate` is used when present, which gets past Cloudflare where plain
 `curl` is blocked.
 
-No privileged commands, no services, no installers. Omani writes only to
-ani-cli's history file format (and a `.omani.bak` beside it) and a record of the
-players it started.
+No privileged commands, no services, no installers. Omani writes only its own
+watch history under `$XDG_STATE_HOME/omani` (with a `.bak` beside it) and a
+record of the players it started.
 
 ## Remove
 
