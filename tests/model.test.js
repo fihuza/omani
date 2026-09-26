@@ -287,6 +287,28 @@ test("tolerates carriage returns from the provider", () => {
   assert.equal(Model.seriesRows("a-1\tAlpha\r\n")[0].title, "Alpha")
 })
 
+test("a launch that has not produced a player yet says so", () => {
+  const labels = { history: "Continue watching" }
+  assert.equal(Model.heading(labels, "history", false, true), "Starting\u2026")
+})
+
+test("a launch outranks a query still loading", () => {
+  assert.equal(Model.heading({}, "history", true, true), "Starting\u2026")
+})
+
+test("a query in flight reports loading", () => {
+  assert.equal(Model.heading({}, "results", true, false), "Loading\u2026")
+})
+
+test("with nothing in flight the view names itself", () => {
+  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "Results")
+})
+
+test("a view with no label heads nothing rather than undefined", () => {
+  assert.equal(Model.heading({}, "nowhere", false, false), "")
+  assert.equal(Model.heading(null, "nowhere", false, false), "")
+})
+
 test("maps the control characters Qt reports for ctrl-d and ctrl-u", () => {
   // PanelKeyCatcher forwards any single character to onTextKey without
   // inspecting modifiers, so Ctrl-D arrives as the raw 0x04 byte.

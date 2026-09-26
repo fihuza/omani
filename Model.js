@@ -200,6 +200,14 @@ function episodeRows(raw) {
   })
 }
 
+// A detached launch reports nothing back, so the header is the only place the
+// panel can say a player was asked for but has not appeared yet.
+function heading(labels, view, busy, launching) {
+  if (launching) return "Starting\u2026"
+  if (busy) return "Loading\u2026"
+  return labels && labels[view] ? labels[view] : ""
+}
+
 function normalizeKey(text) {
   if (!text) return ""
   if (text === "\u0004") return "ctrl+d"
@@ -326,6 +334,7 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
+    heading: heading,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey

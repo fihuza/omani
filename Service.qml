@@ -29,6 +29,7 @@ Item {
     property string playingEpisode: ""
     property string playingTitle: ""
     property bool busy: false
+    property bool launching: false
 
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
@@ -124,8 +125,9 @@ Item {
     }
 
     function play(id, title, episode, replacing) {
-        if (!ready)
+        if (!ready || launching)
             return;
+        launching = true;
         playingId = String(id);
         playingSeries = String(title);
         playingEpisode = String(episode);
@@ -134,8 +136,9 @@ Item {
     }
 
     function resume(row) {
-        if (!ready || !row)
+        if (!ready || !row || launching)
             return;
+        launching = true;
         playingId = String(row.animeId);
         playingSeries = String(row.title);
         playingEpisode = "";
@@ -155,8 +158,9 @@ Item {
     // replacement target is captured here rather than tracked as panel state
     // that a path into the menu could forget to set.
     function step(action) {
-        if (!ready || playingId === "")
+        if (!ready || playingId === "" || launching)
             return;
+        launching = true;
         var replacing = playingTitle;
         playingEpisode = "";
         playingTitle = "";
@@ -182,7 +186,17 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
+    // A detached launch has no process to watch, so the player set changing is
+    // the only evidence the request took effect.
+    onPlayersChanged: launching = false
+
     onLiveTitlesChanged: reloadPlayers()
+
+    Timer {
+        interval: 20000
+        running: root.launching
+        onTriggered: root.launching = false
+    }
 
     Process {
         id: statusProcess

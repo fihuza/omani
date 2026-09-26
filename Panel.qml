@@ -22,6 +22,7 @@ Panel {
 
     readonly property bool ready: service ? service.ready : false
     readonly property bool busy: service ? service.busy : false
+    readonly property bool launching: service ? service.launching : false
     readonly property string missing: service ? service.missing : ""
     readonly property string seriesTitle: service ? service.selectedTitle : ""
     readonly property string quality: service ? service.quality : "best"
@@ -358,13 +359,13 @@ Panel {
                     PanelSectionHeader {
                         visible: root.ready && root.view !== "history"
                         width: parent.width
-                        text: root.busy ? "Loading…" : root.headings[root.view]
+                        text: Model.heading(root.headings, root.view, root.busy, root.launching)
                         foreground: root.dim
                         fontFamily: root.fontFamily
                     }
 
                     Text {
-                        visible: root.ready && root.rows.length === 0 && !root.busy && root.view !== "shortcuts"
+                        visible: root.ready && root.rows.length === 0 && !root.busy && !root.launching && root.view !== "shortcuts"
                         width: parent.width
                         textFormat: Text.PlainText
                         text: root.view === "history" ? "Nothing watched yet — search for something." : "Nothing here."
