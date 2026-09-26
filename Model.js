@@ -370,6 +370,7 @@ function playerFor(players, title) {
 }
 
 function heroMeta(state) {
+  if (state.notice) return state.notice
   if (!state.ready) return "missing: " + state.missing
   if (!state.tracking) return "mpv-mpris missing \u00b7 players are not tracked"
   if (state.playing) return state.nowPlaying + (state.elapsed ? " \u00b7 " + state.elapsed : "")
@@ -380,6 +381,12 @@ function heading(labels, view, busy, launching) {
   if (launching) return sectionLabel("Starting\u2026")
   if (busy) return sectionLabel("Loading\u2026")
   return sectionLabel(labels && labels[view] ? labels[view] : "")
+}
+
+// The program name in front of a failure is noise to someone reading a panel,
+// and it costs the width the message needs.
+function firstLine(text) {
+  return String(text || "").split("\n")[0].trim().replace(/^[a-z0-9-]+: /, "")
 }
 
 function normalizeKey(text) {
@@ -526,6 +533,7 @@ if (typeof module !== "undefined") {
     elapsed: elapsed,
     playerFor: playerFor,
     sectionLabel: sectionLabel,
+    firstLine: firstLine,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey

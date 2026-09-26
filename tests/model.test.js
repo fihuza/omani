@@ -562,6 +562,19 @@ test("the hero says how far into what is playing", () => {
   assert.equal(Model.heroMeta(Object.assign({}, state, { elapsed: "" })), "Naruto Episode 5")
 })
 
+test("only the first line of a failure is shown", () => {
+  assert.equal(Model.firstLine("omani: no episode after 12\nstack\ntrace"), "no episode after 12")
+  assert.equal(Model.firstLine("omani-provider: episode 9999 not found"), "episode 9999 not found")
+  assert.equal(Model.firstLine("no prefix here"), "no prefix here")
+  assert.equal(Model.firstLine(""), "")
+  assert.equal(Model.firstLine(null), "")
+})
+
+test("a failure outranks everything else the hero could say", () => {
+  const state = { ready: true, tracking: true, missing: "", playing: true, nowPlaying: "X", elapsed: "1:00 / 2:00", quality: "best", mode: "sub", notice: "no playable source" }
+  assert.equal(Model.heroMeta(state), "no playable source")
+})
+
 test("a missing dependency is what the hero says", () => {
   assert.equal(Model.heroMeta(hero({ ready: false, missing: "mpv" })), "missing: mpv")
 })

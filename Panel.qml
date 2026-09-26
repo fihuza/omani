@@ -23,6 +23,18 @@ Panel {
     readonly property bool ready: service ? service.ready : false
     readonly property bool busy: service ? service.busy : false
     readonly property bool launching: service ? service.launching : false
+    property string notice: ""
+
+    Connections {
+        target: root.service
+        function onLaunchFailed(message) {
+            root.notice = message;
+        }
+        function onLaunchingChanged() {
+            if (root.service.launching)
+                root.notice = "";
+        }
+    }
     readonly property bool countVisible: keyState.pendingCount !== "" || keyState.pendingG
     readonly property string liveSeries: service ? Model.seriesOf(service.players, service.playingId, service.playingSeries) : ""
     readonly property string liveEpisode: service ? Model.episodeOf(service.players, service.playingId, service.playingEpisode) : ""
@@ -348,6 +360,7 @@ Panel {
                             playing: root.service ? root.service.playing : false,
                             nowPlaying: root.service ? root.service.nowPlaying : "",
                             elapsed: root.service ? root.service.elapsed : "",
+                            notice: root.notice,
                             quality: root.quality,
                             mode: root.mode
                         })

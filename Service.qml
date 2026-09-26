@@ -35,6 +35,7 @@ Item {
     property bool busy: false
     property bool launching: false
     property var launchPids: []
+    signal launchFailed(string message)
 
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
@@ -177,7 +178,7 @@ Item {
         playingSeries = String(title);
         playingEpisode = String(episode);
         playingTitle = title + " Episode " + episode;
-        Quickshell.execDetached(command(["play", id, title, String(episode)], replacing));
+        launch(command(["play", id, title, String(episode)], replacing));
     }
 
     function resume(row) {
@@ -189,7 +190,7 @@ Item {
         playingSeries = String(row.title);
         playingEpisode = "";
         playingTitle = "";
-        Quickshell.execDetached(command(["resume", row.animeId], Model.playingTitleOf(players, row.animeId)));
+        launch(command(["resume", row.animeId], Model.playingTitleOf(players, row.animeId)));
     }
 
     function playNext() {
@@ -211,7 +212,7 @@ Item {
         var replacing = playingTitle;
         playingEpisode = "";
         playingTitle = "";
-        Quickshell.execDetached(command([action, playingId], replacing));
+        launch(command([action, playingId], replacing));
     }
 
     // Per play: it goes into the command, never into the stored settings.
@@ -227,7 +228,7 @@ Item {
         var replacing = playingTitle;
         beginLaunch();
         playingQuality = String(value);
-        Quickshell.execDetached(command(["play", playingId, series, episode], replacing, playingQuality));
+        launch(command(["play", playingId, series, episode], replacing, playingQuality));
     }
 
     function replayCurrent() {
@@ -259,6 +260,14 @@ Item {
             launching = false;
     }
 
+    // The script exits once the player is spawned, so its status is the answer
+    // to whether the launch worked. Nothing else can say: the player itself is
+    // detached and outlives this.
+    function launch(argv) {
+        launchProcess.command = argv;
+        launchProcess.running = true;
+    }
+
     function beginLaunch() {
         launchPids = players.map(function (p) {
             return p.pid;
@@ -280,11 +289,20 @@ Item {
 
     // A detached launch reports no exit status, so a launch that never produces
     // a player would otherwise hold every later one out for good.
-    Timer {
-        id: launchGivesUp
-        interval: 20000
-        running: root.launching
-        onTriggered: root.launching = false
+    Process {
+        id: launchProcess
+        running: false
+        command: []
+        stderr: StdioCollector {
+            id: launchErr
+            waitForEnd: true
+        }
+        onExited: function (exitCode) {
+            if (exitCode === 0)
+                return;
+            root.launching = false;
+            root.launchFailed(Model.firstLine(String(launchErr.text || "the player could not be started")));
+        }
     }
 
     Process {
