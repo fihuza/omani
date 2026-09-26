@@ -536,6 +536,12 @@ t_stop_targets_one_player_by_title() {
   assert_eq "$("$OMANI" stop "Naruto Episode 9")" "stop $pid"
 }
 
+t_stop_matches_a_title_holding_a_backslash() {
+  local pid
+  pid=$(live_player 'A\D Episode 1' tricky-3 1)
+  assert_eq "$("$OMANI" stop 'A\D Episode 1')" "stop $pid"
+}
+
 t_stop_all_targets_every_player() {
   local first second
   first=$(live_player "Naruto Episode 9" naruto-2 9)
@@ -661,6 +667,7 @@ check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_r
 check "playing a second episode keeps both records" t_playing_a_second_episode_keeps_both_records
 check "stop targets one player by pid" t_stop_targets_one_player_by_pid
 check "stop targets one player by title" t_stop_targets_one_player_by_title
+check "stop matches a title holding a backslash" t_stop_matches_a_title_holding_a_backslash
 check "stop all targets every player" t_stop_all_targets_every_player
 check "stop forgets the player it stopped" t_stop_forgets_the_player_it_stopped
 check "stopping an unknown player is not an error" t_stop_an_unknown_player_is_not_an_error

@@ -130,7 +130,10 @@ record_player() {
   mkdir -p "$STATE_DIR"
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
   tmp=$(mktemp)
-  awk -F'\t' -v t="$title" 'NF >= 4 && $2 != t' "$PLAYERS_FILE" | tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
+  # A title reaches awk through the environment rather than -v, which expands
+  # escape sequences and would mangle a backslash in a series name.
+  title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
+    tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
   printf '%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" >>"$tmp"
   mv "$tmp" "$PLAYERS_FILE"
 }
@@ -153,7 +156,8 @@ cmd_stop() {
   if [[ $target == "all" ]]; then
     pids=$(cut -f1 "$PLAYERS_FILE")
   else
-    pids=$(awk -F'\t' -v t="$target" 'NF >= 4 && ($1 == t || $2 == t) { print $1 }' "$PLAYERS_FILE")
+    pids=$(target="$target" awk -F'\t' \
+      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"]) { print $1 }' "$PLAYERS_FILE")
   fi
   [[ -n $pids ]] || return 0
 
