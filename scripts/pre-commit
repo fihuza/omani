@@ -1,0 +1,167 @@
+#!/bin/bash
+
+set -uo pipefail
+
+cd "$(dirname "$0")/.." || exit 1
+
+OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+COVERAGE_MIN=90
+failed=0
+
+TARGET="${1:-all}"
+
+step() { printf '\n==> %s\n' "$1"; }
+
+wanted() { [[ $TARGET == "all" || $TARGET == "$1" ]]; }
+fail() {
+  printf 'FAIL: %s\n' "$1" >&2
+  failed=1
+}
+
+require() {
+  command -v "$1" >/dev/null && return 0
+  fail "missing tool '$1' ($2) -- this gate did NOT run"
+  return 1
+}
+
+# /usr/bin/qmllint and /usr/bin/qmlformat are Qt5's on Arch and understand far
+# less than Qt6's, which qt6-declarative installs outside PATH. Picking the wrong
+# one gives a gate that passes because it cannot see.
+qt6_tool() {
+  local name=$1
+  for candidate in "/usr/lib/qt6/bin/$name" "/usr/lib/qt6/$name" "$name-qt6"; do
+    if command -v "$candidate" >/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  if command -v "$name" >/dev/null && "$name" --version 2>&1 | grep -q ' 6\.'; then
+    printf '%s\n' "$name"
+    return 0
+  fi
+  return 1
+}
+
+mapfile -t QML < <(git ls-files '*.qml' 2>/dev/null)
+((${#QML[@]})) || mapfile -t QML < <(find . -name '*.qml' -not -path './.git/*')
+SHELL_FILES=(bin/omani bin/omani-provider tests/omani-test.sh tests/provider-test.sh scripts/pre-commit scripts/commit-msg)
+
+QMLFORMAT=$(qt6_tool qmlformat) || fail "no Qt6 qmlformat (omarchy pkg add qt6-declarative)"
+QMLLINT=$(qt6_tool qmllint) || fail "no Qt6 qmllint (omarchy pkg add qt6-declarative)"
+
+if wanted qml-format; then
+  step "Format (QML)"
+  if [[ -n ${QMLFORMAT:-} ]]; then
+    # Qt 6.11's qmlformat has no --check, so the check is a diff against its own
+    # output.
+    for f in "${QML[@]}"; do
+      "$QMLFORMAT" "$f" 2>/dev/null | diff -q - "$f" >/dev/null ||
+        fail "$f is not qmlformat-clean (run: $QMLFORMAT -i $f)"
+    done
+  fi
+fi
+
+if wanted shell-format; then
+  step "Format (shell)"
+  if require shfmt "omarchy pkg add shfmt"; then
+    shfmt -i 2 -d "${SHELL_FILES[@]}" || fail "shell files are not shfmt-clean"
+  fi
+fi
+
+if wanted shell-lint; then
+  step "Lint (shell)"
+  if require shellcheck "omarchy pkg add shellcheck"; then
+    shellcheck "${SHELL_FILES[@]}" || fail "shellcheck found problems"
+  fi
+fi
+
+if wanted qml-lint; then
+  step "Lint (QML)"
+  if [[ -n ${QMLLINT:-} && -d $OMARCHY_PATH/shell ]]; then
+    # qmllint resolves `qs.*` only from an import root containing a directory of
+    # that name; a plugin folder may not hold symlinks, so it is built elsewhere.
+    qsroot=$(mktemp -d)
+    ln -sfn "$OMARCHY_PATH/shell" "$qsroot/qs"
+
+    # These three fire on Quickshell's singletons and on Process.onExited, which
+    # qmllint cannot type without Quickshell's qmltypes; first-party plugins trip
+    # them far more than this one (dropbox/Panel.qml: 19 and 54), so they cannot
+    # tell a mistake from the tooling gap. Everything else is a failure, read from
+    # the output because qmllint exits 0 even when it warns.
+    lint_out=$("$QMLLINT" \
+      --unused-imports warning \
+      --unqualified disable \
+      --missing-property disable \
+      --signal-handler-parameters disable \
+      -I "$qsroot" -I "$OMARCHY_PATH/shell" "${QML[@]}" 2>&1)
+    lint_status=$?
+    rm -rf "$qsroot"
+    if [[ -n $lint_out ]] && grep -qE '^(Warning|Error)' <<<"$lint_out"; then
+      printf '%s\n' "$lint_out"
+      fail "qmllint reported findings"
+    elif ((lint_status != 0)); then
+      printf '%s\n' "$lint_out"
+      fail "qmllint exited $lint_status"
+    fi
+  elif [[ ! -d $OMARCHY_PATH/shell ]]; then
+    fail "\$OMARCHY_PATH/shell ($OMARCHY_PATH/shell) is absent -- qs.* imports cannot resolve, so this gate did NOT run"
+  fi
+fi
+
+if wanted manifest; then
+  step "Manifest"
+  if require jq "omarchy pkg add jq"; then
+    jq -e . manifest.json >/dev/null || fail "manifest.json is not valid JSON"
+  fi
+  if command -v omarchy >/dev/null; then
+    omarchy plugin validate . || fail "omarchy plugin validate rejected this folder"
+  elif command -v omarchy-plugin-validate >/dev/null; then
+    omarchy-plugin-validate . || fail "omarchy plugin validate rejected this folder"
+  else
+    fail "omarchy is not on PATH -- plugin validate did NOT run"
+  fi
+fi
+
+if wanted unit; then
+  step "Unit tests + coverage (Model.js), minimum ${COVERAGE_MIN}%"
+  if require node "mise install"; then
+    # Node 26 rejects a bare directory for --test, so this passes a glob.
+    node --test \
+      --experimental-test-coverage \
+      --test-coverage-lines=$COVERAGE_MIN \
+      --test-coverage-branches=$COVERAGE_MIN \
+      --test-coverage-functions=$COVERAGE_MIN \
+      --test-coverage-include='Model.js' \
+      'tests/*.test.js' || fail "Model.js tests or coverage threshold failed"
+  fi
+fi
+
+if wanted shell-tests; then
+  step "Shell tests (bin/omani)"
+  ./tests/omani-test.sh || fail "shell tests failed"
+  ./tests/provider-test.sh || fail "provider tests failed"
+fi
+
+if wanted version; then
+  step "Version"
+  BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
+  MV=$(jq -r '.version' manifest.json 2>/dev/null || echo "")
+  case "$BRANCH" in
+  release/* | hotfix/*)
+    [[ ${BRANCH#*/} == "$MV" ]] || fail "branch $BRANCH does not match manifest version $MV"
+    ;;
+  *)
+    if git rev-parse --verify -q origin/develop >/dev/null 2>&1; then
+      if git diff origin/develop -- manifest.json | grep -qE '^[-+][[:space:]]*"version"'; then
+        fail "$BRANCH may not change the version (bump only in release/* or hotfix/*)"
+      fi
+    fi
+    ;;
+  esac
+fi
+
+if ((failed != 0)); then
+  printf '\nFAILED: %s\n' "$TARGET" >&2
+  exit 1
+fi
+printf '\nPassed: %s\n' "$TARGET"

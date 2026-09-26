@@ -1,0 +1,251 @@
+#!/bin/bash
+
+set -uo pipefail
+
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+PROVIDER="${OMANI_PROVIDER:-$(dirname "$SELF")/omani-provider}"
+MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
+PLAYER="${OMANI_PLAYER:-mpv}"
+NOTIFY="${OMANI_NOTIFY:-omarchy-notification-send}"
+
+STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
+PLAYERS_FILE="$STATE_DIR/players"
+
+HIST_DIR="${ANI_CLI_HIST_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/ani-cli}"
+HIST_FILE="${OMANI_HIST_FILE:-$HIST_DIR/ani-hsts}"
+
+REPLACE="${OMANI_REPLACE:-}"
+QUALITY="${OMANI_QUALITY-best}"
+MODE="${OMANI_MODE:-sub}"
+
+die() {
+  printf 'omani: %s\n' "$1" >&2
+  exit 1
+}
+
+dry() { [[ -n ${OMANI_DRY_RUN:-} ]]; }
+
+notify() {
+  "$NOTIFY" --app-name Omani "$1" "${2:-}" 2>/dev/null || true
+}
+
+usage() {
+  cat <<'USAGE'
+usage: omani <subcommand> [args]
+
+  status                              JSON: dependencies and paths
+  search <query>                      anime-id<TAB>title
+  episodes <anime-id>                 episode-id<TAB>number
+  play <anime-id> <title> <episode>   resolve and start playback
+  resume <anime-id>                   play the episode after the one in history
+  previous <anime-id>                 play the episode before the one in history
+  players                             pid<TAB>title<TAB>anime-id<TAB>episode, live only
+  stop [pid|title|all]                stop a player this plugin started
+  history-clear                       empty the watch history (keeps a backup)
+
+environment:
+  OMANI_PLAYER       media player               (default: mpv)
+  OMANI_QUALITY      best | worst | 1080 | ...  (empty means best)
+  OMANI_MODE         sub | dub
+  OMANI_HIST_FILE    watch history
+  OMANI_REPLACE      media title of a player to close first
+  OMANI_DRY_RUN      non-empty: print what would run instead of running it
+USAGE
+}
+
+history_line_for() {
+  [[ -f $HIST_FILE ]] || return 0
+  awk -F'\t' -v id="$1" 'NF >= 3 && $2 == id { print; exit }' "$HIST_FILE"
+}
+
+record_history() {
+  local episode="$1" id="$2" title="$3" tmp
+  mkdir -p "$(dirname "$HIST_FILE")"
+  [[ -f $HIST_FILE ]] || : >"$HIST_FILE"
+  tmp=$(mktemp)
+  if [[ -n $(history_line_for "$id") ]]; then
+    awk -F'\t' -v OFS='\t' -v id="$id" -v ep="$episode" -v t="$title" \
+      'NF >= 3 && $2 == id { $1 = ep; $3 = t } { print }' "$HIST_FILE" >"$tmp"
+  else
+    cp "$HIST_FILE" "$tmp"
+    printf '%s\t%s\t%s\n' "$episode" "$id" "$title" >>"$tmp"
+  fi
+  mv "$tmp" "$HIST_FILE"
+}
+
+record_player() {
+  local pid="$1" title="$2" id="$3" episode="$4" tmp
+  mkdir -p "$STATE_DIR"
+  [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
+  tmp=$(mktemp)
+  # One record per media title, and the file is capped so records for players
+  # that have since exited cannot accumulate.
+  awk -F'\t' -v t="$title" 'NF >= 4 && $2 != t' "$PLAYERS_FILE" | tail -n 19 >"$tmp"
+  printf '%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" >>"$tmp"
+  mv "$tmp" "$PLAYERS_FILE"
+}
+
+cmd_players() {
+  [[ -f $PLAYERS_FILE ]] || return 0
+  local pid rest
+  while IFS=$'\t' read -r pid rest; do
+    [[ $pid =~ ^[0-9]+$ ]] || continue
+    kill -0 "$pid" 2>/dev/null || continue
+    printf '%s\t%s\n' "$pid" "$rest"
+  done <"$PLAYERS_FILE"
+}
+
+cmd_stop() {
+  local target="${1:-all}"
+  [[ -f $PLAYERS_FILE ]] || return 0
+
+  local pids
+  if [[ $target == "all" ]]; then
+    pids=$(cut -f1 "$PLAYERS_FILE")
+  else
+    pids=$(awk -F'\t' -v t="$target" 'NF >= 4 && ($1 == t || $2 == t) { print $1 }' "$PLAYERS_FILE")
+  fi
+  [[ -n $pids ]] || return 0
+
+  if dry; then
+    printf 'stop %s\n' "$(tr '\n' ' ' <<<"$pids" | sed 's| *$||')"
+    return 0
+  fi
+
+  local pid tmp
+  for pid in $pids; do
+    [[ $pid =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
+  done
+  tmp=$(mktemp)
+  awk -F'\t' -v list="$pids" '
+    BEGIN { n = split(list, k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
+    !dead[$1]
+  ' "$PLAYERS_FILE" >"$tmp"
+  mv "$tmp" "$PLAYERS_FILE"
+}
+
+cmd_play() {
+  local id="${1:-}" title="${2:-}" episode="${3:-}"
+  [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode>"
+
+  local stream url referrer subtitles
+  stream=$("$PROVIDER" stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
+  url=$(awk -F'\t' '$1 == "url" { print $2 }' <<<"$stream")
+  referrer=$(awk -F'\t' '$1 == "referrer" { print $2 }' <<<"$stream")
+  subtitles=$(awk -F'\t' '$1 == "subtitles" { print $2 }' <<<"$stream")
+  [[ -n $url ]] || die "no playable source for episode $episode"
+
+  # Replacing rather than adding: the player being left behind is closed first,
+  # in the same run, so the two cannot overlap.
+  [[ -n $REPLACE ]] && cmd_stop "$REPLACE"
+
+  local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
+  [[ -n $subtitles ]] && args+=("--sub-file=$subtitles")
+  args+=("$url")
+
+  if dry; then
+    printf '%s\n' "${args[*]}"
+    return 0
+  fi
+
+  mkdir -p "$STATE_DIR"
+  # Launched directly rather than through setsid --fork, whose pid belongs to a
+  # wrapper that exits at once; the record has to name the player itself or
+  # nothing can be listed or stopped. This script is already detached, so the
+  # player is reparented when it exits.
+  "${args[@]}" </dev/null >/dev/null 2>&1 &
+  record_player "$!" "$title Episode $episode" "$id" "$episode"
+  disown
+
+  record_history "$episode" "$id" "$title"
+  notify "$title" "Episode $episode"
+}
+
+cmd_resume() {
+  local id="${1:-}"
+  [[ -n $id ]] || die "usage: omani resume <anime-id>"
+  local line
+  line=$(history_line_for "$id")
+  [[ -n $line ]] || die "'$id' is not in history"
+
+  local watched title episodes next
+  watched=$(cut -f1 <<<"$line")
+  title=$(cut -f3 <<<"$line")
+  episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
+  next=$(awk -F'\t' -v w="$watched" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes")
+  [[ -n $next ]] || die "no episode after $watched of $title"
+
+  cmd_play "$id" "$title" "$next"
+}
+
+cmd_previous() {
+  local id="${1:-}"
+  [[ -n $id ]] || die "usage: omani previous <anime-id>"
+  local line
+  line=$(history_line_for "$id")
+  [[ -n $line ]] || die "'$id' is not in history"
+
+  local watched title episodes earlier
+  watched=$(cut -f1 <<<"$line")
+  title=$(cut -f3 <<<"$line")
+  episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
+  earlier=$(awk -F'\t' -v w="$watched" '$2 == w { print previous; exit } { previous = $2 }' <<<"$episodes")
+  [[ -n $earlier ]] || die "no episode before $watched of $title"
+
+  cmd_play "$id" "$title" "$earlier"
+}
+
+cmd_status() {
+  local missing=()
+  command -v "$PLAYER" >/dev/null || missing+=("$PLAYER")
+  command -v curl >/dev/null || command -v curl_chrome136 >/dev/null || missing+=(curl)
+  local version=""
+  [[ -f $MANIFEST ]] && version=$(jq -r '.version // ""' "$MANIFEST" 2>/dev/null)
+
+  jq -n \
+    --arg version "$version" \
+    --argjson ready "$([[ ${#missing[@]} -eq 0 ]] && echo true || echo false)" \
+    --arg missing "${missing[*]:-}" \
+    --arg historyPath "$HIST_FILE" \
+    --arg playersPath "$PLAYERS_FILE" \
+    '{ready: $ready, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
+}
+
+cmd_history_clear() {
+  [[ -f $HIST_FILE ]] || return 0
+  if dry; then
+    printf 'truncate %s\n' "$HIST_FILE"
+    return 0
+  fi
+  cp "$HIST_FILE" "$HIST_FILE.omani.bak"
+  : >"$HIST_FILE"
+}
+
+main() {
+  local sub="${1:-}"
+  (($# > 0)) && shift
+
+  case "$sub" in
+  status) cmd_status ;;
+  search) "$PROVIDER" search "$@" ;;
+  episodes) "$PROVIDER" episodes "$@" ;;
+  play) cmd_play "$@" ;;
+  resume) cmd_resume "$@" ;;
+  previous) cmd_previous "$@" ;;
+  stop) cmd_stop "$@" ;;
+  players) cmd_players ;;
+  history-clear) cmd_history_clear ;;
+  -h | --help | help) usage ;;
+  "")
+    usage >&2
+    exit 1
+    ;;
+  *)
+    printf 'omani: unknown subcommand %s\n\n' "$sub" >&2
+    usage >&2
+    exit 1
+    ;;
+  esac
+}
+
+main "$@"

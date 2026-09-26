@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push supersedes a run in progress for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: archlinux:latest
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git jq nodejs shellcheck shfmt qt6-declarative quickshell diffutils
+
+      - uses: actions/checkout@v4
+
+      # qmllint resolves qs.* against Omarchy's shell tree, and the same
+      # checkout carries the manifest validator this gate runs.
+      - name: Fetch Omarchy
+        run: |
+          git config --global --add safe.directory '*'
+          git clone --depth 1 https://github.com/basecamp/omarchy /opt/omarchy
+          echo "OMARCHY_PATH=/opt/omarchy" >>"$GITHUB_ENV"
+          echo "/opt/omarchy/bin" >>"$GITHUB_PATH"
+
+      # One step per gate, so a failure names itself in the UI. Each runs the
+      # same definition the commit hook runs, so the two cannot drift.
+      - name: Format (QML)
+        run: ./scripts/pre-commit qml-format
+      - name: Format (shell)
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit shell-format
+      - name: Lint (shell)
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit shell-lint
+      - name: Lint (QML)
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit qml-lint
+      - name: Manifest
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit manifest
+      - name: Unit tests and coverage
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit unit
+      - name: Shell and provider tests
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit shell-tests
+
+  commits:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The repository's own hook, so a commit that passes locally passes here.
+      - name: Check every commit on the branch
+        run: |
+          set -uo pipefail
+          git fetch --quiet origin "$BASE"
+          failed=0
+          for sha in $(git rev-list "origin/$BASE..HEAD"); do
+            git log -1 --pretty=%B "$sha" >/tmp/msg
+            ./scripts/commit-msg /tmp/msg || {
+              echo "::error::$(git log -1 --pretty='%h %s' "$sha")"
+              failed=1
+            }
+          done
+          exit "$failed"
+        env:
+          BASE: ${{ github.base_ref }}
+
+  branch:
+    name: Branch and version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Only release and hotfix branches may reach main
+        if: github.base_ref == 'main'
+        run: |
+          case "$HEAD" in
+          release/* | hotfix/*) echo "$HEAD may merge into main" ;;
+          *)
+            echo "::error::only release/* and hotfix/* may merge into main, got '$HEAD'"
+            exit 1
+            ;;
+          esac
+        env:
+          HEAD: ${{ github.head_ref }}
+
+      - name: Only release and hotfix branches may change the version
+        if: ${{ !startsWith(github.head_ref, 'release/') && !startsWith(github.head_ref, 'hotfix/') }}
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin "$BASE"
+          if git diff "origin/$BASE...HEAD" -- manifest.json |
+            grep -qE '^[-+][[:space:]]*"version"'; then
+            echo "::error::the version may only change on release/* or hotfix/*"
+            exit 1
+          fi
+        env:
+          BASE: ${{ github.base_ref }}
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: quality
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: The tag must match the manifest
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(jq -r '.version' manifest.json)
+          [ "$tag" = "$version" ] || {
+            echo "::error::tag $GITHUB_REF_NAME does not match manifest version $version"
+            exit 1
+          }
+
+      # Notes come from the same cliff.toml the repository uses, so a release
+      # cannot describe something other than its commits.
+      - uses: orhun/git-cliff-action@v4
+        with:
+          args: --latest --strip header
+        env:
+          OUTPUT: /tmp/notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: /tmp/notes.md

@@ -1,0 +1,192 @@
+#!/bin/bash
+#
+# Derived from ani-cli (GPL-3.0-or-later) -- see NOTICE.
+#
+# Talks to the provider and prints tab-separated rows. Fetching and parsing are
+# separate subcommands so the parsers can be driven from saved pages in tests
+# without touching the network.
+
+set -uo pipefail
+
+BASE_API="${OMANI_BASE_API:-https://hianime.at}"
+AGENT="${OMANI_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36}"
+CIPHERS='ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305'
+TLS13_CIPHERS='TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256'
+
+die() {
+  printf 'omani-provider: %s\n' "$1" >&2
+  exit 1
+}
+
+# curl-impersonate builds get past Cloudflare where plain curl does not.
+pick_curl() {
+  local candidate
+  for candidate in curl_firefox135 curl_chrome136 curl_chrome116 curl_ff117 curl; do
+    command -v "$candidate" >/dev/null && printf '%s\n' "$candidate" && return 0
+  done
+  return 1
+}
+
+CURL="${OMANI_CURL:-$(pick_curl)}" || die "curl not found"
+
+fetch() {
+  local cipher_flag=()
+  [[ $(uname -s) == Darwin ]] && cipher_flag=(--ciphers "$CIPHERS" --tls13-ciphers "$TLS13_CIPHERS")
+  local body status
+  body=$("$CURL" -sL -A "$AGENT" --max-time 15 "${cipher_flag[@]}" -w ' %{http_code}' "$@") || status=$?
+  local code=${body##* }
+  body=${body% *}
+  if [[ -n ${status:-} ]]; then
+    die "could not fetch $1 (HTTP ${code:-none}, curl exit $status)"
+  fi
+  case "$code" in
+  2??) ;;
+  *) grep -qi "Just a moment" <<<"$body" || die "HTTP $code from $1" ;;
+  esac
+  printf '%s' "$body"
+}
+
+parse_search() {
+  sed '/id="main-sidebar"/,$d' | tr '\n' ' ' |
+    sed 's|<div class="film-detail">|\n<div class="film-detail">|g' |
+    sed -nE 's|.*<h3 class="film-name">[[:space:]]*<a href="[^"]*/([^"/]*)"[[:space:]]*title="([^"]*)".*|\1\t\2|p' |
+    sed -e "s|&#039;|'|g" -e 's|&quot;|"|g' -e "s|&amp;|\&|g"
+}
+
+parse_episodes() {
+  sed 's|\\||g; s|ep-item|\nep-item|g' |
+    sed -nE "s|.*data-number=\"([^\"]*)\".*data-id=\"([0-9]+)\".*/watch/${1}[?]ep=.*|\2\t\1|p"
+}
+
+b64_decode() {
+  base64 -d 2>/dev/null <<<"$1" || base64 -D 2>/dev/null <<<"$1" || openssl base64 -d -A 2>/dev/null <<<"$1"
+}
+
+# The embed ships its config as base64(json XOR "otaku-embed-v1").
+deobfuscate() (
+  local bytes
+  bytes=$(b64_decode "$1" | od -v -An -tu1)
+  set -- 111 116 97 107 117 45 101 109 98 101 100 45 118 49
+  local out="" byte char
+  for byte in $bytes; do
+    char=$((byte ^ $1))
+    out="${out}\\0$((char / 64))$(((char / 8) % 8))$((char % 8))"
+    set -- "$@" "$1"
+    shift
+  done
+  printf '%b' "$out"
+)
+
+# stdin: the master playlist. stdout: `<height>><url>`, best first.
+parse_qualities() {
+  local master="$1"
+  sed 's|^#EXT-X-STREAM.*x||g; s|,.*|p|g; /^#/d; $!N; s|\n| >|;/EXT-X-I-FRAME/d' |
+    sed "\|>https*://|!s|>|>${master%/*}/|" |
+    sort -g -r -s
+}
+
+pick_quality() {
+  local wanted="$1" links="$2" chosen
+  case "$wanted" in
+  best) chosen=$(head -n 1 <<<"$links") ;;
+  worst) chosen=$(grep -E '^[0-9]{3,4}' <<<"$links" | tail -n 1) ;;
+  *) chosen=$(grep -m 1 "$wanted" <<<"$links") ;;
+  esac
+  [[ -n $chosen ]] || chosen=$(head -n 1 <<<"$links")
+  cut -d '>' -f 2 <<<"$chosen"
+}
+
+cmd_search() {
+  [[ -n ${1:-} ]] || die "usage: omani-provider search <query>"
+  local page
+  page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')")
+  if grep -qi "<title>Just a moment" <<<"$page"; then
+    [[ $CURL == curl ]] && die "blocked by cloudflare; install curl-impersonate"
+    die "blocked by cloudflare"
+  fi
+  parse_search <<<"$page"
+}
+
+cmd_episodes() {
+  [[ -n ${1:-} ]] || die "usage: omani-provider episodes <anime-id>"
+  fetch "$BASE_API/api/theme/episode/list/${1##*-}" | parse_episodes "$1"
+}
+
+cmd_stream() {
+  local id="${1:-}" episode="${2:-}" mode="${3:-sub}" quality="${4:-best}"
+  [[ -n $id && -n $episode ]] || die "usage: omani-provider stream <anime-id> <episode> [sub|dub] [quality]"
+
+  local ep_id
+  ep_id=$(cmd_episodes "$id" | awk -F'\t' -v n="$episode" '$2 == n { print $1; exit }')
+  [[ -n $ep_id ]] || die "episode $episode not found"
+
+  local servers hash embed
+  servers=$(fetch "$BASE_API/api/theme/episode/servers?episodeId=$ep_id" | sed 's|\\"|"|g; s|server-item|\nserver-item|g')
+  hash=$(sed -nE 's|.*data-type="'"$mode"'".*data-server-name="ZokoAnime".*data-hash="([^"]*)".*|\1|p' <<<"$servers" | head -n 1)
+  [[ -n $hash ]] || die "no ZokoAnime source for $mode"
+  embed=$(b64_decode "$hash")
+  [[ -n $embed ]] || die "could not decode the embed url"
+
+  local referrer blob json master subs links url
+  referrer=$(sed -E 's|^(https?://[^/]*).*|\1/|' <<<"$embed")
+  blob=$(fetch "$embed" | sed -nE 's|.*window\.__P="([^"]*)".*|\1|p')
+  [[ -n $blob ]] || die "embed page carried no payload"
+  json=$(deobfuscate "$blob")
+  master=$(sed -nE 's|.*"src":"([^"]*\.m3u8[^"]*)".*|\1|p' <<<"$json")
+  [[ -n $master ]] || die "no m3u8 in the payload"
+  subs=$(sed 's|.*"subtitles":\[||; s|}\].*||; s|},{|}\n{|g' <<<"$json" | grep -m 1 '"default":true' | sed -nE 's|.*"src":"([^"]*)".*|\1|p')
+  links=$(fetch "$master" -e "$referrer" | parse_qualities "$master")
+  [[ -n $links ]] || die "no playable qualities"
+  url=$(pick_quality "$quality" "$links")
+
+  printf 'url\t%s\nreferrer\t%s\nsubtitles\t%s\n' "$url" "$referrer" "$subs"
+}
+
+usage() {
+  cat <<'USAGE'
+usage: omani-provider <subcommand>
+
+  search <query>                       id<TAB>title
+  episodes <anime-id>                  episode-id<TAB>number
+  stream <anime-id> <ep> [mode] [q]    url / referrer / subtitles, one per line
+
+parsers, reading a saved page on stdin:
+  parse-search
+  parse-episodes <anime-id>
+  parse-qualities <master-url>
+  deobfuscate <blob>
+USAGE
+}
+
+case "${1:-}" in
+search)
+  shift
+  cmd_search "$@"
+  ;;
+episodes)
+  shift
+  cmd_episodes "$@"
+  ;;
+stream)
+  shift
+  cmd_stream "$@"
+  ;;
+parse-search) parse_search ;;
+parse-episodes)
+  shift
+  parse_episodes "$@"
+  ;;
+parse-qualities)
+  shift
+  parse_qualities "$@"
+  ;;
+deobfuscate)
+  shift
+  deobfuscate "$@"
+  ;;
+-h | --help) usage ;;
+*)
+  usage >&2
+  exit 1
+  ;;
+esac

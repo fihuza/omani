@@ -1,0 +1,21 @@
+Omani — an anime bar widget for Omarchy
+Copyright (C) 2026 fihuza
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See LICENSE for the full text.
+
+Third-party code
+----------------
+
+The provider layer in bin/omani-provider is derived from ani-cli:
+
+    https://github.com/pystardust/ani-cli
+    Copyright (C) pystardust and ani-cli contributors
+    GPL-3.0-or-later
+
+Specifically, the request handling, the search and episode-list scraping, the
+base64+XOR deobfuscation of the embed payload, the m3u8 resolution and the
+quality selection follow ani-cli's implementation. Omani is therefore a
+derivative work and carries the same license.

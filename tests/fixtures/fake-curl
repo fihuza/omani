@@ -1,0 +1,30 @@
+#!/bin/bash
+# Stands in for curl. Serves fixtures by url and can be told to fail, so the
+# provider's network paths are exercised without a network.
+# The url being fetched is the first one that is not the referrer, which curl
+# takes as the argument to -e.
+url=""
+prev=""
+for arg in "$@"; do
+  if [[ $arg == https://* && $prev != "-e" && -z $url ]]; then url="$arg"; fi
+  prev="$arg"
+done
+
+emit() { printf '%s %s' "$1" "${FAKE_CODE:-200}"; }
+
+[[ -n ${FAKE_CURL_FAIL:-} ]] && exit 7
+
+case "$url" in
+*/search*)
+  if [[ -n ${FAKE_CLOUDFLARE:-} ]]; then
+    emit "<html><title>Just a moment...</title></html>"
+  else
+    emit "$(cat "$FIXTURES/search.html")"
+  fi
+  ;;
+*/episode/list/*) emit "$(cat "$FIXTURES/episodes.json")" ;;
+*/episode/servers*) emit "$(cat "${FAKE_SERVERS:-$FIXTURES/servers.html}")" ;;
+*zokoanime*) emit "window.__P=\"$(cat "$FIXTURES/embed-blob.txt")\"" ;;
+*master.m3u8*) emit "$(cat "$FIXTURES/master.m3u8")" ;;
+*) emit "" ;;
+esac

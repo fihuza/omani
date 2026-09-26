@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.fihuza.omani",
+  "name": "Omani",
+  "version": "1.0.0",
+  "author": "fihuza",
+  "license": "GPL-3.0-or-later",
+  "description": "Watch anime from the Omarchy bar \u2014 search, continue watching and play, with vim motions. Inspired by ani-cli.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omani",
+    "description": "Search, resume and play anime from the bar.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "historyLimit": 8,
+      "quality": "best",
+      "mode": "sub",
+      "showNowPlaying": true
+    },
+    "schema": [
+      {
+        "key": "historyLimit",
+        "type": "integer",
+        "label": "Continue watching rows",
+        "description": "How many series from ani-cli's history to list.",
+        "min": 1,
+        "max": 20,
+        "step": 1,
+        "defaultValue": 8
+      },
+      {
+        "key": "quality",
+        "type": "enum",
+        "label": "Video quality",
+        "description": "Passed to ani-cli as -q. 'best' lets ani-cli choose.",
+        "options": [
+          "best",
+          "1080",
+          "720",
+          "480",
+          "360",
+          "worst"
+        ],
+        "defaultValue": "best"
+      },
+      {
+        "key": "mode",
+        "type": "enum",
+        "label": "Audio",
+        "description": "Subbed or dubbed, when the provider offers both.",
+        "options": [
+          "sub",
+          "dub"
+        ],
+        "defaultValue": "sub"
+      },
+      {
+        "key": "showNowPlaying",
+        "type": "boolean",
+        "label": "Show what is playing",
+        "description": "Put the current mpv title next to the bar icon.",
+        "defaultValue": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+# mpv writes screenshots into the working directory
+mpv-shot*.jpg
+mpv-shot*.png
+
+# Coverage output
+cover/
+coverage/
+
+# Editor and OS noise
+*.swp
+.DS_Store

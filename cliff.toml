@@ -1,0 +1,77 @@
+# Release notes. CI renders these when a tag is pushed; `git-cliff --unreleased`
+# previews what the next release would contain.
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+generated from [Conventional Commits](https://www.conventionalcommits.org/) by
+[git-cliff](https://github.com/orhun/git-cliff), and the project follows
+[Semantic Versioning](https://semver.org/).
+
+"""
+
+body = """
+{% set repo = "https://github.com/fihuza/omani" %}\
+{% if version %}\
+{% if previous.version %}\
+## [{{ version | trim_start_matches(pat="v") }}]({{ repo }}/compare/{{ previous.version }}...{{ version }}) — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [{{ version | trim_start_matches(pat="v") }}]({{ repo }}/releases/tag/{{ version }}) — {{ timestamp | date(format="%Y-%m-%d") }}
+{% endif %}\
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+
+{% for commit in commits %}\
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=8, end="") }}]({{ repo }}/commit/{{ commit.id }}))
+{% endfor %}\
+{% endfor %}
+"""
+
+footer = ""
+trim = false
+
+[git]
+conventional_commits = true
+# Unconventional subjects still reach the changelog through the catch-all
+# parser below rather than vanishing.
+filter_unconventional = false
+filter_commits = false
+protect_breaking_commits = true
+topo_order = false
+sort_commits = "oldest"
+tag_pattern = "v[0-9]*"
+
+commit_parsers = [
+  # A merge introduces no work of its own -- everything it carries is already
+  # listed from the branch commits it brings -- so merges are dropped and the
+  # branch commits kept. git-cliff has no structural merge filter, so they are
+  # matched by subject. GitHub writes "Merge pull request #N from ...".
+  #
+  # Sound only while every PR is a merge commit, which the branch policy
+  # requires. Under squash the same prefix would name the change itself.
+  { message = "^Merge pull request", skip = true },
+  { message = "^Merge branch", skip = true },
+  { message = "^Merge remote-tracking", skip = true },
+  { message = "^chore: back-merge main into develop", skip = true },
+  { message = "^Revert \"", skip = true },
+  # The version bump describes the release rather than a change within it.
+  { message = "^chore: bump version", skip = true },
+
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^test", group = "Tests" },
+  { message = "^ci", group = "CI" },
+  { message = "^build", group = "Build" },
+  { message = "^style", group = "Style" },
+  { message = "^chore", group = "Chores" },
+  # Catch-all so an unconventional subject is visible rather than dropped.
+  { message = ".*", group = "Other" },
+]
