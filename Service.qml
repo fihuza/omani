@@ -43,14 +43,12 @@ Item {
         return String(p.trackTitle || "");
     })
 
-    // mpris reports microseconds, and a player that cannot say where it is has
-    // nothing to contribute.
     function livePositions() {
         return playerList.map(function (p) {
             return {
                 title: String(p.trackTitle || ""),
-                position: (Number(p.position) || 0) / 1000000,
-                duration: (Number(p.length) || 0) / 1000000
+                position: Number(p.position) || 0,
+                duration: Number(p.length) || 0
             };
         });
     }
