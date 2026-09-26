@@ -186,9 +186,6 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
-    // A detached launch has no process to watch. The record is written when the
-    // player is spawned but it reaches the bus a moment later, so the launch is
-    // held until the series is actually live rather than merely recorded.
     onPlayersChanged: {
         if (Model.isPlayingSeries(players, playingId))
             launching = false;
