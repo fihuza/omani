@@ -6,6 +6,7 @@ SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]
 PROVIDER="${OMANI_PROVIDER:-$(dirname "$SELF")/omani-provider}"
 MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
 PLAYER="${OMANI_PLAYER:-mpv}"
+MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts}"
 NOTIFY="${OMANI_NOTIFY:-omarchy-notification-send}"
 
 STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
@@ -195,10 +196,25 @@ cmd_previous() {
   cmd_play "$id" "$title" "$earlier"
 }
 
+# mpv does not speak mpris on its own. Without the script that makes it, a
+# player can be started but never seen, so every player is untrackable and
+# unstoppable.
+mpris_present() {
+  local dir file
+  IFS=: read -ra dirs <<<"$MPV_SCRIPT_DIRS"
+  for dir in "${dirs[@]}"; do
+    for file in "$dir"/mpris.*; do
+      [[ -e $file ]] && return 0
+    done
+  done
+  return 1
+}
+
 cmd_status() {
   local missing=()
   command -v "$PLAYER" >/dev/null || missing+=("$PLAYER")
   command -v curl >/dev/null || command -v curl_chrome136 >/dev/null || missing+=(curl)
+  mpris_present || missing+=(mpv-mpris)
   local version=""
   [[ -f $MANIFEST ]] && version=$(jq -r '.version // ""' "$MANIFEST" 2>/dev/null)
 
