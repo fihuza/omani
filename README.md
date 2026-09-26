@@ -91,10 +91,10 @@ and reach no network.
 Omani keeps its own watch history: which episode of a series you are on, how
 far into it you are, how long it runs, and every episode you have finished. It
 samples the player's position while it runs, so continuing a series picks the
-episode up where you stopped rather than at the beginning. Past ninety percent
-an episode counts as watched and continuing moves to the next one, which the
-provider's episode list decides — so numbering that skips or carries decimals
-is handled by the real list rather than by adding one.
+episode up where you stopped rather than at the beginning. Only an episode
+watched past ninety percent counts as finished; continuing then moves to the
+next one, which the provider's episode list decides — so numbering that skips
+or carries decimals is handled by the real list rather than by adding one.
 
 ## Dependencies
 

@@ -93,8 +93,8 @@ exec sleep 60
 FAKEPLAYER
   chmod +x "$WORK/player"
 
-  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "position": 0, "duration": 0, "watched": []},
-                 "naruto-2":  {"title": "Naruto",  "episode": "5", "position": 0, "duration": 0, "watched": []}}'
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}},
+                 "naruto-2":  {"title": "Naruto",  "episode": "5", "episodes": {}}}'
 }
 
 teardown() {
@@ -311,13 +311,15 @@ t_resume_moves_on_when_the_episode_was_nearly_finished() {
   assert_lacks "$out" "--start="
 }
 
-t_a_history_with_no_duration_still_moves_on() {
+t_a_series_with_no_progress_plays_the_episode_it_is_on() {
   local out
   out=$("$OMANI" resume frieren-1)
-  assert_contains "$out" "Frieren Episode 3"
+  assert_contains "$out" "Frieren Episode 2"
+  assert_lacks "$out" "--start="
 }
 
-t_resume_plays_the_episode_after_the_one_watched() {
+t_resume_plays_the_episode_after_one_watched_to_the_end() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1400 1400
   assert_contains "$("$OMANI" resume frieren-1)" "--force-media-title=Frieren Episode 3"
 }
 
@@ -329,7 +331,7 @@ t_resume_refuses_an_unknown_series() {
 }
 
 t_resume_refuses_when_nothing_follows() {
-  seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "position": 0, "duration": 0, "watched": []}}'
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "episodes": {"3": {"position": 1400, "duration": 1400}}}}'
   local out
   out=$("$OMANI" resume frieren-1 2>&1)
   assert_fails $?
@@ -341,7 +343,7 @@ t_previous_plays_the_episode_before_the_one_watched() {
 }
 
 t_previous_refuses_at_the_first_episode() {
-  seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "position": 0, "duration": 0, "watched": []}}'
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "episodes": {}}}'
   local out
   out=$("$OMANI" previous frieren-1 2>&1)
   assert_fails $?
@@ -548,8 +550,8 @@ check "progress refuses a series not in history" t_progress_refuses_a_series_not
 check "progress refuses a position that is not seconds" t_progress_refuses_a_position_that_is_not_seconds
 check "resume restarts the episode where it stopped" t_resume_restarts_the_episode_where_it_stopped
 check "resume moves on when the episode was nearly finished" t_resume_moves_on_when_the_episode_was_nearly_finished
-check "a history with no duration still moves on" t_a_history_with_no_duration_still_moves_on
-check "resume plays the episode after the one watched" t_resume_plays_the_episode_after_the_one_watched
+check "a series with no progress plays the episode it is on" t_a_series_with_no_progress_plays_the_episode_it_is_on
+check "resume plays the episode after one watched to the end" t_resume_plays_the_episode_after_one_watched_to_the_end
 check "resume refuses a series not in history" t_resume_refuses_an_unknown_series
 check "resume refuses when nothing follows" t_resume_refuses_when_nothing_follows
 check "previous plays the episode before the one watched" t_previous_plays_the_episode_before_the_one_watched

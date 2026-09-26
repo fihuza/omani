@@ -204,7 +204,9 @@ cmd_play() {
   record_history "$episode" "$id" "$title"
 }
 
-# Part way through an episode resumes it where it stopped; near the end moves on.
+# The history holds the episode you are on, so continuing plays that one --
+# where you stopped if that is known. Only an episode watched to the end moves
+# on to the next.
 cmd_resume() {
   local id="${1:-}"
   [[ -n $id ]] || die "usage: omani resume <anime-id>"
@@ -219,7 +221,7 @@ cmd_resume() {
   # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
   duration=$(jq -r --arg ep "$episode" '.episodes[$ep].duration // 0' <<<"$entry")
 
-  if ((duration > 0 && position * 100 < duration * WATCHED_FRACTION)); then
+  if ((duration == 0 || position * 100 < duration * WATCHED_FRACTION)); then
     cmd_play "$id" "$title" "$episode" "$position"
     return
   fi
