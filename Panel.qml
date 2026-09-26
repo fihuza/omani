@@ -288,7 +288,7 @@ Panel {
         open: root.opened
         focusTarget: keyCatcher
         contentWidth: panel.fittedContentWidth(Style.space(380))
-        contentHeight: panel.fittedContentHeight(shell.implicitHeight, Style.space(560))
+        contentHeight: panel.fittedContentHeight(headerBox.implicitHeight + Style.space(10) + column.implicitHeight, Style.space(560))
 
         PanelKeyCatcher {
             id: keyCatcher
@@ -316,83 +316,93 @@ Panel {
                 root.dispatch(Model.normalizeKey(t));
             }
 
-            Column {
+            Item {
                 id: shell
                 anchors.fill: parent
-                spacing: Style.space(10)
 
-                PanelHero {
-                    width: parent.width
-                    title: "Omani"
-                    meta: root.ready ? (root.service && root.service.playing ? root.service.nowPlaying : root.quality + " · " + root.mode) : "missing: " + root.missing
-                    foreground: root.ready ? root.foreground : root.urgent
-                    fontFamily: root.fontFamily
-                    iconComponent: Component {
-                        AnimeIcon {
-                            iconSize: Style.font.display
-                            playing: root.service ? root.service.playing : false
-                            color: root.ready ? root.foreground : root.urgent
-                        }
-                    }
-                    trailingControl: Component {
-                        Row {
-                            visible: root.ready
-                            spacing: Style.space(6)
+                Column {
+                    id: headerBox
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    spacing: Style.space(10)
 
-                            PanelActionButton {
-                                iconText: "󰒓"
-                                tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
-                                foreground: root.foreground
-                                fontFamily: root.fontFamily
-                                onClicked: root.setView(root.view === "settings" ? "history" : "settings")
-                            }
-
-                            PanelActionButton {
-                                iconText: "󰌌"
-                                tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
-                                foreground: root.foreground
-                                fontFamily: root.fontFamily
-                                onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
-                            }
-
-                            PanelActionButton {
-                                iconText: "󰃢"
-                                tooltipText: "Clear history (x)"
-                                foreground: root.foreground
-                                fontFamily: root.fontFamily
-                                onClicked: confirmClear.opened = true
+                    PanelHero {
+                        width: parent.width
+                        title: "Omani"
+                        meta: root.ready ? (root.service && root.service.playing ? root.service.nowPlaying : root.quality + " · " + root.mode) : "missing: " + root.missing
+                        foreground: root.ready ? root.foreground : root.urgent
+                        fontFamily: root.fontFamily
+                        iconComponent: Component {
+                            AnimeIcon {
+                                iconSize: Style.font.display
+                                playing: root.service ? root.service.playing : false
+                                color: root.ready ? root.foreground : root.urgent
                             }
                         }
+                        trailingControl: Component {
+                            Row {
+                                visible: root.ready
+                                spacing: Style.space(6)
+
+                                PanelActionButton {
+                                    iconText: "󰒓"
+                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
+                                }
+
+                                PanelActionButton {
+                                    iconText: "󰌌"
+                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
+                                }
+
+                                PanelActionButton {
+                                    iconText: "󰃢"
+                                    tooltipText: "Clear history (x)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: confirmClear.opened = true
+                                }
+                            }
+                        }
                     }
-                }
 
-                PanelSeparator {
-                    width: parent.width
-                    foreground: root.foreground
-                }
+                    PanelSeparator {
+                        width: parent.width
+                        foreground: root.foreground
+                    }
 
-                TextField {
-                    id: searchField
-                    visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
-                    width: parent.width
-                    placeholderText: "Search anime…   (/ to focus)"
-                    foreground: root.foreground
-                    onAccepted: root.submitSearch()
-                    Keys.onEscapePressed: keyCatcher.forceActiveFocus()
-                }
+                    TextField {
+                        id: searchField
+                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                        width: parent.width
+                        placeholderText: "Search anime…   (/ to focus)"
+                        foreground: root.foreground
+                        onAccepted: root.submitSearch()
+                        Keys.onEscapePressed: keyCatcher.forceActiveFocus()
+                    }
 
-                PanelSectionHeader {
-                    visible: root.ready && root.view !== "history" && text !== ""
-                    width: parent.width
-                    text: Model.heading(root.headings, root.view, root.busy, root.launching)
-                    foreground: root.foreground
-                    fontFamily: root.fontFamily
+                    PanelSectionHeader {
+                        visible: root.ready && root.view !== "history" && text !== ""
+                        width: parent.width
+                        text: Model.heading(root.headings, root.view, root.busy, root.launching)
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+                    }
                 }
 
                 Flickable {
                     id: panelFlick
-                    width: parent.width
-                    height: Math.min(column.implicitHeight, Style.space(400))
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: headerBox.bottom
+                    anchors.bottom: parent.bottom
+                    anchors.topMargin: Style.space(10)
                     contentWidth: width
                     contentHeight: column.implicitHeight
                     clip: true
@@ -533,31 +543,16 @@ Panel {
                     }
                 }
 
-                PanelSeparator {
+                Text {
+                    id: countText
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
                     visible: root.countVisible
-                    width: parent.width
-                    foreground: root.foreground
-                }
-
-                Row {
-                    visible: root.countVisible
-                    width: parent.width
-                    spacing: Style.space(8)
-
-                    Item {
-                        width: parent.width - countText.implicitWidth
-                        height: 1
-                    }
-
-                    Text {
-                        id: countText
-                        anchors.verticalCenter: parent.verticalCenter
-                        textFormat: Text.PlainText
-                        text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
-                        color: root.dim
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.caption
-                    }
+                    textFormat: Text.PlainText
+                    text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
                 }
             }
 

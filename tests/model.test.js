@@ -92,6 +92,28 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
+test("a launch is done when a player appears that was not there before", () => {
+  const before = ["100"]
+  assert.equal(Model.launchedPlayer([{ pid: "100" }, { pid: "200" }], before), true)
+})
+
+test("the player being replaced does not end its own replacement", () => {
+  const before = ["100"]
+  assert.equal(Model.launchedPlayer([{ pid: "100" }], before), false)
+})
+
+test("no players at all is not a finished launch", () => {
+  assert.equal(Model.launchedPlayer([], ["100"]), false)
+})
+
+test("a record with no anime id is never mistaken for the one playing", () => {
+  const players = [{ pid: "1", title: "Someone Else Episode 2", animeId: "", episode: "2" }]
+  assert.equal(Model.seriesOf(players, "", "remembered"), "remembered")
+  assert.equal(Model.episodeOf(players, "", "7"), "7")
+  assert.equal(Model.seriesOf(players, "", ""), "")
+  assert.equal(Model.episodeOf(players, "", null), "")
+})
+
 test("the series name comes from the player that is actually running", () => {
   const players = [{ pid: "1", title: "Naruto Episode 34", animeId: "naruto-1335", episode: "34" }]
   assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
@@ -106,6 +128,8 @@ test("a title with no episode suffix is left whole", () => {
 test("with no matching player the remembered value is used", () => {
   assert.equal(Model.seriesOf([], "naruto-1335", "Naruto"), "Naruto")
   assert.equal(Model.episodeOf([], "naruto-1335", "12"), "12")
+  assert.equal(Model.seriesOf([], "naruto-1335", ""), "")
+  assert.equal(Model.episodeOf([], "naruto-1335", ""), "")
 })
 
 test("nothing known leaves the label empty rather than undefined", () => {
