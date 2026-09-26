@@ -70,14 +70,14 @@ record_history() {
 }
 
 record_player() {
-  local pid="$1" title="$2" id="$3" episode="$4" tmp
+  local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" tmp
   mkdir -p "$STATE_DIR"
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
   tmp=$(mktemp)
   # Capped, because a record is written on every play and nothing prunes the
   # ones whose players have exited.
   awk -F'\t' -v t="$title" 'NF >= 4 && $2 != t' "$PLAYERS_FILE" | tail -n 19 >"$tmp"
-  printf '%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" >>"$tmp"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" >>"$tmp"
   mv "$tmp" "$PLAYERS_FILE"
 }
 
@@ -129,6 +129,8 @@ cmd_play() {
   url=$(awk -F'\t' '$1 == "url" { print $2 }' <<<"$stream")
   referrer=$(awk -F'\t' '$1 == "referrer" { print $2 }' <<<"$stream")
   subtitles=$(awk -F'\t' '$1 == "subtitles" { print $2 }' <<<"$stream")
+  local qualities
+  qualities=$(awk -F'\t' '$1 == "qualities" { print $2 }' <<<"$stream")
   [[ -n $url ]] || die "no playable source for episode $episode"
 
   # Closed before the new one starts, so following a series never leaves two
@@ -150,7 +152,7 @@ cmd_play() {
   # nothing can be listed or stopped. This script is already detached, so the
   # player is reparented when it exits.
   "${args[@]}" </dev/null >/dev/null 2>&1 &
-  record_player "$!" "$title Episode $episode" "$id" "$episode"
+  record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities"
   disown
 
   record_history "$episode" "$id" "$title"
