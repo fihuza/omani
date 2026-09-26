@@ -288,7 +288,7 @@ Panel {
         open: root.opened
         focusTarget: keyCatcher
         contentWidth: panel.fittedContentWidth(Style.space(380))
-        contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(560))
+        contentHeight: panel.fittedContentHeight(shell.implicitHeight, Style.space(560))
 
         PanelKeyCatcher {
             id: keyCatcher
@@ -316,240 +316,247 @@ Panel {
                 root.dispatch(Model.normalizeKey(t));
             }
 
-            Flickable {
-                id: panelFlick
+            Column {
+                id: shell
                 anchors.fill: parent
-                contentWidth: width
-                contentHeight: column.implicitHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                flickableDirection: Flickable.VerticalFlick
-                interactive: contentHeight > height
-                // Re-applied because a position computed before the column
-                // finishes laying out clamps against a height still growing.
-                onContentHeightChanged: root.applyScroll()
-                ScrollBar.vertical: ScrollBar {
-                    policy: ScrollBar.AsNeeded
-                }
+                spacing: Style.space(10)
 
-                Column {
-                    id: column
-                    width: panelFlick.width
-                    spacing: Style.space(10)
-
-                    PanelHero {
-                        width: parent.width
-                        title: "Omani"
-                        meta: root.ready ? (root.service && root.service.playing ? root.service.nowPlaying : root.quality + " · " + root.mode) : "missing: " + root.missing
-                        foreground: root.ready ? root.foreground : root.urgent
-                        fontFamily: root.fontFamily
-                        iconComponent: Component {
-                            AnimeIcon {
-                                iconSize: Style.font.display
-                                playing: root.service ? root.service.playing : false
-                                color: root.ready ? root.foreground : root.urgent
-                            }
-                        }
-                        trailingControl: Component {
-                            Row {
-                                visible: root.ready
-                                spacing: Style.space(6)
-
-                                PanelActionButton {
-                                    iconText: "󰒓"
-                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
-                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
-                                }
-
-                                PanelActionButton {
-                                    iconText: "󰌌"
-                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
-                                    onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
-                                }
-
-                                PanelActionButton {
-                                    iconText: "󰃢"
-                                    tooltipText: "Clear history (x)"
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
-                                    onClicked: confirmClear.opened = true
-                                }
-                            }
+                PanelHero {
+                    width: parent.width
+                    title: "Omani"
+                    meta: root.ready ? (root.service && root.service.playing ? root.service.nowPlaying : root.quality + " · " + root.mode) : "missing: " + root.missing
+                    foreground: root.ready ? root.foreground : root.urgent
+                    fontFamily: root.fontFamily
+                    iconComponent: Component {
+                        AnimeIcon {
+                            iconSize: Style.font.display
+                            playing: root.service ? root.service.playing : false
+                            color: root.ready ? root.foreground : root.urgent
                         }
                     }
+                    trailingControl: Component {
+                        Row {
+                            visible: root.ready
+                            spacing: Style.space(6)
 
-                    PanelSeparator {
-                        width: parent.width
-                        foreground: root.foreground
-                    }
-
-                    TextField {
-                        id: searchField
-                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
-                        width: parent.width
-                        placeholderText: "Search anime…   (/ to focus)"
-                        foreground: root.foreground
-                        onAccepted: root.submitSearch()
-                        Keys.onEscapePressed: keyCatcher.forceActiveFocus()
-                    }
-
-                    PanelSectionHeader {
-                        visible: root.ready && root.view !== "history" && text !== ""
-                        width: parent.width
-                        text: Model.heading(root.headings, root.view, root.busy, root.launching)
-                        foreground: root.foreground
-                        fontFamily: root.fontFamily
-                    }
-
-                    Text {
-                        visible: root.ready && root.rows.length === 0 && !root.busy && !root.launching && root.view !== "shortcuts"
-                        width: parent.width
-                        textFormat: Text.PlainText
-                        text: root.view === "history" ? "Nothing watched yet — search for something." : "Nothing here."
-                        color: root.dim
-                        font.family: root.fontFamily
-                        font.pixelSize: Style.font.bodySmall
-                        wrapMode: Text.WordWrap
-                    }
-
-                    Repeater {
-                        model: root.rows
-
-                        delegate: Column {
-                            id: rowItem
-
-                            required property int index
-                            required property var modelData
-
-                            readonly property bool selected: root.cursorActive && root.keyState.index === index
-                            readonly property string section: modelData.section !== undefined ? modelData.section : ""
-
-                            onSelectedChanged: if (selected)
-                                root.scrollIntoView(rowItem, index)
-
-                            Component.onCompleted: if (selected)
-                                root.scrollIntoView(rowItem, index)
-
-                            width: column.width
-                            spacing: Style.space(4)
-
-                            PanelSectionHeader {
-                                visible: rowItem.section !== ""
-                                width: parent.width
-                                text: rowItem.section
+                            PanelActionButton {
+                                iconText: "󰒓"
+                                tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
                                 foreground: root.foreground
                                 fontFamily: root.fontFamily
+                                onClicked: root.setView(root.view === "settings" ? "history" : "settings")
                             }
 
-                            Rectangle {
-                                width: parent.width
-                                implicitHeight: rowTitle.implicitHeight + Style.space(10)
-                                radius: Style.cornerRadius
-                                color: rowItem.selected ? Util.alpha(root.foreground, 0.1) : "transparent"
+                            PanelActionButton {
+                                iconText: "󰌌"
+                                tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
+                                foreground: root.foreground
+                                fontFamily: root.fontFamily
+                                onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
+                            }
+
+                            PanelActionButton {
+                                iconText: "󰃢"
+                                tooltipText: "Clear history (x)"
+                                foreground: root.foreground
+                                fontFamily: root.fontFamily
+                                onClicked: confirmClear.opened = true
+                            }
+                        }
+                    }
+                }
+
+                PanelSeparator {
+                    width: parent.width
+                    foreground: root.foreground
+                }
+
+                TextField {
+                    id: searchField
+                    visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                    width: parent.width
+                    placeholderText: "Search anime…   (/ to focus)"
+                    foreground: root.foreground
+                    onAccepted: root.submitSearch()
+                    Keys.onEscapePressed: keyCatcher.forceActiveFocus()
+                }
+
+                PanelSectionHeader {
+                    visible: root.ready && root.view !== "history" && text !== ""
+                    width: parent.width
+                    text: Model.heading(root.headings, root.view, root.busy, root.launching)
+                    foreground: root.foreground
+                    fontFamily: root.fontFamily
+                }
+
+                Flickable {
+                    id: panelFlick
+                    width: parent.width
+                    height: Math.min(column.implicitHeight, Style.space(400))
+                    contentWidth: width
+                    contentHeight: column.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    flickableDirection: Flickable.VerticalFlick
+                    interactive: contentHeight > height
+                    // Re-applied because a position computed before the column
+                    // finishes laying out clamps against a height still growing.
+                    onContentHeightChanged: root.applyScroll()
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                    }
+
+                    Column {
+                        id: column
+                        width: panelFlick.width
+                        spacing: Style.space(10)
+
+                        Text {
+                            visible: root.ready && root.rows.length === 0 && !root.busy && !root.launching && root.view !== "shortcuts"
+                            width: parent.width
+                            textFormat: Text.PlainText
+                            text: root.view === "history" ? "Nothing watched yet — search for something." : "Nothing here."
+                            color: root.dim
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.bodySmall
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Repeater {
+                            model: root.rows
+
+                            delegate: Column {
+                                id: rowItem
+
+                                required property int index
+                                required property var modelData
+
+                                readonly property bool selected: root.cursorActive && root.keyState.index === index
+                                readonly property string section: modelData.section !== undefined ? modelData.section : ""
+
+                                onSelectedChanged: if (selected)
+                                    root.scrollIntoView(rowItem, index)
+
+                                Component.onCompleted: if (selected)
+                                    root.scrollIntoView(rowItem, index)
+
+                                width: column.width
+                                spacing: Style.space(4)
+
+                                PanelSectionHeader {
+                                    visible: rowItem.section !== ""
+                                    width: parent.width
+                                    text: rowItem.section
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    implicitHeight: rowTitle.implicitHeight + Style.space(10)
+                                    radius: Style.cornerRadius
+                                    color: rowItem.selected ? Util.alpha(root.foreground, 0.1) : "transparent"
+
+                                    Text {
+                                        id: rowTitle
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: Style.space(8)
+                                        anchors.right: rowMeta.left
+                                        anchors.rightMargin: Style.space(8)
+                                        textFormat: Text.PlainText
+                                        text: rowItem.modelData.title
+                                        color: root.foreground
+                                        elide: Text.ElideRight
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.body
+                                    }
+
+                                    Text {
+                                        id: rowMeta
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: Style.space(8)
+                                        textFormat: Text.PlainText
+                                        text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
+                                        color: root.dim
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: root.selectRow(rowItem.index)
+                                        onClicked: root.activateRow(rowItem.index)
+                                    }
+                                }
+                            }
+                        }
+
+                        Repeater {
+                            model: root.view === "shortcuts" ? Model.shortcuts() : []
+
+                            delegate: Item {
+                                id: shortcutRow
+
+                                required property var modelData
+
+                                width: column.width
+                                implicitHeight: shortcutKeys.implicitHeight + Style.space(8)
 
                                 Text {
-                                    id: rowTitle
+                                    id: shortcutKeys
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
                                     anchors.leftMargin: Style.space(8)
-                                    anchors.right: rowMeta.left
-                                    anchors.rightMargin: Style.space(8)
                                     textFormat: Text.PlainText
-                                    text: rowItem.modelData.title
+                                    text: shortcutRow.modelData.keys
                                     color: root.foreground
-                                    elide: Text.ElideRight
-                                    font.family: root.fontFamily
-                                    font.pixelSize: Style.font.body
-                                }
-
-                                Text {
-                                    id: rowMeta
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: Style.space(8)
-                                    textFormat: Text.PlainText
-                                    text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
-                                    color: root.dim
                                     font.family: root.fontFamily
                                     font.pixelSize: Style.font.caption
                                 }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onEntered: root.selectRow(rowItem.index)
-                                    onClicked: root.activateRow(rowItem.index)
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Style.space(8)
+                                    textFormat: Text.PlainText
+                                    text: shortcutRow.modelData.action
+                                    color: root.dim
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
                                 }
                             }
                         }
                     }
+                }
 
-                    Repeater {
-                        model: root.view === "shortcuts" ? Model.shortcuts() : []
+                PanelSeparator {
+                    visible: root.countVisible
+                    width: parent.width
+                    foreground: root.foreground
+                }
 
-                        delegate: Item {
-                            id: shortcutRow
+                Row {
+                    visible: root.countVisible
+                    width: parent.width
+                    spacing: Style.space(8)
 
-                            required property var modelData
-
-                            width: column.width
-                            implicitHeight: shortcutKeys.implicitHeight + Style.space(8)
-
-                            Text {
-                                id: shortcutKeys
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: Style.space(8)
-                                textFormat: Text.PlainText
-                                text: shortcutRow.modelData.keys
-                                color: root.foreground
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.caption
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.right: parent.right
-                                anchors.rightMargin: Style.space(8)
-                                textFormat: Text.PlainText
-                                text: shortcutRow.modelData.action
-                                color: root.dim
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.caption
-                            }
-                        }
+                    Item {
+                        width: parent.width - countText.implicitWidth
+                        height: 1
                     }
 
-                    PanelSeparator {
-                        visible: root.countVisible
-                        width: parent.width
-                        foreground: root.foreground
-                    }
-
-                    Row {
-                        visible: root.countVisible
-                        width: parent.width
-                        spacing: Style.space(8)
-
-                        Item {
-                            width: parent.width - countText.implicitWidth
-                            height: 1
-                        }
-
-                        Text {
-                            id: countText
-                            anchors.verticalCenter: parent.verticalCenter
-                            textFormat: Text.PlainText
-                            text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
-                            color: root.dim
-                            font.family: root.fontFamily
-                            font.pixelSize: Style.font.caption
-                        }
+                    Text {
+                        id: countText
+                        anchors.verticalCenter: parent.verticalCenter
+                        textFormat: Text.PlainText
+                        text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
+                        color: root.dim
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
                     }
                 }
             }
