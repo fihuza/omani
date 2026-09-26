@@ -409,21 +409,32 @@ test("leaving the quality list returns to the player it was opened from", () => 
   assert.equal(Model.backFrom("quality"), "player")
 })
 
-test("the player menu offers the same choices as before, as rows", () => {
-  const rows = Model.playerRows("Naruto", "79")
-  assert.deepEqual(rows.map((r) => r.key), ["next", "replay", "previous", "select", "quality", "stop"])
+test("the player menu leads with the control for what is playing", () => {
+  assert.deepEqual(Model.playerRows("Naruto", "5", false, "best").map(r => r.key),
+    ["pause", "next", "replay", "previous", "select", "quality", "stop"])
+})
+
+test("the control says what pressing it does", () => {
+  assert.equal(Model.playerRows("A", "1", false, "")[0].title, "Pause")
+  assert.equal(Model.playerRows("A", "1", true, "")[0].title, "Resume")
+})
+
+test("the quality row says which one is playing", () => {
+  const row = Model.playerRows("A", "1", false, "720").find(r => r.key === "quality")
+  assert.equal(row.label, "720")
+  assert.equal(Model.playerRows("A", "1", false, "").find(r => r.key === "quality").label, "")
 })
 
 test("replay names the episode it would repeat", () => {
-  assert.equal(Model.playerRows("Naruto", "79")[1].label, "episode 79")
+  assert.equal(Model.playerRows("Naruto", "79").find(r => r.key === "replay").label, "episode 79")
 })
 
 test("replay says nothing when no episode is known", () => {
-  assert.equal(Model.playerRows("Naruto", "")[1].label, "")
+  assert.equal(Model.playerRows("Naruto", "").find(r => r.key === "replay").label, "")
 })
 
 test("select names the series it would list", () => {
-  assert.equal(Model.playerRows("Naruto", "79")[3].label, "Naruto")
+  assert.equal(Model.playerRows("Naruto", "79").find(r => r.key === "select").label, "Naruto")
 })
 
 test("quality cycles through the offered values and wraps", () => {

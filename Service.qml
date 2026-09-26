@@ -40,7 +40,6 @@ Item {
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
     readonly property string mode: String(setting("mode", "sub"))
-    readonly property bool showNowPlaying: setting("showNowPlaying", true) === true
 
     readonly property var playerList: Mpris.players ? Mpris.players.values : []
     readonly property var liveTitles: playerList.map(function (p) {
@@ -68,6 +67,14 @@ Item {
     readonly property string nowPlaying: players.length > 0 ? players[0].title : ""
 
     readonly property var currentPlayer: Model.playerFor(playerList, nowPlaying)
+    readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
+
+    // mpris owns playback state, so pausing asks the player rather than going
+    // back through the script that started it.
+    function togglePaused() {
+        if (currentPlayer)
+            currentPlayer.togglePlaying();
+    }
 
     // mpris position is not a notifying property: quickshell reads it fresh
     // every time, but nothing tells a binding to look again. The tick is what

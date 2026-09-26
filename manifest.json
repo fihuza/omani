@@ -21,8 +21,7 @@
     "defaults": {
       "historyLimit": 8,
       "quality": "best",
-      "mode": "sub",
-      "showNowPlaying": true
+      "mode": "sub"
     },
     "schema": [
       {
@@ -60,13 +59,6 @@
           "dub"
         ],
         "defaultValue": "sub"
-      },
-      {
-        "key": "showNowPlaying",
-        "type": "boolean",
-        "label": "Show what is playing",
-        "description": "Put the current mpv title next to the bar icon.",
-        "defaultValue": true
       }
     ]
   }

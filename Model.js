@@ -257,13 +257,14 @@ function nextSetting(key, current) {
   return ring ? nextInRing(ring, current) : current
 }
 
-function playerRows(title, episode) {
+function playerRows(title, episode, paused, quality) {
   return [
+    { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
     { key: "next", title: "Next episode", label: "" },
     { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
     { key: "previous", title: "Previous episode", label: "" },
     { key: "select", title: "Select episode", label: title },
-    { key: "quality", title: "Change quality", label: "" },
+    { key: "quality", title: "Change quality", label: quality || "" },
     { key: "stop", title: "Stop", label: "" }
   ]
 }

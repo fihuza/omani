@@ -22,7 +22,7 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Resume the top series | **Right-click** the icon — no panel needed |
 | Search | Type in the field, or press `/` |
 | Play a series | Click its row, or select it and press Enter |
-| Control what is playing | Pick it under **Playing** |
+| Control what is playing | Pick it under **Playing** — pause, follow the series, change quality, stop |
 | Settings | The gear button in the header, or press `s` |
 
 ### Keyboard
@@ -53,7 +53,8 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 
 ## Playing
 
-Choosing a series from **Continue watching** starts a player and opens its menu:
+Choosing a series from **Continue watching** starts the episode you are on, at
+the second you stopped, and opens its menu:
 
 ![The player menu: next episode, replay, previous episode, select episode, change quality and stop](controls.png)
 
@@ -75,7 +76,6 @@ editable from the panel. All of them hot-reload.
 | `historyLimit` | `8` | How many series to list (1–20) |
 | `quality` | `best` | `best`, `1080`, `720`, `480`, `360`, `worst` |
 | `mode` | `sub` | `sub` or `dub` |
-| `showNowPlaying` | `true` | Show the playing title beside the bar icon |
 
 ## How it works
 

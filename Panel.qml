@@ -54,7 +54,7 @@ Panel {
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],
-            "player": service ? Model.playerRows(liveSeries, liveEpisode) : [],
+            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
         })
@@ -118,6 +118,9 @@ Panel {
         })
 
     readonly property var playerActions: ({
+            "pause": function () {
+                root.service.togglePaused();
+            },
             "next": function () {
                 root.service.playNext();
             },
