@@ -269,6 +269,21 @@ test("the shortcut list is non-empty and fully labelled", () => {
   }
 })
 
+test("the quality list marks the one that is playing", () => {
+  const rows = Model.qualityRows("720")
+  assert.deepEqual(rows.map(r => r.key), ["best", "1080", "720", "480", "360", "worst"])
+  assert.equal(rows.find(r => r.key === "720").label, "playing")
+  assert.equal(rows.filter(r => r.label === "playing").length, 1)
+})
+
+test("a quality nothing is playing at marks nothing", () => {
+  assert.equal(Model.qualityRows("").filter(r => r.label !== "").length, 0)
+})
+
+test("leaving the quality list returns to the player it was opened from", () => {
+  assert.equal(Model.backFrom("quality"), "player")
+})
+
 test("the player menu offers the same choices as before, as rows", () => {
   const rows = Model.playerRows("Naruto", "79")
   assert.deepEqual(rows.map((r) => r.key), ["next", "replay", "previous", "select", "quality", "stop"])

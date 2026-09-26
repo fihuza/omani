@@ -183,6 +183,24 @@ t_play_builds_a_player_command() {
   assert_contains "$out" "https://cdn/frieren-1/3.m3u8"
 }
 
+t_play_asks_the_provider_for_the_requested_quality() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+[[ $1 == stream ]] && printf 'url\thttps://cdn/%s.m3u8\nreferrer\thttps://e/\nsubtitles\t\n' "$5"
+FAKE
+  chmod +x "$WORK/provider"
+  assert_contains "$(OMANI_QUALITY=720 "$OMANI" play frieren-1 "Frieren" 1)" "https://cdn/720.m3u8"
+}
+
+t_play_without_a_quality_asks_for_the_default() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+[[ $1 == stream ]] && printf 'url\thttps://cdn/%s.m3u8\nreferrer\thttps://e/\nsubtitles\t\n' "${5:-unset}"
+FAKE
+  chmod +x "$WORK/provider"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "https://cdn/best.m3u8"
+}
+
 t_play_passes_subtitles_when_offered() {
   assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--sub-file=https://cdn/subs.vtt"
 }
@@ -447,6 +465,8 @@ check "mpris found in any configured script directory counts" t_status_accepts_m
 check "search passes provider rows through" t_search_returns_provider_rows
 check "episodes passes provider rows through" t_episodes_returns_provider_rows
 check "play builds a player command" t_play_builds_a_player_command
+check "the requested quality reaches the provider" t_play_asks_the_provider_for_the_requested_quality
+check "no requested quality asks the provider for best" t_play_without_a_quality_asks_for_the_default
 check "play passes subtitles when the provider offers them" t_play_passes_subtitles_when_offered
 check "play omits the subtitle flag when there are none" t_play_omits_subtitles_when_absent
 check "play needs an id, a title and an episode" t_play_needs_all_three_arguments
