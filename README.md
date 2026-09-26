@@ -12,14 +12,7 @@ motions. Inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 omarchy plugin add https://github.com/fihuza/omani.git --enable
 ```
 
-Nothing else to install: Omani's dependencies all ship with Omarchy. If one
-is missing anyway, the panel names it instead of failing silently — for
-example if `mpv-mpris` has been removed, since mpv does not report what it is
-playing without it:
-
-```bash
-omarchy pkg add mpv-mpris
-```
+Nothing else to install: Omani's dependencies all ship with Omarchy.
 
 ## Usage
 
