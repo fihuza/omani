@@ -108,6 +108,27 @@ test("nothing selected is never playing", () => {
   assert.equal(Model.isPlaying([], ""), false)
 })
 
+test("the series name comes from the player that is actually running", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 34", animeId: "naruto-1335", episode: "34" }]
+  assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
+  assert.equal(Model.episodeOf(players, "naruto-1335", ""), "34")
+})
+
+test("a title with no episode suffix is left whole", () => {
+  const players = [{ title: "Naruto", animeId: "naruto-1335", episode: "1" }]
+  assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
+})
+
+test("with no matching player the remembered value is used", () => {
+  assert.equal(Model.seriesOf([], "naruto-1335", "Naruto"), "Naruto")
+  assert.equal(Model.episodeOf([], "naruto-1335", "12"), "12")
+})
+
+test("nothing known leaves the label empty rather than undefined", () => {
+  assert.equal(Model.seriesOf([], "", ""), "")
+  assert.equal(Model.episodeOf([], "", null), "")
+})
+
 test("a series is playing when a live player carries its id", () => {
   const players = [{ pid: "1", title: "Naruto Episode 22", animeId: "naruto-1335", episode: "22" }]
   assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)

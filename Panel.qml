@@ -24,6 +24,8 @@ Panel {
     readonly property bool busy: service ? service.busy : false
     readonly property bool launching: service ? service.launching : false
     readonly property bool countVisible: keyState.pendingCount !== "" || keyState.pendingG
+    readonly property string liveSeries: service ? Model.seriesOf(service.players, service.playingId, service.playingSeries) : ""
+    readonly property string liveEpisode: service ? Model.episodeOf(service.players, service.playingId, service.playingEpisode) : ""
     readonly property string missing: service ? service.missing : ""
     readonly property string seriesTitle: service ? service.selectedTitle : ""
     readonly property string quality: service ? service.quality : "best"
@@ -40,7 +42,7 @@ Panel {
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],
-            "player": service ? Model.playerRows(service.playingSeries, service.playingEpisode) : [],
+            "player": service ? Model.playerRows(liveSeries, liveEpisode) : [],
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
@@ -54,7 +56,7 @@ Panel {
             "results": "Results",
             "episodes": seriesTitle,
             "settings": "Settings",
-            "player": service ? service.playingSeries : "Playing",
+            "player": liveSeries !== "" ? liveSeries : "Playing",
             "shortcuts": "Shortcuts"
         })
 
@@ -397,7 +399,7 @@ Panel {
                     }
 
                     PanelSectionHeader {
-                        visible: root.ready && root.view !== "history"
+                        visible: root.ready && root.view !== "history" && text !== ""
                         width: parent.width
                         text: Model.heading(root.headings, root.view, root.busy, root.launching)
                         foreground: root.foreground

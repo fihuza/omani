@@ -71,6 +71,21 @@ function isPlaying(players, title) {
   return false
 }
 
+function seriesOf(players, animeId, fallback) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId)
+      return String(players[i].title).replace(/ Episode [^ ]*$/, "")
+  }
+  return fallback ? String(fallback) : ""
+}
+
+function episodeOf(players, animeId, fallback) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return String(players[i].episode)
+  }
+  return fallback ? String(fallback) : ""
+}
+
 function isPlayingSeries(players, animeId) {
   if (!animeId) return false
   for (var i = 0; i < players.length; i++) {
@@ -346,6 +361,8 @@ if (typeof module !== "undefined") {
     livePlayers: livePlayers,
     isPlaying: isPlaying,
     isPlayingSeries: isPlayingSeries,
+    seriesOf: seriesOf,
+    episodeOf: episodeOf,
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
