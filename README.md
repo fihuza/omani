@@ -24,7 +24,7 @@ rather than failing silently.
 | Search | Type in the field, or press `/` |
 | Play a series | Click its row, or select it and press Enter |
 | Control what is playing | Pick it under **Playing** |
-| Settings | The 󰜓 button, or press `s` |
+| Settings | The gear button in the header, or press `s` |
 
 ### Keyboard
 
