@@ -410,8 +410,15 @@ test("leaving the quality list returns to the player it was opened from", () => 
 })
 
 test("the player menu leads with the control for what is playing", () => {
-  assert.deepEqual(Model.playerRows("Naruto", "5", false, "best").map(r => r.key),
+  assert.deepEqual(Model.playerRows("Naruto", "5", false, "best", "1080 720").map(r => r.key),
     ["pause", "next", "replay", "previous", "select", "quality", "stop"])
+})
+
+test("an episode with one variant is not offered a choice of quality", () => {
+  assert.deepEqual(Model.playerRows("Naruto", "5", false, "800", "800").map(r => r.key),
+    ["pause", "next", "replay", "previous", "select", "stop"])
+  assert.deepEqual(Model.playerRows("Naruto", "5", false, "best", "").map(r => r.key),
+    ["pause", "next", "replay", "previous", "select", "stop"])
 })
 
 test("the control says what pressing it does", () => {
@@ -420,9 +427,9 @@ test("the control says what pressing it does", () => {
 })
 
 test("the quality row says which one is playing", () => {
-  const row = Model.playerRows("A", "1", false, "720").find(r => r.key === "quality")
+  const row = Model.playerRows("A", "1", false, "720", "1080 720").find(r => r.key === "quality")
   assert.equal(row.label, "720")
-  assert.equal(Model.playerRows("A", "1", false, "").find(r => r.key === "quality").label, "")
+  assert.equal(Model.playerRows("A", "1", false, "", "1080 720").find(r => r.key === "quality").label, "")
 })
 
 test("replay names the episode it would repeat", () => {

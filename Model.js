@@ -257,26 +257,6 @@ function nextSetting(key, current) {
   return ring ? nextInRing(ring, current) : current
 }
 
-function playerRows(title, episode, paused, quality) {
-  return [
-    { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
-    { key: "next", title: "Next episode", label: "" },
-    { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
-    { key: "previous", title: "Previous episode", label: "" },
-    { key: "select", title: "Select episode", label: title },
-    { key: "quality", title: "Change quality", label: quality || "" },
-    { key: "stop", title: "Stop", label: "" }
-  ]
-}
-
-// The version row is shown, not chosen: yielding no change is what keeps
-// activating it from writing to the stored settings.
-function settingChange(row) {
-  var next = nextSetting(row.key, row.value)
-  if (next === row.value) return null
-  return { key: row.key, value: next }
-}
-
 function qualityRows(available, current) {
   var rows = []
   var heights = String(available || "").split(/\s+/)
@@ -290,6 +270,31 @@ function qualityRows(available, current) {
   }
   return rows
 }
+
+function playerRows(title, episode, paused, quality, available) {
+  var rows = [
+    { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
+    { key: "next", title: "Next episode", label: "" },
+    { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
+    { key: "previous", title: "Previous episode", label: "" },
+    { key: "select", title: "Select episode", label: title }
+  ]
+  // Most episodes come in a single variant, and a menu that opens on one row
+  // asks for a choice that does not exist.
+  if (qualityRows(available, "").length > 1)
+    rows.push({ key: "quality", title: "Change quality", label: quality || "" })
+  rows.push({ key: "stop", title: "Stop", label: "" })
+  return rows
+}
+
+// The version row is shown, not chosen: yielding no change is what keeps
+// activating it from writing to the stored settings.
+function settingChange(row) {
+  var next = nextSetting(row.key, row.value)
+  if (next === row.value) return null
+  return { key: row.key, value: next }
+}
+
 
 function settingRows(quality, mode, version) {
   return [
