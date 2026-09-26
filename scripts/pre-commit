@@ -20,7 +20,7 @@ fail() {
 
 require() {
   command -v "$1" >/dev/null && return 0
-  fail "missing tool '$1' ($2) -- this gate did NOT run"
+  fail "missing tool '$1' -- needs the $2 package. This gate did NOT run."
   return 1
 }
 
@@ -46,8 +46,8 @@ mapfile -t QML < <(git ls-files '*.qml' 2>/dev/null)
 ((${#QML[@]})) || mapfile -t QML < <(find . -name '*.qml' -not -path './.git/*')
 SHELL_FILES=(bin/omani bin/omani-provider tests/omani-test.sh tests/provider-test.sh scripts/pre-commit scripts/commit-msg)
 
-QMLFORMAT=$(qt6_tool qmlformat) || fail "no Qt6 qmlformat (omarchy pkg add qt6-declarative)"
-QMLLINT=$(qt6_tool qmllint) || fail "no Qt6 qmllint (omarchy pkg add qt6-declarative)"
+QMLFORMAT=$(qt6_tool qmlformat) || fail "no Qt6 qmlformat -- needs the qt6-declarative package"
+QMLLINT=$(qt6_tool qmllint) || fail "no Qt6 qmllint -- needs the qt6-declarative package"
 
 if wanted qml-format; then
   step "Format (QML)"
@@ -63,14 +63,14 @@ fi
 
 if wanted shell-format; then
   step "Format (shell)"
-  if require shfmt "omarchy pkg add shfmt"; then
+  if require shfmt shfmt; then
     shfmt -i 2 -d "${SHELL_FILES[@]}" || fail "shell files are not shfmt-clean"
   fi
 fi
 
 if wanted shell-lint; then
   step "Lint (shell)"
-  if require shellcheck "omarchy pkg add shellcheck"; then
+  if require shellcheck shellcheck; then
     shellcheck "${SHELL_FILES[@]}" || fail "shellcheck found problems"
   fi
 fi
@@ -110,7 +110,7 @@ fi
 
 if wanted manifest; then
   step "Manifest"
-  if require jq "omarchy pkg add jq"; then
+  if require jq jq; then
     jq -e . manifest.json >/dev/null || fail "manifest.json is not valid JSON"
   fi
   if command -v omarchy >/dev/null; then
@@ -124,7 +124,7 @@ fi
 
 if wanted unit; then
   step "Unit tests + coverage (Model.js), minimum ${COVERAGE_MIN}%"
-  if require node "mise install"; then
+  if require node nodejs; then
     # Node 26 rejects a bare directory for --test, so this passes a glob.
     node --test \
       --experimental-test-coverage \
