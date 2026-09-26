@@ -317,22 +317,22 @@ function seriesRows(raw) {
   })
 }
 
-var WATCHED_FRACTION = 90
-
-function episodeLabel(progress) {
+// The fraction is bin/omani's: it decides when a series moves on, and a label
+// saying watched while the series has not moved would be a lie.
+function episodeLabel(progress, fraction) {
   if (!progress || !progress.duration) return ""
   var percent = watchedFraction(progress)
-  return percent >= WATCHED_FRACTION ? "watched" : percent + "%"
+  return percent >= fraction ? "watched" : percent + "%"
 }
 
-function episodeRows(raw, progress) {
+function episodeRows(raw, progress, fraction) {
   var seen = progress || {}
   return tabRows(raw).map(function (fields) {
     return {
       episodeId: fields[0],
       number: fields[1],
       title: "Episode " + fields[1],
-      label: episodeLabel(seen[fields[1]])
+      label: episodeLabel(seen[fields[1]], fraction)
     }
   })
 }

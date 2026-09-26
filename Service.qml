@@ -12,6 +12,7 @@ Item {
 
     property bool ready: false
     property bool tracking: true
+    property int watchedFraction: 90
     property string missing: ""
     property string version: ""
     property string historyPath: ""
@@ -75,6 +76,7 @@ Item {
     }
 
     Timer {
+        id: clockTicks
         interval: 1000
         running: root.playing
         repeat: true
@@ -108,6 +110,7 @@ Item {
         var parsed = JSON.parse(raw);
         ready = parsed.ready === true;
         tracking = parsed.tracking !== false;
+        watchedFraction = Number(parsed.watchedFraction) || watchedFraction;
         missing = String(parsed.missing || "");
         version = String(parsed.version || "");
         historyPath = String(parsed.historyPath || "");
@@ -266,6 +269,7 @@ Item {
     // Sampled rather than read on exit: a player that has gone is no longer on
     // the bus to ask, so the last sample is what a resume has to go on.
     Timer {
+        id: historySample
         interval: 10000
         running: root.playing
         repeat: true
@@ -323,7 +327,7 @@ Item {
         onExited: function (exitCode) {
             root.busy = false;
             if (exitCode === 0)
-                root.episodes = Model.episodeRows(String(episodesOut.text || ""), Model.progressOf(historyFile.text(), root.selectedId));
+                root.episodes = Model.episodeRows(String(episodesOut.text || ""), Model.progressOf(historyFile.text(), root.selectedId), root.watchedFraction);
         }
     }
 

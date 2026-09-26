@@ -269,20 +269,21 @@ test("each episode carries its own progress", () => {
   const rows = Model.episodeRows("9\t1\n8\t2\n7\t3\n", {
     "1": { position: 1400, duration: 1400 },
     "3": { position: 700, duration: 1400 }
-  })
+  }, 90)
   assert.deepEqual(rows.map(r => r.label), ["watched", "", "50%"])
 })
 
 test("an episode near its end reads as watched rather than a number", () => {
-  assert.equal(Model.episodeLabel({ position: 1260, duration: 1400 }), "watched")
-  assert.equal(Model.episodeLabel({ position: 1252, duration: 1400 }), "89%")
+  assert.equal(Model.episodeLabel({ position: 1260, duration: 1400 }, 90), "watched")
+  assert.equal(Model.episodeLabel({ position: 1252, duration: 1400 }, 90), "89%")
+  assert.equal(Model.episodeLabel({ position: 1120, duration: 1400 }, 80), "watched")
 })
 
 test("an episode with nothing recorded says nothing", () => {
-  assert.equal(Model.episodeLabel(undefined), "")
-  assert.equal(Model.episodeLabel({ position: 10, duration: 0 }), "")
+  assert.equal(Model.episodeLabel(undefined, 90), "")
+  assert.equal(Model.episodeLabel({ position: 10, duration: 0 }, 90), "")
+  assert.deepEqual(Model.episodeRows("9\t1\n", {}, 90).map(r => r.label), [""])
   assert.deepEqual(Model.episodeRows("9\t1\n").map(r => r.label), [""])
-  assert.deepEqual(Model.episodeRows("9\t1\n", {}).map(r => r.label), [""])
 })
 
 test("the per-episode progress comes from the series in history", () => {
@@ -491,7 +492,7 @@ test("turns provider search output into series rows", () => {
 })
 
 test("turns provider episode output into numbered rows", () => {
-  assert.deepEqual(Model.episodeRows("9001\t1\n"), [
+  assert.deepEqual(Model.episodeRows("9001\t1\n", {}, 90), [
     { episodeId: "9001", number: "1", title: "Episode 1", label: "" },
   ])
 })

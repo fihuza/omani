@@ -51,6 +51,11 @@ environment:
   OMANI_HIST_FILE    watch history (json)
   OMANI_REPLACE      media title of a player to close first
   OMANI_DRY_RUN      non-empty: print what would run instead of running it
+  OMANI_PROVIDER     the provider script                (default: bin/omani-provider)
+  OMANI_STATE_DIR    where running players are recorded
+  OMANI_MANIFEST     manifest.json, for the version
+  OMANI_MPV_SCRIPT_DIRS
+                     colon-separated dirs searched for mpv's mpris script
 USAGE
 }
 
@@ -273,11 +278,12 @@ cmd_status() {
   jq -n \
     --arg version "$version" \
     --argjson ready "$( ((${#missing[@]} == 0)) && echo true || echo false)" \
+    --argjson watchedFraction "$WATCHED_FRACTION" \
     --argjson tracking "$(mpris_present && echo true || echo false)" \
     --arg missing "${missing[*]:-}" \
     --arg historyPath "$HIST_FILE" \
     --arg playersPath "$PLAYERS_FILE" \
-    '{ready: $ready, tracking: $tracking, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
+    '{ready: $ready, tracking: $tracking, watchedFraction: $watchedFraction, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
 }
 
 # Finishing an episode moves the series on, so what the panel offers to
