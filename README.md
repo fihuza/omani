@@ -109,7 +109,6 @@ external command it can invoke is listed here.
 | `mpv` | playback | Omarchy's base packages |
 | `mpv-mpris` | how mpv reports what it is playing, which is how a player is tracked | Omarchy's base packages |
 | `jq` | status and manifest reading | Omarchy's base packages |
-| `omarchy-notification-send` | "now playing" notification | Omarchy |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
 

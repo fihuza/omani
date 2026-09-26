@@ -59,7 +59,6 @@ setup() {
   WORK=$(mktemp -d)
   export OMANI_HIST_FILE="$WORK/ani-hsts"
   export OMANI_STATE_DIR="$WORK/state"
-  export OMANI_NOTIFY=true
   export OMANI_PLAYER=mpv
   mkdir -p "$WORK/mpv-scripts"
   : >"$WORK/mpv-scripts/mpris.so"
@@ -140,8 +139,8 @@ t_status_survives_a_missing_manifest() {
 t_status_names_mpv_mpris_when_absent() {
   local out
   out=$(OMANI_MPV_SCRIPT_DIRS="$WORK/nowhere" "$OMANI" status)
-  assert_eq "$(jq -r .ready <<<"$out")" "false"
   assert_contains "$(jq -r .missing <<<"$out")" "mpv-mpris"
+  assert_eq "$(jq -r .ready <<<"$out")" "false"
 }
 
 t_status_accepts_mpris_from_any_script_dir() {
@@ -149,7 +148,7 @@ t_status_accepts_mpris_from_any_script_dir() {
   : >"$WORK/second/mpris.so"
   local out
   out=$(OMANI_MPV_SCRIPT_DIRS="$WORK/nowhere:$WORK/second" "$OMANI" status)
-  assert_eq "$(jq -r .ready <<<"$out")" "true"
+  assert_lacks "$(jq -r .missing <<<"$out")" "mpv-mpris"
 }
 
 t_status_names_a_missing_player() {

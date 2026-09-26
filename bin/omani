@@ -7,7 +7,6 @@ PROVIDER="${OMANI_PROVIDER:-$(dirname "$SELF")/omani-provider}"
 MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
 PLAYER="${OMANI_PLAYER:-mpv}"
 MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts}"
-NOTIFY="${OMANI_NOTIFY:-omarchy-notification-send}"
 
 STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
@@ -25,10 +24,6 @@ die() {
 }
 
 dry() { [[ -n ${OMANI_DRY_RUN:-} ]]; }
-
-notify() {
-  "$NOTIFY" --app-name Omani "$1" "${2:-}" 2>/dev/null || true
-}
 
 usage() {
   cat <<'USAGE'
@@ -159,7 +154,6 @@ cmd_play() {
   disown
 
   record_history "$episode" "$id" "$title"
-  notify "$title" "Episode $episode"
 }
 
 cmd_resume() {
