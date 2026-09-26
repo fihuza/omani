@@ -191,9 +191,7 @@ Item {
         Quickshell.execDetached(command([action, playingId], replacing));
     }
 
-    // The chosen quality is passed to this play only. Writing it to the settings
-    // would change every later play as well, which is not what picking a quality
-    // for the episode on screen asks for.
+    // Per play: it goes into the command, never into the stored settings.
     property string playingQuality: ""
 
     function playAtQuality(value) {
@@ -256,7 +254,10 @@ Item {
         onTriggered: root.reportProgress()
     }
 
+    // A detached launch reports no exit status, so a launch that never produces
+    // a player would otherwise hold every later one out for good.
     Timer {
+        id: launchGivesUp
         interval: 20000
         running: root.launching
         onTriggered: root.launching = false

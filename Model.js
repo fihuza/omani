@@ -266,9 +266,6 @@ function settingChange(row) {
   return { key: row.key, value: next }
 }
 
-// Only what this episode actually has: the provider reports the variants its
-// master playlist carries, and offering a height that is not there would pick
-// the best one instead and look like the choice was ignored.
 function qualityRows(available, current) {
   var rows = []
   var heights = String(available || "").split(/\s+/)
