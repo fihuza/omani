@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.fihuza.omani",
   "name": "Omani",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "fihuza",
   "license": "GPL-3.0-or-later",
   "description": "Watch anime from the Omarchy bar \u2014 search, continue watching and play, with vim motions. Inspired by ani-cli.",

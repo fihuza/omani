@@ -12,8 +12,7 @@ motions. Inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 omarchy plugin add https://github.com/fihuza/omani.git --enable
 ```
 
-Omani needs `mpv`, `curl` and `jq`. If anything is missing the panel names it
-rather than failing silently.
+Nothing else to install: Omani's dependencies all ship with Omarchy.
 
 ## Usage
 
@@ -98,13 +97,19 @@ real list.
 Omani runs unsandboxed inside the shared Omarchy shell process, so every
 external command it can invoke is listed here.
 
-| Command | Used for | Required |
+| Command | Used for | Comes from |
 |---|---|---|
-| `mpv` | playback | yes |
-| `curl` | talking to the provider | yes |
-| `jq` | status and manifest reading | yes |
-| `omarchy-notification-send` | "now playing" notification | yes (ships with Omarchy) |
-| `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | yes (base system) |
+| `mpv` | playback | Omarchy's base packages |
+| `jq` | status and manifest reading | Omarchy's base packages |
+| `curl` | talking to the provider | a dependency of `pacman`, so always present |
+| `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
+
+**On Omarchy there is nothing to install.** Every one of these is already
+there, and `mpv-mpris` is too. That last one is not a command Omani runs — it
+is a script mpv loads, and without it mpv does not report what it is playing.
+Search and playback still work; what stops is tracking, so nothing appears
+under **Playing** and the player menu has nothing to control. The panel says
+so rather than leaving you to guess.
 
 `curl-impersonate` is used when present, which gets past Cloudflare where plain
 `curl` is blocked.
