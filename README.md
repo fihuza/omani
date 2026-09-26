@@ -4,7 +4,7 @@ Watch anime from the Omarchy bar. Search, resume what you are part-way through,
 and follow a series without leaving the panel — all keyboard-driven, with vim
 motions. Inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 
-![Searching for a series, playing an episode, and stepping through the player menu from the bar](demo.gif)
+![Searching for a series from the bar, playing an episode in mpv, and stepping through the player menu](demo.gif)
 
 ## Install
 
