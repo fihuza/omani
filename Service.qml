@@ -12,7 +12,9 @@ Item {
 
     property bool ready: false
     property bool tracking: true
-    property int watchedFraction: 90
+    // Until status answers, nothing has been watched: a guess here would be a
+    // second copy of a threshold bin/omani owns.
+    property int watchedFraction: 100
     property string missing: ""
     property string version: ""
     property string historyPath: ""
