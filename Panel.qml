@@ -355,14 +355,6 @@ Panel {
                                 spacing: Style.space(6)
 
                                 PanelActionButton {
-                                    iconText: "󰌌"
-                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
-                                    onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
-                                }
-
-                                PanelActionButton {
                                     iconText: "󰒓"
                                     tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
                                     foreground: root.foreground
@@ -370,9 +362,12 @@ Panel {
                                     onClicked: root.setView(root.view === "settings" ? "history" : "settings")
                                 }
 
-                                Item {
-                                    width: Style.space(6)
-                                    height: 1
+                                PanelActionButton {
+                                    iconText: "󰌌"
+                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
                                 }
 
                                 PanelActionButton {
