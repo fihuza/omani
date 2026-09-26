@@ -115,7 +115,7 @@ test("every playing episode leads the history, under one section", () => {
   ]
   const view = Model.historyView([{ animeId: "c", title: "C", label: "ep 3" }], players)
   assert.deepEqual(view.map((r) => r.kind), ["playing", "playing", "series"])
-  assert.deepEqual(view.map((r) => r.section), ["Playing", "", "Continue watching"])
+  assert.deepEqual(view.map((r) => r.section), ["PLAYING", "", "CONTINUE WATCHING"])
 })
 
 test("a playing row carries what the player menu needs to act", () => {
@@ -128,12 +128,12 @@ test("a playing row carries what the player menu needs to act", () => {
 test("nothing playing leaves only the watch history", () => {
   const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 3" }], [])
   assert.deepEqual(view.map((r) => r.kind), ["series"])
-  assert.equal(view[0].section, "Continue watching")
+  assert.equal(view[0].section, "CONTINUE WATCHING")
 })
 
 test("only the first series row opens the section", () => {
   const view = Model.historyView([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [])
-  assert.deepEqual(view.map((r) => r.section), ["Continue watching", ""])
+  assert.deepEqual(view.map((r) => r.section), ["CONTINUE WATCHING", ""])
 })
 
 test("sectioning does not mutate the rows it was given", () => {

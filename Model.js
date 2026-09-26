@@ -76,7 +76,7 @@ function historyView(rows, players) {
   for (var p = 0; p < players.length; p++) {
     view.push({
       kind: "playing",
-      section: p === 0 ? "Playing" : "",
+      section: p === 0 ? "PLAYING" : "",
       title: players[p].title,
       label: "",
       animeId: players[p].animeId,
@@ -88,7 +88,7 @@ function historyView(rows, players) {
     var row = {}
     for (var field in rows[i]) row[field] = rows[i][field]
     row.kind = "series"
-    row.section = i === 0 ? "Continue watching" : ""
+    row.section = i === 0 ? "CONTINUE WATCHING" : ""
     view.push(row)
   }
   return view

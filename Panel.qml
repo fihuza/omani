@@ -48,12 +48,12 @@ Panel {
         })
 
     readonly property var headings: ({
-            "history": "Continue watching",
-            "results": "Results",
+            "history": "CONTINUE WATCHING",
+            "results": "RESULTS",
             "episodes": seriesTitle,
-            "settings": "Settings",
+            "settings": "SETTINGS",
             "player": service ? service.playingSeries : "Playing",
-            "shortcuts": "Shortcuts"
+            "shortcuts": "SHORTCUTS"
         })
 
     readonly property var rowActions: ({
@@ -345,6 +345,11 @@ Panel {
                         }
                     }
 
+                    PanelSeparator {
+                        width: parent.width
+                        foreground: root.foreground
+                    }
+
                     TextField {
                         id: searchField
                         visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
@@ -359,7 +364,7 @@ Panel {
                         visible: root.ready && root.view !== "history"
                         width: parent.width
                         text: root.busy ? "Loading…" : root.headings[root.view]
-                        foreground: root.dim
+                        foreground: root.foreground
                         fontFamily: root.fontFamily
                     }
 
@@ -396,7 +401,7 @@ Panel {
                                 visible: rowItem.section !== ""
                                 width: parent.width
                                 text: rowItem.section
-                                foreground: root.dim
+                                foreground: root.foreground
                                 fontFamily: root.fontFamily
                             }
 
