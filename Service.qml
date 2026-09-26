@@ -305,7 +305,7 @@ Item {
         onExited: function (exitCode) {
             root.busy = false;
             if (exitCode === 0)
-                root.episodes = Model.episodeRows(String(episodesOut.text || ""), Model.watchedOf(historyFile.text(), root.selectedId));
+                root.episodes = Model.episodeRows(String(episodesOut.text || ""), Model.progressOf(historyFile.text(), root.selectedId));
         }
     }
 

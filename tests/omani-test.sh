@@ -264,20 +264,22 @@ t_history_survives_a_title_with_punctuation() {
 
 t_progress_records_how_far_in_you_are() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
-  assert_eq "$(series_field frieren-1 .position)" "600"
-  assert_eq "$(series_field frieren-1 .duration)" "1400"
-  assert_eq "$(series_field frieren-1 '.watched | length')" "0"
+  assert_eq "$(series_field frieren-1 '.episodes["2"].position')" "600"
+  assert_eq "$(series_field frieren-1 '.episodes["2"].duration')" "1400"
 }
 
-t_progress_marks_an_episode_watched_near_the_end() {
-  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
-  assert_contains "$(series_field frieren-1 '.watched | join(",")')" "2"
+t_progress_keeps_each_episode_apart() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 3 100 1400
+  assert_eq "$(series_field frieren-1 '.episodes["2"].position')" "600"
+  assert_eq "$(series_field frieren-1 '.episodes["3"].position')" "100"
 }
 
-t_progress_does_not_record_an_episode_twice() {
-  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
-  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1390 1400
-  assert_eq "$(series_field frieren-1 '.watched | length')" "1"
+t_progress_replaces_the_position_of_the_same_episode() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 900 1400
+  assert_eq "$(series_field frieren-1 '.episodes | length')" "1"
+  assert_eq "$(series_field frieren-1 '.episodes["2"].position')" "900"
 }
 
 t_progress_refuses_a_series_not_in_history() {
@@ -540,8 +542,8 @@ check "play advances a series already in history" t_play_advances_a_series_alrea
 check "play leaves other series alone" t_play_leaves_other_series_alone
 check "history survives a title with punctuation" t_history_survives_a_title_with_punctuation
 check "progress records how far into an episode you are" t_progress_records_how_far_in_you_are
-check "an episode near its end counts as watched" t_progress_marks_an_episode_watched_near_the_end
-check "an episode is not recorded as watched twice" t_progress_does_not_record_an_episode_twice
+check "each episode keeps its own position" t_progress_keeps_each_episode_apart
+check "reporting the same episode again replaces its position" t_progress_replaces_the_position_of_the_same_episode
 check "progress refuses a series not in history" t_progress_refuses_a_series_not_in_history
 check "progress refuses a position that is not seconds" t_progress_refuses_a_position_that_is_not_seconds
 check "resume restarts the episode where it stopped" t_resume_restarts_the_episode_where_it_stopped

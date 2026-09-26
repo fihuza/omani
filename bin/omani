@@ -87,11 +87,9 @@ record_history() {
   update_history \
     --arg id "$id" --arg title "$title" --arg episode "$episode" \
     --argjson now "$(date +%s)" '
-      .series[$id] = ((.series[$id] // {watched: []}) + {
+      .series[$id] = ((.series[$id] // {episodes: {}}) + {
         title: $title,
         episode: $episode,
-        position: 0,
-        duration: 0,
         updated: $now
       })
     '
@@ -105,15 +103,14 @@ record_progress() {
   update_history \
     --arg id "$id" --arg episode "$episode" \
     --argjson position "$position" --argjson duration "$duration" \
-    --argjson now "$(date +%s)" --argjson fraction "$WATCHED_FRACTION" '
-      (.series[$id] // {title: "", watched: []}) as $entry
-      | ($duration > 0 and $position * 100 >= $duration * $fraction) as $seen
+    --argjson now "$(date +%s)" '
+      (.series[$id] // {title: "", episodes: {}}) as $entry
       | .series[$id] = ($entry + {
           episode: $episode,
-          position: $position,
-          duration: $duration,
           updated: $now,
-          watched: (($entry.watched // []) + (if $seen then [$episode] else [] end) | unique)
+          episodes: (($entry.episodes // {}) + {
+            ($episode): {position: $position, duration: $duration}
+          })
         })
     '
 }
@@ -217,8 +214,10 @@ cmd_resume() {
   local title episode position duration
   title=$(jq -r '.title' <<<"$entry")
   episode=$(jq -r '.episode' <<<"$entry")
-  position=$(jq -r '.position // 0' <<<"$entry")
-  duration=$(jq -r '.duration // 0' <<<"$entry")
+  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
+  position=$(jq -r --arg ep "$episode" '.episodes[$ep].position // 0' <<<"$entry")
+  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
+  duration=$(jq -r --arg ep "$episode" '.episodes[$ep].duration // 0' <<<"$entry")
 
   if ((duration > 0 && position * 100 < duration * WATCHED_FRACTION)); then
     cmd_play "$id" "$title" "$episode" "$position"

@@ -276,6 +276,9 @@ Panel {
 
     onOpenedChanged: {
         if (!opened) {
+            searchField.text = "";
+            if (service)
+                service.results = [];
             setView("history");
             return;
         }

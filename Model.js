@@ -15,13 +15,15 @@ function parseHistory(raw) {
   for (var animeId in series) {
     var entry = series[animeId]
     if (!entry || !entry.title || !entry.episode) continue
+    var episodes = entry.episodes || {}
+    var current = episodes[String(entry.episode)] || {}
     rows.push({
       animeId: animeId,
       title: String(entry.title),
       episode: String(entry.episode),
-      position: Number(entry.position) || 0,
-      duration: Number(entry.duration) || 0,
-      watched: entry.watched || [],
+      position: Number(current.position) || 0,
+      duration: Number(current.duration) || 0,
+      episodes: episodes,
       updated: Number(entry.updated) || 0
     })
   }
@@ -307,21 +309,29 @@ function seriesRows(raw) {
   })
 }
 
-function episodeRows(raw, watched) {
-  var seen = watched || []
+var WATCHED_FRACTION = 90
+
+function episodeLabel(progress) {
+  if (!progress || !progress.duration) return ""
+  var percent = watchedFraction(progress)
+  return percent >= WATCHED_FRACTION ? "watched" : percent + "%"
+}
+
+function episodeRows(raw, progress) {
+  var seen = progress || {}
   return tabRows(raw).map(function (fields) {
     return {
       episodeId: fields[0],
       number: fields[1],
       title: "Episode " + fields[1],
-      label: seen.indexOf(fields[1]) === -1 ? "" : "watched"
+      label: episodeLabel(seen[fields[1]])
     }
   })
 }
 
-function watchedOf(raw, animeId) {
+function progressOf(raw, animeId) {
   var entry = historyEntry(raw, animeId)
-  return entry ? entry.watched : []
+  return entry ? entry.episodes : {}
 }
 
 function sectionLabel(text) {
@@ -476,7 +486,8 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
-    watchedOf: watchedOf,
+    progressOf: progressOf,
+    episodeLabel: episodeLabel,
     heading: heading,
     heroMeta: heroMeta,
     sectionLabel: sectionLabel,

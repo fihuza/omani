@@ -202,8 +202,15 @@ test("sectioning does not mutate the rows it was given", () => {
 const HISTORY = JSON.stringify({
   version: 1,
   series: {
-    "naruto-1335": { title: "Naruto", episode: "4", position: 600, duration: 1400, watched: ["1", "2", "3"], updated: 200 },
-    "frieren-1": { title: "Frieren", episode: "2", position: 0, duration: 0, watched: [], updated: 300 }
+    "naruto-1335": {
+      title: "Naruto", episode: "4", updated: 200,
+      episodes: {
+        "1": { position: 1400, duration: 1400 },
+        "3": { position: 700, duration: 1400 },
+        "4": { position: 600, duration: 1400 }
+      }
+    },
+    "frieren-1": { title: "Frieren", episode: "2", updated: 300, episodes: {} }
   }
 })
 
@@ -220,7 +227,7 @@ test("a history that is not json is no history rather than a crash", () => {
 test("an entry missing its optional fields still reads", () => {
   const raw = JSON.stringify({ series: { a: { title: "A", episode: "1" } } })
   const [row] = Model.parseHistory(raw)
-  assert.deepEqual(row.watched, [])
+  assert.deepEqual(row.episodes, {})
   assert.equal(row.updated, 0)
   assert.equal(row.position, 0)
   assert.equal(row.duration, 0)
@@ -244,19 +251,29 @@ test("a row part way through says so, one at the start does not", () => {
   assert.equal(Model.progressLabel({ episode: "4", position: 0, duration: 1400 }), "ep 4")
 })
 
-test("episodes already watched are marked", () => {
-  const rows = Model.episodeRows("9\t1\n8\t2\n7\t9\n", ["1", "9"])
-  assert.deepEqual(rows.map(r => r.label), ["watched", "", "watched"])
+test("each episode carries its own progress", () => {
+  const rows = Model.episodeRows("9\t1\n8\t2\n7\t3\n", {
+    "1": { position: 1400, duration: 1400 },
+    "3": { position: 700, duration: 1400 }
+  })
+  assert.deepEqual(rows.map(r => r.label), ["watched", "", "50%"])
 })
 
-test("with nothing watched no episode is marked", () => {
-  assert.deepEqual(Model.episodeRows("9\t1\n", []).map(r => r.label), [""])
+test("an episode near its end reads as watched rather than a number", () => {
+  assert.equal(Model.episodeLabel({ position: 1260, duration: 1400 }), "watched")
+  assert.equal(Model.episodeLabel({ position: 1252, duration: 1400 }), "89%")
+})
+
+test("an episode with nothing recorded says nothing", () => {
+  assert.equal(Model.episodeLabel(undefined), "")
+  assert.equal(Model.episodeLabel({ position: 10, duration: 0 }), "")
   assert.deepEqual(Model.episodeRows("9\t1\n").map(r => r.label), [""])
+  assert.deepEqual(Model.episodeRows("9\t1\n", {}).map(r => r.label), [""])
 })
 
-test("the watched list comes from the series in history", () => {
-  assert.deepEqual(Model.watchedOf(HISTORY, "naruto-1335"), ["1", "2", "3"])
-  assert.deepEqual(Model.watchedOf(HISTORY, "nothing"), [])
+test("the per-episode progress comes from the series in history", () => {
+  assert.equal(Model.progressOf(HISTORY, "naruto-1335")["3"].position, 700)
+  assert.deepEqual(Model.progressOf(HISTORY, "nothing"), {})
 })
 
 test("finds the history entry for a series", () => {
