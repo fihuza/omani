@@ -56,7 +56,7 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 
 Choosing a series from **Continue watching** starts a player and opens its menu:
 
-![The player menu: next episode, replay, previous episode, select episode, change quality and stop](controls.png)
+![The player menu: next episode, replay, previous episode, select episode, change quality and stop](priv/static/controls.png)
 
 Those choices **replace** the episode they were opened for, so following a
 series never leaves a trail of players behind. Starting something from the
