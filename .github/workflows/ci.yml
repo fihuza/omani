@@ -106,7 +106,7 @@ jobs:
           HEAD: ${{ github.head_ref }}
 
       - name: Only release and hotfix branches may change the version
-        if: ${{ !startsWith(github.head_ref, 'release/') && !startsWith(github.head_ref, 'hotfix/') }}
+        if: ${{ github.head_ref != 'main' && !startsWith(github.head_ref, 'release/') && !startsWith(github.head_ref, 'hotfix/') }}
         run: |
           set -euo pipefail
           git fetch --quiet origin "$BASE"
