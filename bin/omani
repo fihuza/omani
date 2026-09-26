@@ -74,8 +74,8 @@ record_player() {
   mkdir -p "$STATE_DIR"
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
   tmp=$(mktemp)
-  # One record per media title, and the file is capped so records for players
-  # that have since exited cannot accumulate.
+  # Capped, because a record is written on every play and nothing prunes the
+  # ones whose players have exited.
   awk -F'\t' -v t="$title" 'NF >= 4 && $2 != t' "$PLAYERS_FILE" | tail -n 19 >"$tmp"
   printf '%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" >>"$tmp"
   mv "$tmp" "$PLAYERS_FILE"
@@ -131,8 +131,8 @@ cmd_play() {
   subtitles=$(awk -F'\t' '$1 == "subtitles" { print $2 }' <<<"$stream")
   [[ -n $url ]] || die "no playable source for episode $episode"
 
-  # Replacing rather than adding: the player being left behind is closed first,
-  # in the same run, so the two cannot overlap.
+  # Closed before the new one starts, so following a series never leaves two
+  # players running.
   [[ -n $REPLACE ]] && cmd_stop "$REPLACE"
 
   local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
