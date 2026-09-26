@@ -108,6 +108,26 @@ test("nothing selected is never playing", () => {
   assert.equal(Model.isPlaying([], ""), false)
 })
 
+test("a series is playing when a live player carries its id", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 22", animeId: "naruto-1335", episode: "22" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("the episode may change without the series stopping", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 23", animeId: "naruto-1335", episode: "23" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("another series playing does not count", () => {
+  const players = [{ pid: "1", title: "Frieren Episode 1", animeId: "frieren-1", episode: "1" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), false)
+})
+
+test("no series selected is never playing", () => {
+  assert.equal(Model.isPlayingSeries([{ animeId: "a" }], ""), false)
+  assert.equal(Model.isPlayingSeries([], "naruto-1335"), false)
+})
+
 test("every playing episode leads the history, under one section", () => {
   const players = [
     { pid: "1", title: "A Episode 1", animeId: "a", episode: "1" },
@@ -326,6 +346,28 @@ test("keeps a title containing spaces and punctuation intact", () => {
 
 test("tolerates carriage returns from the provider", () => {
   assert.equal(Model.seriesRows("a-1\tAlpha\r\n")[0].title, "Alpha")
+})
+
+test("a launch that has not produced a player yet says so", () => {
+  const labels = { history: "Continue watching" }
+  assert.equal(Model.heading(labels, "history", false, true), "Starting\u2026")
+})
+
+test("a launch outranks a query still loading", () => {
+  assert.equal(Model.heading({}, "history", true, true), "Starting\u2026")
+})
+
+test("a query in flight reports loading", () => {
+  assert.equal(Model.heading({}, "results", true, false), "Loading\u2026")
+})
+
+test("with nothing in flight the view names itself", () => {
+  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "Results")
+})
+
+test("a view with no label heads nothing rather than undefined", () => {
+  assert.equal(Model.heading({}, "nowhere", false, false), "")
+  assert.equal(Model.heading(null, "nowhere", false, false), "")
 })
 
 test("maps the control characters Qt reports for ctrl-d and ctrl-u", () => {

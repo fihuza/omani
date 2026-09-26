@@ -71,6 +71,14 @@ function isPlaying(players, title) {
   return false
 }
 
+function isPlayingSeries(players, animeId) {
+  if (!animeId) return false
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return true
+  }
+  return false
+}
+
 function historyView(rows, players) {
   var view = []
   for (var p = 0; p < players.length; p++) {
@@ -211,6 +219,12 @@ function episodeRows(raw) {
   })
 }
 
+function heading(labels, view, busy, launching) {
+  if (launching) return "Starting\u2026"
+  if (busy) return "Loading\u2026"
+  return labels && labels[view] ? labels[view] : ""
+}
+
 function normalizeKey(text) {
   if (!text) return ""
   if (text === "\u0004") return "ctrl+d"
@@ -327,6 +341,7 @@ if (typeof module !== "undefined") {
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     isPlaying: isPlaying,
+    isPlayingSeries: isPlayingSeries,
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
@@ -338,6 +353,7 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
+    heading: heading,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey
