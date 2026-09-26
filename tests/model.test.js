@@ -348,21 +348,31 @@ test("tolerates carriage returns from the provider", () => {
   assert.equal(Model.seriesRows("a-1\tAlpha\r\n")[0].title, "Alpha")
 })
 
+test("a series title heads its own view in the platform's shape", () => {
+  assert.equal(Model.heading({ player: "Naruto" }, "player", false, false), "NARUTO")
+  assert.equal(Model.sectionLabel("Re:ZERO -Starting Life in Another World-"), "RE:ZERO -STARTING LIFE IN ANOTHER WORLD-")
+})
+
+test("a label that is missing heads nothing rather than the word undefined", () => {
+  assert.equal(Model.sectionLabel(undefined), "")
+  assert.equal(Model.sectionLabel(null), "")
+})
+
 test("a launch that has not produced a player yet says so", () => {
   const labels = { history: "Continue watching" }
-  assert.equal(Model.heading(labels, "history", false, true), "Starting\u2026")
+  assert.equal(Model.heading(labels, "history", false, true), "STARTING\u2026")
 })
 
 test("a launch outranks a query still loading", () => {
-  assert.equal(Model.heading({}, "history", true, true), "Starting\u2026")
+  assert.equal(Model.heading({}, "history", true, true), "STARTING\u2026")
 })
 
 test("a query in flight reports loading", () => {
-  assert.equal(Model.heading({}, "results", true, false), "Loading\u2026")
+  assert.equal(Model.heading({}, "results", true, false), "LOADING\u2026")
 })
 
 test("with nothing in flight the view names itself", () => {
-  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "Results")
+  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "RESULTS")
 })
 
 test("a view with no label heads nothing rather than undefined", () => {

@@ -219,10 +219,14 @@ function episodeRows(raw) {
   })
 }
 
+function sectionLabel(text) {
+  return String(text === null || text === undefined ? "" : text).toUpperCase()
+}
+
 function heading(labels, view, busy, launching) {
-  if (launching) return "Starting\u2026"
-  if (busy) return "Loading\u2026"
-  return labels && labels[view] ? labels[view] : ""
+  if (launching) return sectionLabel("Starting\u2026")
+  if (busy) return sectionLabel("Loading\u2026")
+  return sectionLabel(labels && labels[view] ? labels[view] : "")
 }
 
 function normalizeKey(text) {
@@ -354,6 +358,7 @@ if (typeof module !== "undefined") {
     seriesRows: seriesRows,
     episodeRows: episodeRows,
     heading: heading,
+    sectionLabel: sectionLabel,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey

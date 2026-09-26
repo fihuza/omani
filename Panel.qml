@@ -23,6 +23,7 @@ Panel {
     readonly property bool ready: service ? service.ready : false
     readonly property bool busy: service ? service.busy : false
     readonly property bool launching: service ? service.launching : false
+    readonly property bool countVisible: keyState.pendingCount !== "" || keyState.pendingG
     readonly property string missing: service ? service.missing : ""
     readonly property string seriesTitle: service ? service.selectedTitle : ""
     readonly property string quality: service ? service.quality : "best"
@@ -49,12 +50,12 @@ Panel {
         })
 
     readonly property var headings: ({
-            "history": "CONTINUE WATCHING",
-            "results": "RESULTS",
+            "history": "Continue watching",
+            "results": "Results",
             "episodes": seriesTitle,
-            "settings": "SETTINGS",
+            "settings": "Settings",
             "player": service ? service.playingSeries : "Playing",
-            "shortcuts": "SHORTCUTS"
+            "shortcuts": "Shortcuts"
         })
 
     readonly property var rowActions: ({
@@ -348,6 +349,41 @@ Panel {
                                 color: root.ready ? root.foreground : root.urgent
                             }
                         }
+                        trailingControl: Component {
+                            Row {
+                                visible: root.ready
+                                spacing: Style.space(6)
+
+                                PanelActionButton {
+                                    iconText: "󰌌"
+                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
+                                }
+
+                                PanelActionButton {
+                                    iconText: "󰒓"
+                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
+                                }
+
+                                Item {
+                                    width: Style.space(6)
+                                    height: 1
+                                }
+
+                                PanelActionButton {
+                                    iconText: "󰃢"
+                                    tooltipText: "Clear history (x)"
+                                    foreground: root.foreground
+                                    fontFamily: root.fontFamily
+                                    onClicked: confirmClear.opened = true
+                                }
+                            }
+                        }
                     }
 
                     PanelSeparator {
@@ -494,48 +530,24 @@ Panel {
                     }
 
                     PanelSeparator {
-                        visible: root.ready
+                        visible: root.countVisible
                         width: parent.width
                         foreground: root.foreground
                     }
 
                     Row {
-                        visible: root.ready
+                        visible: root.countVisible
                         width: parent.width
                         spacing: Style.space(8)
 
-                        PanelActionButton {
-                            iconText: "󰒓"
-                            tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
-                            foreground: root.foreground
-                            fontFamily: root.fontFamily
-                            onClicked: root.setView(root.view === "settings" ? "history" : "settings")
-                        }
-
-                        PanelActionButton {
-                            iconText: "󰌌"
-                            tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
-                            foreground: root.foreground
-                            fontFamily: root.fontFamily
-                            onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
-                        }
-
-                        PanelActionButton {
-                            iconText: "✕"
-                            tooltipText: "Clear history (x)"
-                            foreground: root.foreground
-                            fontFamily: root.fontFamily
-                            onClicked: confirmClear.opened = true
-                        }
-
                         Item {
-                            width: 1
+                            width: parent.width - countText.implicitWidth
                             height: 1
                         }
 
                         Text {
+                            id: countText
                             anchors.verticalCenter: parent.verticalCenter
-                            visible: root.keyState.pendingCount !== "" || root.keyState.pendingG
                             textFormat: Text.PlainText
                             text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
                             color: root.dim
