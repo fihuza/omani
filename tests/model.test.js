@@ -145,6 +145,20 @@ test("nothing known leaves the label empty rather than undefined", () => {
   assert.equal(Model.episodeOf([], "", null), "")
 })
 
+test("a series already playing names the player to replace", () => {
+  const players = [
+    { pid: "1", title: "Other Episode 2", animeId: "other", episode: "2" },
+    { pid: "2", title: "Naruto Episode 8", animeId: "naruto-1335", episode: "8" }
+  ]
+  assert.equal(Model.playingTitleOf(players, "naruto-1335"), "Naruto Episode 8")
+})
+
+test("a series not playing names nothing to replace", () => {
+  assert.equal(Model.playingTitleOf([{ animeId: "other", title: "Other Episode 2" }], "naruto-1335"), "")
+  assert.equal(Model.playingTitleOf([], "naruto-1335"), "")
+  assert.equal(Model.playingTitleOf([{ animeId: "a", title: "A" }], ""), "")
+})
+
 test("a series is playing when a live player carries its id", () => {
   const players = [{ pid: "1", title: "Naruto Episode 22", animeId: "naruto-1335", episode: "22" }]
   assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)

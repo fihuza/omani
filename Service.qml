@@ -184,7 +184,7 @@ Item {
         playingSeries = String(row.title);
         playingEpisode = "";
         playingTitle = "";
-        Quickshell.execDetached(command(["resume", row.animeId]));
+        Quickshell.execDetached(command(["resume", row.animeId], Model.playingTitleOf(players, row.animeId)));
     }
 
     function playNext() {

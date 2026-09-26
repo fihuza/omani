@@ -153,6 +153,14 @@ function episodeOf(players, animeId, fallback) {
   return remembered(fallback)
 }
 
+function playingTitleOf(players, animeId) {
+  if (!animeId) return ""
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return players[i].title
+  }
+  return ""
+}
+
 function isPlayingSeries(players, animeId) {
   if (!animeId) return false
   for (var i = 0; i < players.length; i++) {
@@ -493,6 +501,7 @@ if (typeof module !== "undefined") {
     livePlayers: livePlayers,
     progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
+    playingTitleOf: playingTitleOf,
     launchedPlayer: launchedPlayer,
     qualitiesOf: qualitiesOf,
     seriesOf: seriesOf,
