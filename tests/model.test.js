@@ -170,6 +170,47 @@ test("labels a row with the episode last watched", () => {
   assert.equal(row.label, "ep 12")
 })
 
+function list(over) {
+  const base = { current: 0, viewport: 300, content: 1000, rowTop: 0, rowHeight: 40, index: 5, lastIndex: 20, margin: 6 }
+  return Object.assign(base, over)
+}
+
+test("the first row shows the header above it rather than just itself", () => {
+  assert.equal(Model.scrollTarget(list({ index: 0, current: 500 })), 0)
+})
+
+test("the last row goes to the very bottom", () => {
+  assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
+})
+
+test("a list shorter than the viewport never scrolls", () => {
+  assert.equal(Model.scrollTarget(list({ content: 120, index: 20, lastIndex: 20 })), 0)
+})
+
+test("a row above the viewport scrolls up to it, with a margin", () => {
+  assert.equal(Model.scrollTarget(list({ current: 400, rowTop: 380 })), 374)
+})
+
+test("a row below the viewport scrolls down just far enough", () => {
+  assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 320 })), 66)
+})
+
+test("a row already in view leaves the list where it is", () => {
+  assert.equal(Model.scrollTarget(list({ current: 100, rowTop: 150 })), 100)
+})
+
+test("a position left beyond the end still lands on the row", () => {
+  assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 120, content: 1000 })), 114)
+})
+
+test("a stale position with the row already in view is pulled back into range", () => {
+  assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
+})
+
+test("scrolling never goes past the end to reach a row", () => {
+  assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 990, content: 1000 })), 700)
+})
+
 test("the shortcut list is non-empty and fully labelled", () => {
   const rows = Model.shortcuts()
   assert.ok(rows.length > 0)

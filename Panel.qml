@@ -204,27 +204,30 @@ Panel {
         cursorActive = true;
     }
 
+    property var scrollItem: null
+    property int scrollIndex: -1
+
     function scrollIntoView(item, index) {
-        if (!item)
+        scrollItem = item;
+        scrollIndex = index;
+        Qt.callLater(applyScroll);
+    }
+
+    // Re-applied when the column settles: contentHeight is a binding on the
+    // column's implicit height, so a position computed before layout finishes
+    // clamps against a height that is still growing.
+    function applyScroll() {
+        if (!scrollItem || !panelFlick || !cursorActive)
             return;
-        Qt.callLater(function () {
-            if (!item || !panelFlick)
-                return;
-            // The first row sits below the hero and the search field, so
-            // bringing just the row into view would scroll both off the top.
-            if (index === 0) {
-                panelFlick.contentY = 0;
-                return;
-            }
-            var margin = Style.space(6);
-            var top = item.mapToItem(panelFlick.contentItem, 0, 0).y;
-            var bottom = top + item.height;
-            if (top - margin < panelFlick.contentY)
-                panelFlick.contentY = Math.max(0, top - margin);
-            else if (bottom + margin > panelFlick.contentY + panelFlick.height)
-                panelFlick.contentY = Math.min(Math.max(0, panelFlick.contentHeight - panelFlick.height), bottom + margin - panelFlick.height);
-            if (index === root.rows.length - 1)
-                panelFlick.contentY = Math.max(0, panelFlick.contentHeight - panelFlick.height);
+        panelFlick.contentY = Model.scrollTarget({
+            current: panelFlick.contentY,
+            viewport: panelFlick.height,
+            content: panelFlick.contentHeight,
+            rowTop: scrollItem.mapToItem(panelFlick.contentItem, 0, 0).y,
+            rowHeight: scrollItem.height,
+            index: scrollIndex,
+            lastIndex: rows.length - 1,
+            margin: Style.space(6)
         });
     }
 
@@ -321,6 +324,7 @@ Panel {
                 boundsBehavior: Flickable.StopAtBounds
                 flickableDirection: Flickable.VerticalFlick
                 interactive: contentHeight > height
+                onContentHeightChanged: root.applyScroll()
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded
                 }
@@ -387,6 +391,9 @@ Panel {
                             readonly property string section: modelData.section !== undefined ? modelData.section : ""
 
                             onSelectedChanged: if (selected)
+                                root.scrollIntoView(rowItem, index)
+
+                            Component.onCompleted: if (selected)
                                 root.scrollIntoView(rowItem, index)
 
                             width: column.width
