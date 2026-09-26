@@ -196,9 +196,6 @@ cmd_previous() {
   cmd_play "$id" "$title" "$earlier"
 }
 
-# mpv does not speak mpris on its own. Without the script that makes it, a
-# player can be started but never seen, so every player is untrackable and
-# unstoppable.
 mpris_present() {
   local dir file
   IFS=: read -ra dirs <<<"$MPV_SCRIPT_DIRS"
