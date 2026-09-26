@@ -63,12 +63,19 @@ function livePlayers(records, liveTitles) {
   return live
 }
 
-function isPlaying(players, title) {
-  if (!title) return false
+function seriesOf(players, animeId, fallback) {
   for (var i = 0; i < players.length; i++) {
-    if (players[i].title === title) return true
+    if (players[i].animeId === animeId)
+      return String(players[i].title).replace(/ Episode [^ ]*$/, "")
   }
-  return false
+  return fallback ? String(fallback) : ""
+}
+
+function episodeOf(players, animeId, fallback) {
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return String(players[i].episode)
+  }
+  return fallback ? String(fallback) : ""
 }
 
 function isPlayingSeries(players, animeId) {
@@ -84,7 +91,7 @@ function historyView(rows, players) {
   for (var p = 0; p < players.length; p++) {
     view.push({
       kind: "playing",
-      section: p === 0 ? "Playing" : "",
+      section: p === 0 ? "PLAYING" : "",
       title: players[p].title,
       label: "",
       animeId: players[p].animeId,
@@ -96,7 +103,7 @@ function historyView(rows, players) {
     var row = {}
     for (var field in rows[i]) row[field] = rows[i][field]
     row.kind = "series"
-    row.section = i === 0 ? "Continue watching" : ""
+    row.section = i === 0 ? "CONTINUE WATCHING" : ""
     view.push(row)
   }
   return view
@@ -219,10 +226,14 @@ function episodeRows(raw) {
   })
 }
 
+function sectionLabel(text) {
+  return String(text === null || text === undefined ? "" : text).toUpperCase()
+}
+
 function heading(labels, view, busy, launching) {
-  if (launching) return "Starting\u2026"
-  if (busy) return "Loading\u2026"
-  return labels && labels[view] ? labels[view] : ""
+  if (launching) return sectionLabel("Starting\u2026")
+  if (busy) return sectionLabel("Loading\u2026")
+  return sectionLabel(labels && labels[view] ? labels[view] : "")
 }
 
 function normalizeKey(text) {
@@ -340,8 +351,9 @@ if (typeof module !== "undefined") {
     replaces: replaces,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
-    isPlaying: isPlaying,
     isPlayingSeries: isPlayingSeries,
+    seriesOf: seriesOf,
+    episodeOf: episodeOf,
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
@@ -354,6 +366,7 @@ if (typeof module !== "undefined") {
     seriesRows: seriesRows,
     episodeRows: episodeRows,
     heading: heading,
+    sectionLabel: sectionLabel,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey

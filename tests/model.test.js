@@ -92,20 +92,25 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
-test("an episode still on the bus is playing", () => {
-  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
-  assert.equal(Model.isPlaying(players, "A Episode 1"), true)
+test("the series name comes from the player that is actually running", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 34", animeId: "naruto-1335", episode: "34" }]
+  assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
+  assert.equal(Model.episodeOf(players, "naruto-1335", ""), "34")
 })
 
-test("an episode whose player has gone is not playing", () => {
-  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
-  assert.equal(Model.isPlaying(players, "B Episode 2"), false)
-  assert.equal(Model.isPlaying([], "A Episode 1"), false)
+test("a title with no episode suffix is left whole", () => {
+  const players = [{ title: "Naruto", animeId: "naruto-1335", episode: "1" }]
+  assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
 })
 
-test("nothing selected is never playing", () => {
-  assert.equal(Model.isPlaying([{ title: "A Episode 1" }], ""), false)
-  assert.equal(Model.isPlaying([], ""), false)
+test("with no matching player the remembered value is used", () => {
+  assert.equal(Model.seriesOf([], "naruto-1335", "Naruto"), "Naruto")
+  assert.equal(Model.episodeOf([], "naruto-1335", "12"), "12")
+})
+
+test("nothing known leaves the label empty rather than undefined", () => {
+  assert.equal(Model.seriesOf([], "", ""), "")
+  assert.equal(Model.episodeOf([], "", null), "")
 })
 
 test("a series is playing when a live player carries its id", () => {
@@ -135,7 +140,7 @@ test("every playing episode leads the history, under one section", () => {
   ]
   const view = Model.historyView([{ animeId: "c", title: "C", label: "ep 3" }], players)
   assert.deepEqual(view.map((r) => r.kind), ["playing", "playing", "series"])
-  assert.deepEqual(view.map((r) => r.section), ["Playing", "", "Continue watching"])
+  assert.deepEqual(view.map((r) => r.section), ["PLAYING", "", "CONTINUE WATCHING"])
 })
 
 test("a playing row carries what the player menu needs to act", () => {
@@ -148,12 +153,12 @@ test("a playing row carries what the player menu needs to act", () => {
 test("nothing playing leaves only the watch history", () => {
   const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 3" }], [])
   assert.deepEqual(view.map((r) => r.kind), ["series"])
-  assert.equal(view[0].section, "Continue watching")
+  assert.equal(view[0].section, "CONTINUE WATCHING")
 })
 
 test("only the first series row opens the section", () => {
   const view = Model.historyView([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [])
-  assert.deepEqual(view.map((r) => r.section), ["Continue watching", ""])
+  assert.deepEqual(view.map((r) => r.section), ["CONTINUE WATCHING", ""])
 })
 
 test("sectioning does not mutate the rows it was given", () => {
@@ -348,21 +353,31 @@ test("tolerates carriage returns from the provider", () => {
   assert.equal(Model.seriesRows("a-1\tAlpha\r\n")[0].title, "Alpha")
 })
 
+test("a series title heads its own view in the platform's shape", () => {
+  assert.equal(Model.heading({ player: "Naruto" }, "player", false, false), "NARUTO")
+  assert.equal(Model.sectionLabel("Re:ZERO -Starting Life in Another World-"), "RE:ZERO -STARTING LIFE IN ANOTHER WORLD-")
+})
+
+test("a label that is missing heads nothing rather than the word undefined", () => {
+  assert.equal(Model.sectionLabel(undefined), "")
+  assert.equal(Model.sectionLabel(null), "")
+})
+
 test("a launch that has not produced a player yet says so", () => {
   const labels = { history: "Continue watching" }
-  assert.equal(Model.heading(labels, "history", false, true), "Starting\u2026")
+  assert.equal(Model.heading(labels, "history", false, true), "STARTING\u2026")
 })
 
 test("a launch outranks a query still loading", () => {
-  assert.equal(Model.heading({}, "history", true, true), "Starting\u2026")
+  assert.equal(Model.heading({}, "history", true, true), "STARTING\u2026")
 })
 
 test("a query in flight reports loading", () => {
-  assert.equal(Model.heading({}, "results", true, false), "Loading\u2026")
+  assert.equal(Model.heading({}, "results", true, false), "LOADING\u2026")
 })
 
 test("with nothing in flight the view names itself", () => {
-  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "Results")
+  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "RESULTS")
 })
 
 test("a view with no label heads nothing rather than undefined", () => {
