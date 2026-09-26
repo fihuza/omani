@@ -63,10 +63,38 @@ function livePlayers(records, liveTitles) {
   return live
 }
 
-function isPlaying(players, title) {
-  if (!title) return false
+function launchedPlayer(players, before) {
   for (var i = 0; i < players.length; i++) {
-    if (players[i].title === title) return true
+    if (before.indexOf(players[i].pid) === -1) return true
+  }
+  return false
+}
+
+function remembered(fallback) {
+  return fallback ? String(fallback) : ""
+}
+
+function seriesOf(players, animeId, fallback) {
+  if (!animeId) return remembered(fallback)
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId)
+      return String(players[i].title).replace(/ Episode [^ ]*$/, "")
+  }
+  return remembered(fallback)
+}
+
+function episodeOf(players, animeId, fallback) {
+  if (!animeId) return remembered(fallback)
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return String(players[i].episode)
+  }
+  return remembered(fallback)
+}
+
+function isPlayingSeries(players, animeId) {
+  if (!animeId) return false
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return true
   }
   return false
 }
@@ -76,7 +104,7 @@ function historyView(rows, players) {
   for (var p = 0; p < players.length; p++) {
     view.push({
       kind: "playing",
-      section: p === 0 ? "Playing" : "",
+      section: p === 0 ? "PLAYING" : "",
       title: players[p].title,
       label: "",
       animeId: players[p].animeId,
@@ -88,7 +116,7 @@ function historyView(rows, players) {
     var row = {}
     for (var field in rows[i]) row[field] = rows[i][field]
     row.kind = "series"
-    row.section = i === 0 ? "Continue watching" : ""
+    row.section = i === 0 ? "CONTINUE WATCHING" : ""
     view.push(row)
   }
   return view
@@ -114,6 +142,17 @@ function historyRows(raw, limit) {
       label: "ep " + row.episode
     }
   })
+}
+
+function scrollTarget(list) {
+  var limit = Math.max(0, list.content - list.viewport)
+  if (list.index <= 0) return 0
+  if (list.index >= list.lastIndex) return limit
+  var above = list.rowTop - list.margin
+  if (above < list.current) return Math.max(0, Math.min(limit, above))
+  var below = list.rowTop + list.rowHeight + list.margin
+  if (below > list.current + list.viewport) return Math.min(limit, below - list.viewport)
+  return Math.max(0, Math.min(limit, list.current))
 }
 
 function shortcuts() {
@@ -198,6 +237,16 @@ function episodeRows(raw) {
   return tabRows(raw).map(function (fields) {
     return { episodeId: fields[0], number: fields[1], title: "Episode " + fields[1] }
   })
+}
+
+function sectionLabel(text) {
+  return String(text === null || text === undefined ? "" : text).toUpperCase()
+}
+
+function heading(labels, view, busy, launching) {
+  if (launching) return sectionLabel("Starting\u2026")
+  if (busy) return sectionLabel("Loading\u2026")
+  return sectionLabel(labels && labels[view] ? labels[view] : "")
 }
 
 function normalizeKey(text) {
@@ -315,10 +364,14 @@ if (typeof module !== "undefined") {
     replaces: replaces,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
-    isPlaying: isPlaying,
+    isPlayingSeries: isPlayingSeries,
+    launchedPlayer: launchedPlayer,
+    seriesOf: seriesOf,
+    episodeOf: episodeOf,
     historyView: historyView,
     historyEntry: historyEntry,
     historyRows: historyRows,
+    scrollTarget: scrollTarget,
     shortcuts: shortcuts,
     nextSetting: nextSetting,
     settingChange: settingChange,
@@ -326,6 +379,8 @@ if (typeof module !== "undefined") {
     settingRows: settingRows,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
+    heading: heading,
+    sectionLabel: sectionLabel,
     normalizeKey: normalizeKey,
     initialKeyState: initialKeyState,
     reduceKey: reduceKey

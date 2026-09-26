@@ -150,6 +150,7 @@ if wanted version; then
   release/* | hotfix/*)
     [[ ${BRANCH#*/} == "$MV" ]] || fail "branch $BRANCH does not match manifest version $MV"
     ;;
+  main) ;;
   *)
     if git rev-parse --verify -q origin/develop >/dev/null 2>&1; then
       if git diff origin/develop -- manifest.json | grep -qE '^[-+][[:space:]]*"version"'; then

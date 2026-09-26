@@ -92,20 +92,69 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
-test("an episode still on the bus is playing", () => {
-  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
-  assert.equal(Model.isPlaying(players, "A Episode 1"), true)
+test("a launch is done when a player appears that was not there before", () => {
+  const before = ["100"]
+  assert.equal(Model.launchedPlayer([{ pid: "100" }, { pid: "200" }], before), true)
 })
 
-test("an episode whose player has gone is not playing", () => {
-  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
-  assert.equal(Model.isPlaying(players, "B Episode 2"), false)
-  assert.equal(Model.isPlaying([], "A Episode 1"), false)
+test("the player being replaced does not end its own replacement", () => {
+  const before = ["100"]
+  assert.equal(Model.launchedPlayer([{ pid: "100" }], before), false)
 })
 
-test("nothing selected is never playing", () => {
-  assert.equal(Model.isPlaying([{ title: "A Episode 1" }], ""), false)
-  assert.equal(Model.isPlaying([], ""), false)
+test("no players at all is not a finished launch", () => {
+  assert.equal(Model.launchedPlayer([], ["100"]), false)
+})
+
+test("a record with no anime id is never mistaken for the one playing", () => {
+  const players = [{ pid: "1", title: "Someone Else Episode 2", animeId: "", episode: "2" }]
+  assert.equal(Model.seriesOf(players, "", "remembered"), "remembered")
+  assert.equal(Model.episodeOf(players, "", "7"), "7")
+  assert.equal(Model.seriesOf(players, "", ""), "")
+  assert.equal(Model.episodeOf(players, "", null), "")
+})
+
+test("the series name comes from the player that is actually running", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 34", animeId: "naruto-1335", episode: "34" }]
+  assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
+  assert.equal(Model.episodeOf(players, "naruto-1335", ""), "34")
+})
+
+test("a title with no episode suffix is left whole", () => {
+  const players = [{ title: "Naruto", animeId: "naruto-1335", episode: "1" }]
+  assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
+})
+
+test("with no matching player the remembered value is used", () => {
+  assert.equal(Model.seriesOf([], "naruto-1335", "Naruto"), "Naruto")
+  assert.equal(Model.episodeOf([], "naruto-1335", "12"), "12")
+  assert.equal(Model.seriesOf([], "naruto-1335", ""), "")
+  assert.equal(Model.episodeOf([], "naruto-1335", ""), "")
+})
+
+test("nothing known leaves the label empty rather than undefined", () => {
+  assert.equal(Model.seriesOf([], "", ""), "")
+  assert.equal(Model.episodeOf([], "", null), "")
+})
+
+test("a series is playing when a live player carries its id", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 22", animeId: "naruto-1335", episode: "22" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("the episode may change without the series stopping", () => {
+  const players = [{ pid: "1", title: "Naruto Episode 23", animeId: "naruto-1335", episode: "23" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
+})
+
+test("another series playing does not count", () => {
+  const players = [{ pid: "1", title: "Frieren Episode 1", animeId: "frieren-1", episode: "1" }]
+  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), false)
+})
+
+test("no series selected is never playing", () => {
+  assert.equal(Model.isPlayingSeries([{ animeId: "a" }], ""), false)
+  assert.equal(Model.isPlayingSeries([], "naruto-1335"), false)
 })
 
 test("every playing episode leads the history, under one section", () => {
@@ -115,7 +164,7 @@ test("every playing episode leads the history, under one section", () => {
   ]
   const view = Model.historyView([{ animeId: "c", title: "C", label: "ep 3" }], players)
   assert.deepEqual(view.map((r) => r.kind), ["playing", "playing", "series"])
-  assert.deepEqual(view.map((r) => r.section), ["Playing", "", "Continue watching"])
+  assert.deepEqual(view.map((r) => r.section), ["PLAYING", "", "CONTINUE WATCHING"])
 })
 
 test("a playing row carries what the player menu needs to act", () => {
@@ -128,12 +177,12 @@ test("a playing row carries what the player menu needs to act", () => {
 test("nothing playing leaves only the watch history", () => {
   const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 3" }], [])
   assert.deepEqual(view.map((r) => r.kind), ["series"])
-  assert.equal(view[0].section, "Continue watching")
+  assert.equal(view[0].section, "CONTINUE WATCHING")
 })
 
 test("only the first series row opens the section", () => {
   const view = Model.historyView([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [])
-  assert.deepEqual(view.map((r) => r.section), ["Continue watching", ""])
+  assert.deepEqual(view.map((r) => r.section), ["CONTINUE WATCHING", ""])
 })
 
 test("sectioning does not mutate the rows it was given", () => {
@@ -168,6 +217,47 @@ test("a non-positive or missing limit falls back to showing everything", () => {
 test("labels a row with the episode last watched", () => {
   const [row] = Model.historyRows("12\tid\tRe:Zero", 1)
   assert.equal(row.label, "ep 12")
+})
+
+function list(over) {
+  const base = { current: 0, viewport: 300, content: 1000, rowTop: 0, rowHeight: 40, index: 5, lastIndex: 20, margin: 6 }
+  return Object.assign(base, over)
+}
+
+test("the first row shows the header above it rather than just itself", () => {
+  assert.equal(Model.scrollTarget(list({ index: 0, current: 500 })), 0)
+})
+
+test("the last row goes to the very bottom", () => {
+  assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
+})
+
+test("a list shorter than the viewport never scrolls", () => {
+  assert.equal(Model.scrollTarget(list({ content: 120, index: 20, lastIndex: 20 })), 0)
+})
+
+test("a row above the viewport scrolls up to it, with a margin", () => {
+  assert.equal(Model.scrollTarget(list({ current: 400, rowTop: 380 })), 374)
+})
+
+test("a row below the viewport scrolls down just far enough", () => {
+  assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 320 })), 66)
+})
+
+test("a row already in view leaves the list where it is", () => {
+  assert.equal(Model.scrollTarget(list({ current: 100, rowTop: 150 })), 100)
+})
+
+test("a position left beyond the end still lands on the row", () => {
+  assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 120, content: 1000 })), 114)
+})
+
+test("a stale position with the row already in view is pulled back into range", () => {
+  assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
+})
+
+test("scrolling never goes past the end to reach a row", () => {
+  assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 990, content: 1000 })), 700)
 })
 
 test("the shortcut list is non-empty and fully labelled", () => {
@@ -285,6 +375,38 @@ test("keeps a title containing spaces and punctuation intact", () => {
 
 test("tolerates carriage returns from the provider", () => {
   assert.equal(Model.seriesRows("a-1\tAlpha\r\n")[0].title, "Alpha")
+})
+
+test("a series title heads its own view in the platform's shape", () => {
+  assert.equal(Model.heading({ player: "Naruto" }, "player", false, false), "NARUTO")
+  assert.equal(Model.sectionLabel("Re:ZERO -Starting Life in Another World-"), "RE:ZERO -STARTING LIFE IN ANOTHER WORLD-")
+})
+
+test("a label that is missing heads nothing rather than the word undefined", () => {
+  assert.equal(Model.sectionLabel(undefined), "")
+  assert.equal(Model.sectionLabel(null), "")
+})
+
+test("a launch that has not produced a player yet says so", () => {
+  const labels = { history: "Continue watching" }
+  assert.equal(Model.heading(labels, "history", false, true), "STARTING\u2026")
+})
+
+test("a launch outranks a query still loading", () => {
+  assert.equal(Model.heading({}, "history", true, true), "STARTING\u2026")
+})
+
+test("a query in flight reports loading", () => {
+  assert.equal(Model.heading({}, "results", true, false), "LOADING\u2026")
+})
+
+test("with nothing in flight the view names itself", () => {
+  assert.equal(Model.heading({ results: "Results" }, "results", false, false), "RESULTS")
+})
+
+test("a view with no label heads nothing rather than undefined", () => {
+  assert.equal(Model.heading({}, "nowhere", false, false), "")
+  assert.equal(Model.heading(null, "nowhere", false, false), "")
 })
 
 test("maps the control characters Qt reports for ctrl-d and ctrl-u", () => {

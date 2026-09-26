@@ -29,6 +29,8 @@ Item {
     property string playingEpisode: ""
     property string playingTitle: ""
     property bool busy: false
+    property bool launching: false
+    property var launchPids: []
 
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
@@ -124,8 +126,9 @@ Item {
     }
 
     function play(id, title, episode, replacing) {
-        if (!ready)
+        if (!ready || launching)
             return;
+        beginLaunch();
         playingId = String(id);
         playingSeries = String(title);
         playingEpisode = String(episode);
@@ -134,8 +137,9 @@ Item {
     }
 
     function resume(row) {
-        if (!ready || !row)
+        if (!ready || !row || launching)
             return;
+        beginLaunch();
         playingId = String(row.animeId);
         playingSeries = String(row.title);
         playingEpisode = "";
@@ -155,8 +159,9 @@ Item {
     // replacement target is captured here rather than tracked as panel state
     // that a path into the menu could forget to set.
     function step(action) {
-        if (!ready || playingId === "")
+        if (!ready || playingId === "" || launching)
             return;
+        beginLaunch();
         var replacing = playingTitle;
         playingEpisode = "";
         playingTitle = "";
@@ -170,6 +175,7 @@ Item {
     }
 
     function stop() {
+        launching = false;
         playingId = "";
         playingSeries = "";
         playingEpisode = "";
@@ -182,7 +188,28 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
+    // A step replaces a player of the same series, so the series cannot say
+    // whether the new one has arrived. A pid that was not there when the launch
+    // started can.
+    onPlayersChanged: {
+        if (Model.launchedPlayer(players, launchPids))
+            launching = false;
+    }
+
+    function beginLaunch() {
+        launchPids = players.map(function (p) {
+            return p.pid;
+        });
+        launching = true;
+    }
+
     onLiveTitlesChanged: reloadPlayers()
+
+    Timer {
+        interval: 20000
+        running: root.launching
+        onTriggered: root.launching = false
+    }
 
     Process {
         id: statusProcess

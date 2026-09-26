@@ -4,7 +4,7 @@ Watch anime from the Omarchy bar. Search, resume what you are part-way through,
 and follow a series without leaving the panel — all keyboard-driven, with vim
 motions. Inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 
-![The Omani panel: a search field, the episode currently playing, and the watch history](preview.png)
+![The Omani panel: a search field, the episode currently playing, and the watch history below it](preview.png)
 
 ## Install
 
@@ -24,7 +24,7 @@ rather than failing silently.
 | Search | Type in the field, or press `/` |
 | Play a series | Click its row, or select it and press Enter |
 | Control what is playing | Pick it under **Playing** |
-| Settings | The 󰜓 button, or press `s` |
+| Settings | The gear button in the header, or press `s` |
 
 ### Keyboard
 
@@ -56,9 +56,7 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 
 Choosing a series from **Continue watching** starts a player and opens its menu:
 
-```
-Next episode · Replay · Previous episode · Select episode · Change quality · Stop
-```
+![The player menu: next episode, replay, previous episode, select episode, change quality and stop](controls.png)
 
 Those choices **replace** the episode they were opened for, so following a
 series never leaves a trail of players behind. Starting something from the
@@ -137,7 +135,7 @@ the manifest, and the three test suites with a 90% coverage floor on `Model.js`.
 
 The layers are kept apart on purpose:
 
-| | |
+| Layer | Responsibility |
 |---|---|
 | `Model.js` | pure functions — parsing, the key reducer, view decisions. Tested with `node --test`. |
 | `*.qml` | presentation and wiring only; no branching logic |
