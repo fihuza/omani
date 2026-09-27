@@ -16,13 +16,37 @@ Panel {
     property var service: null
 
     property string view: "history"
-    property string replaceTarget: ""
     property var keyState: Model.initialKeyState()
     property bool cursorActive: false
 
     readonly property bool ready: service ? service.ready : false
     readonly property bool busy: service ? service.busy : false
     readonly property bool launching: service ? service.launching : false
+    property string notice: ""
+
+    Connections {
+        target: root.service
+        function onFailed(message) {
+            root.notice = message;
+        }
+        function onLaunchingChanged() {
+            if (root.service.launching)
+                root.notice = "";
+        }
+        function onBusyChanged() {
+            if (root.service.busy)
+                root.notice = "";
+        }
+    }
+    readonly property var playerProgress: service ? Model.progressFor(service.progress, service.playingId) : null
+    readonly property var heroState: ({
+            ready: root.ready,
+            tracking: service ? service.tracking : true,
+            missing: root.missing,
+            notice: root.notice,
+            quality: root.quality,
+            mode: root.mode
+        })
     readonly property bool countVisible: keyState.pendingCount !== "" || keyState.pendingG
     readonly property string liveSeries: service ? Model.seriesOf(service.players, service.playingId, service.playingSeries) : ""
     readonly property string liveEpisode: service ? Model.episodeOf(service.players, service.playingId, service.playingEpisode) : ""
@@ -37,12 +61,14 @@ Panel {
     readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
     readonly property int pageSize: 6
+    readonly property real listGap: Style.space(16)
     readonly property var viewRows: ({
             "history": service ? Model.historyView(service.rows, service.players) : [],
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
-            "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],
-            "player": service ? Model.playerRows(liveSeries, liveEpisode) : [],
+            "settings": service ? Model.settingRows(root.quality, root.mode, service.version, service.repo) : [],
+            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality) : [],
+            "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
@@ -56,6 +82,7 @@ Panel {
             "results": "Results",
             "episodes": seriesTitle,
             "settings": "Settings",
+            "quality": "Quality for this episode",
             "player": liveSeries !== "" ? liveSeries : "Playing",
             "shortcuts": "Shortcuts"
         })
@@ -72,19 +99,32 @@ Panel {
                 root.setView("episodes");
             },
             "episodes": function (i) {
-                root.service.play(root.service.selectedId, root.service.selectedTitle, root.rows[i].number, root.replaceTarget);
-                root.replaceTarget = "";
+                root.service.play(root.service.selectedId, root.service.selectedTitle, root.rows[i].number);
+                root.showPlayer();
+            },
+            "quality": function (i) {
+                root.service.playAtQuality(root.rows[i].key);
                 root.showPlayer();
             },
             "settings": function (i) {
-                var change = Model.settingChange(root.rows[i]);
-                if (change)
-                    root.applySetting(change.key, change.value);
+                var action = Model.settingAction(root.rows[i]);
+                var run = action ? root.settingActions[action.type] : null;
+                if (run)
+                    run(action);
             },
             "player": function (i) {
                 var action = root.playerActions[root.rows[i].key];
                 if (action)
                     action();
+            }
+        })
+
+    readonly property var settingActions: ({
+            "open": function (action) {
+                root.service.openLink(action.url);
+            },
+            "set": function (action) {
+                root.applySetting(action.key, action.value);
             }
         })
 
@@ -100,6 +140,9 @@ Panel {
         })
 
     readonly property var playerActions: ({
+            "pause": function () {
+                root.service.togglePaused();
+            },
             "next": function () {
                 root.service.playNext();
             },
@@ -110,19 +153,19 @@ Panel {
                 root.service.playPrevious();
             },
             "select": function () {
-                root.replaceTarget = Model.replaces("player", root.service.playingTitle);
                 root.service.openSeries(root.service.playingId, root.service.playingSeries);
                 root.view = "episodes";
                 root.keyState = Model.initialKeyState();
                 root.cursorActive = false;
             },
             "quality": function () {
-                root.setView("settings");
+                root.setView("quality");
             },
             "stop": function () {
                 root.service.stopPlayer({
                     pid: "",
-                    title: root.service.playingTitle
+                    title: root.service.playingTitle,
+                    animeId: root.service.playingId
                 });
                 root.setView("history");
             }
@@ -136,6 +179,11 @@ Panel {
             },
             "focusSearch": function () {
                 searchField.forceActiveFocus();
+            },
+            "forget": function (c) {
+                var row = root.rows[c.index];
+                if (Model.forgettable(root.view, row))
+                    root.service.forget(row.animeId);
             },
             "clearHistory": function () {
                 confirmClear.opened = true;
@@ -155,8 +203,6 @@ Panel {
         })
 
     function setView(next) {
-        if (next === "history")
-            replaceTarget = "";
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;
@@ -189,10 +235,12 @@ Panel {
             handler(result.command);
     }
 
-    readonly property bool watchedPlayerGone: view === "player" && service && !service.launching && !Model.isPlayingSeries(service.players, service.playingId)
+    // Asks only about the player. Including the view made setView, which this
+    // handler calls, feed back into the property it is reacting to.
+    readonly property bool watchedPlayerGone: service && !service.launching && !Model.isPlayingSeries(service.players, service.playingId)
 
     onWatchedPlayerGoneChanged: {
-        if (watchedPlayerGone)
+        if (watchedPlayerGone && view === "player")
             setView("history");
     }
 
@@ -200,7 +248,7 @@ Panel {
         service.playingId = row.animeId;
         service.playingEpisode = row.episode;
         service.playingTitle = row.title;
-        service.playingSeries = row.title.replace(/ Episode [^ ]*$/, "");
+        service.playingSeries = Model.seriesTitle(row.title);
     }
 
     function showPlayer() {
@@ -229,6 +277,13 @@ Panel {
             index: scrollIndex,
             lastIndex: rows.length - 1,
             margin: Style.space(6)
+        });
+    }
+
+    function activateCursor() {
+        cursorActive = true;
+        keyState = Object.assign({}, keyState, {
+            index: Model.startIndex(rows)
         });
     }
 
@@ -270,12 +325,19 @@ Panel {
 
     onOpenedChanged: {
         if (!opened) {
+            searchField.text = "";
+            notice = "";
+            if (service)
+                service.results = [];
             setView("history");
             return;
         }
         if (!service)
             return;
         service.refresh();
+        var adopt = Model.adoptable(service.players, service.playingId);
+        if (adopt)
+            selectPlayer(adopt);
         if (service.playing)
             showPlayer();
     }
@@ -288,7 +350,7 @@ Panel {
         open: root.opened
         focusTarget: keyCatcher
         contentWidth: panel.fittedContentWidth(Style.space(380))
-        contentHeight: panel.fittedContentHeight(headerBox.implicitHeight + Style.space(10) + column.implicitHeight, Style.space(560))
+        contentHeight: panel.fittedContentHeight(headerBox.implicitHeight + root.listGap + column.implicitHeight, Style.space(560))
 
         PanelKeyCatcher {
             id: keyCatcher
@@ -298,7 +360,7 @@ Panel {
 
             onMoveRequested: function (dx, dy) {
                 if (!root.cursorActive) {
-                    root.cursorActive = true;
+                    root.activateCursor();
                     return;
                 }
                 root.dispatch(dy > 0 ? "j" : dy < 0 ? "k" : "");
@@ -306,7 +368,7 @@ Panel {
             onActivateRequested: if (root.cursorActive)
                 root.dispatch("enter")
             onCloseRequested: root.dispatch("escape")
-            onDeleteRequested: root.dispatch("x")
+            onDeleteRequested: root.dispatch("d")
             onTabRequested: function (direction) {
                 if (root.bar && typeof root.bar.switchPanelFrom === "function")
                     root.bar.switchPanelFrom(root.barIdentity, direction);
@@ -330,15 +392,7 @@ Panel {
                     PanelHero {
                         width: parent.width
                         title: "Omani"
-                        meta: Model.heroMeta({
-                            ready: root.ready,
-                            tracking: root.service ? root.service.tracking : true,
-                            missing: root.missing,
-                            playing: root.service ? root.service.playing : false,
-                            nowPlaying: root.service ? root.service.nowPlaying : "",
-                            quality: root.quality,
-                            mode: root.mode
-                        })
+                        meta: Model.heroMeta(root.heroState)
                         foreground: root.ready ? root.foreground : root.urgent
                         fontFamily: root.fontFamily
                         iconComponent: Component {
@@ -351,29 +405,38 @@ Panel {
                         trailingControl: Component {
                             Row {
                                 visible: root.ready
-                                spacing: Style.space(6)
+                                spacing: Style.space(4)
 
-                                PanelActionButton {
+                                Button {
                                     iconText: "󰒓"
                                     tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
+                                    iconSize: Style.font.subtitle * 1.5
+                                    horizontalPadding: Style.space(5)
+                                    verticalPadding: Style.space(2)
                                     onClicked: root.setView(root.view === "settings" ? "history" : "settings")
                                 }
 
-                                PanelActionButton {
+                                Button {
                                     iconText: "󰌌"
                                     tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
+                                    iconSize: Style.font.subtitle * 1.5
+                                    horizontalPadding: Style.space(5)
+                                    verticalPadding: Style.space(2)
                                     onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
                                 }
 
-                                PanelActionButton {
+                                Button {
                                     iconText: "󰃢"
-                                    tooltipText: "Clear history (x)"
+                                    tooltipText: "Clear history (c)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
+                                    iconSize: Style.font.subtitle * 1.5
+                                    horizontalPadding: Style.space(5)
+                                    verticalPadding: Style.space(2)
                                     onClicked: confirmClear.opened = true
                                 }
                             }
@@ -385,22 +448,75 @@ Panel {
                         foreground: root.foreground
                     }
 
-                    TextField {
-                        id: searchField
-                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                    Item {
                         width: parent.width
-                        placeholderText: "Search anime…   (/ to focus)"
-                        foreground: root.foreground
-                        onAccepted: root.submitSearch()
-                        Keys.onEscapePressed: keyCatcher.forceActiveFocus()
+                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                        implicitHeight: searchField.implicitHeight + Style.space(4)
+
+                        TextField {
+                            id: searchField
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            placeholderText: "Search anime\u2026   (/ to focus)"
+                            foreground: root.foreground
+                            onAccepted: root.submitSearch()
+                            Keys.onEscapePressed: keyCatcher.forceActiveFocus()
+                        }
                     }
 
-                    PanelSectionHeader {
-                        visible: root.ready && root.view !== "history" && text !== ""
+                    Item {
                         width: parent.width
-                        text: Model.heading(root.headings, root.view, root.busy, root.launching)
-                        foreground: root.foreground
-                        fontFamily: root.fontFamily
+                        visible: root.ready && root.view !== "history" && headingLabel.text !== ""
+                        implicitHeight: headingLabel.implicitHeight
+
+                        SectionLabel {
+                            id: headingLabel
+                            anchors.left: parent.left
+                            anchors.right: headingClock.visible ? headingClock.left : parent.right
+                            anchors.rightMargin: headingClock.visible ? Style.space(8) : 0
+                            text: Model.heading(root.headings, root.view, root.busy, root.launching)
+                        }
+
+                        Text {
+                            id: headingClock
+                            visible: root.view === "player" && root.playerProgress !== null
+                            anchors.right: parent.right
+                            anchors.verticalCenter: headingLabel.verticalCenter
+                            textFormat: Text.PlainText
+                            text: root.playerProgress ? root.playerProgress.clock : ""
+                            color: root.dim
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(4)
+                        visible: root.view === "player" && root.playerProgress !== null
+
+                        Rectangle {
+                            id: playerTrack
+                            width: parent.width
+                            height: Math.max(3, Math.round(Style.spacing.controlHeight * 0.08))
+                            radius: height / 2
+                            color: Style.selectedFillFor(root.foreground, Color.accent)
+
+                            Rectangle {
+                                width: playerTrack.width * (root.playerProgress ? root.playerProgress.fraction : 0)
+                                height: playerTrack.height
+                                radius: playerTrack.radius
+                                color: root.foreground
+                                opacity: root.playerProgress && root.playerProgress.paused ? 0.45 : 1.0
+
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 220
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -410,7 +526,7 @@ Panel {
                     anchors.right: parent.right
                     anchors.top: headerBox.bottom
                     anchors.bottom: parent.bottom
-                    anchors.topMargin: Style.space(10)
+                    anchors.topMargin: root.listGap
                     contentWidth: width
                     contentHeight: column.implicitHeight
                     clip: true
@@ -459,48 +575,27 @@ Panel {
                                     root.scrollIntoView(rowItem, index)
 
                                 width: column.width
-                                spacing: Style.space(4)
+                                spacing: Style.space(10)
 
-                                PanelSectionHeader {
-                                    visible: rowItem.section !== ""
+                                PanelSeparator {
+                                    visible: rowItem.index > 0 && rowItem.section !== ""
+                                    height: visible ? implicitHeight : 0
                                     width: parent.width
-                                    text: rowItem.section
                                     foreground: root.foreground
-                                    fontFamily: root.fontFamily
                                 }
 
-                                Rectangle {
+                                SectionLabel {
+                                    visible: rowItem.section !== ""
+                                    height: visible ? implicitHeight : 0
                                     width: parent.width
-                                    implicitHeight: rowTitle.implicitHeight + Style.space(10)
-                                    radius: Style.cornerRadius
-                                    color: rowItem.selected ? Util.alpha(root.foreground, 0.1) : "transparent"
+                                    text: rowItem.section
+                                }
 
-                                    Text {
-                                        id: rowTitle
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: Style.space(8)
-                                        anchors.right: rowMeta.left
-                                        anchors.rightMargin: Style.space(8)
-                                        textFormat: Text.PlainText
-                                        text: rowItem.modelData.title
-                                        color: root.foreground
-                                        elide: Text.ElideRight
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.body
-                                    }
-
-                                    Text {
-                                        id: rowMeta
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: Style.space(8)
-                                        textFormat: Text.PlainText
-                                        text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
-                                        color: root.dim
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.caption
-                                    }
+                                CursorSurface {
+                                    width: parent.width
+                                    implicitHeight: rowContent.implicitHeight + Style.spacing.rowPaddingX
+                                    hasCursor: rowItem.selected
+                                    foreground: root.foreground
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -508,6 +603,111 @@ Panel {
                                         cursorShape: Qt.PointingHandCursor
                                         onEntered: root.selectRow(rowItem.index)
                                         onClicked: root.activateRow(rowItem.index)
+                                    }
+
+                                    Item {
+                                        id: rowContent
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.leftMargin: Style.space(10)
+                                        anchors.rightMargin: Style.space(10)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        implicitHeight: Math.max(titleBox.implicitHeight, rowMeta.implicitHeight, rowForget.implicitHeight)
+
+                                        Text {
+                                            id: rowIcon
+                                            visible: text !== ""
+                                            width: visible ? implicitWidth : 0
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: parent.left
+                                            textFormat: Text.PlainText
+                                            text: rowItem.modelData.icon !== undefined ? rowItem.modelData.icon : ""
+                                            color: root.dim
+                                            font.family: root.fontFamily
+                                            font.pixelSize: Style.font.heading
+                                        }
+
+                                        Item {
+                                            id: titleBox
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: rowIcon.right
+                                            anchors.leftMargin: rowIcon.visible ? Style.space(10) : 0
+                                            anchors.right: rowMeta.left
+                                            anchors.rightMargin: Style.space(8)
+                                            implicitHeight: rowTitle.implicitHeight
+                                            clip: true
+
+                                            readonly property real overflow: Math.max(0, rowTitle.implicitWidth - width)
+                                            readonly property bool scrolling: rowItem.selected && overflow > 0
+
+                                            Text {
+                                                id: rowTitle
+                                                width: titleBox.scrolling ? implicitWidth : titleBox.width
+                                                textFormat: Text.PlainText
+                                                text: rowItem.modelData.title
+                                                color: root.foreground
+                                                elide: titleBox.scrolling ? Text.ElideNone : Text.ElideRight
+                                                font.family: root.fontFamily
+                                                font.pixelSize: Style.font.body
+                                            }
+
+                                            SequentialAnimation {
+                                                running: titleBox.scrolling
+                                                loops: Animation.Infinite
+                                                onRunningChanged: if (!running)
+                                                    rowTitle.x = 0
+
+                                                PauseAnimation {
+                                                    duration: 1200
+                                                }
+                                                NumberAnimation {
+                                                    target: rowTitle
+                                                    property: "x"
+                                                    to: -titleBox.overflow
+                                                    duration: Math.max(500, titleBox.overflow * 22)
+                                                }
+                                                PauseAnimation {
+                                                    duration: 1600
+                                                }
+                                                NumberAnimation {
+                                                    target: rowTitle
+                                                    property: "x"
+                                                    to: 0
+                                                    duration: 350
+                                                }
+                                                PauseAnimation {
+                                                    duration: 400
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            id: rowMeta
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.right: rowForget.visible ? rowForget.left : parent.right
+                                            anchors.rightMargin: rowForget.visible ? Style.space(8) : 0
+                                            width: Math.min(implicitWidth, parent.width * 0.45)
+                                            horizontalAlignment: Text.AlignRight
+                                            elide: Text.ElideRight
+                                            textFormat: Text.PlainText
+                                            text: Model.rowLabel(rowItem.modelData, root.service ? root.service.progress : [])
+                                            color: root.dim
+                                            font.family: root.fontFamily
+                                            font.pixelSize: Style.font.caption
+                                        }
+
+                                        PanelActionButton {
+                                            id: rowForget
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.right: parent.right
+                                            visible: rowItem.selected && Model.forgettable(root.view, rowItem.modelData)
+                                            iconText: "󰅙"
+                                            tooltipText: "Forget this series (d)"
+                                            foreground: root.foreground
+                                            hoverColor: root.urgent
+                                            fontFamily: root.fontFamily
+                                            onClicked: root.service.forget(rowItem.modelData.animeId)
+                                        }
                                     }
                                 }
                             }
@@ -528,7 +728,7 @@ Panel {
                                     id: shortcutKeys
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
-                                    anchors.leftMargin: Style.space(8)
+                                    anchors.leftMargin: Style.space(10)
                                     textFormat: Text.PlainText
                                     text: shortcutRow.modelData.keys
                                     color: root.foreground
@@ -539,7 +739,7 @@ Panel {
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.right: parent.right
-                                    anchors.rightMargin: Style.space(8)
+                                    anchors.rightMargin: Style.space(10)
                                     textFormat: Text.PlainText
                                     text: shortcutRow.modelData.action
                                     color: root.dim
@@ -586,5 +786,13 @@ Panel {
                 onCanceled: opened = false
             }
         }
+    }
+
+    component SectionLabel: PanelSectionHeader {
+        elide: Text.ElideRight
+        topPadding: Style.space(4)
+        bottomPadding: Style.space(4)
+        foreground: root.foreground
+        fontFamily: root.fontFamily
     }
 }

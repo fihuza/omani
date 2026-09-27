@@ -1,6 +1,4 @@
 #!/bin/bash
-#
-# The parsers are driven from saved pages, so nothing here reaches the network.
 
 set -uo pipefail
 
@@ -60,7 +58,6 @@ t_search_decodes_html_entities() {
 }
 
 t_search_stops_at_the_sidebar() {
-  # The sidebar repeats the result markup and would double every row.
   local out
   out=$(printf '<div class="film-detail"><h3 class="film-name"><a href="/watch/a-1" title="A"></h3>\n<div id="main-sidebar"><div class="film-detail"><h3 class="film-name"><a href="/watch/a-1" title="A"></h3></div>\n' |
     "$PROVIDER" parse-search)
@@ -75,7 +72,6 @@ t_episode_rows() {
 }
 
 t_episodes_ignore_another_series() {
-  # Provider ids share a shape, so the slug in the watch link is what disambiguates.
   local out
   out=$("$PROVIDER" parse-episodes 'some-other-show-99' <"$FIXTURES/episodes.json")
   assert_eq "$out" ""
@@ -138,13 +134,17 @@ t_search_reports_a_cloudflare_block() {
 
 t_search_reports_a_transport_failure() {
   local out
-  out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1)
+  if out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
   assert_contains "$out" "could not fetch"
 }
 
 t_search_reports_a_bad_status() {
   local out
-  out=$(FAKE_CODE=503 "$PROVIDER" search frieren 2>&1)
+  if out=$(FAKE_CODE=503 "$PROVIDER" search frieren 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
   assert_contains "$out" "503"
 }
 
@@ -170,6 +170,12 @@ t_stream_resolves_url_referrer_and_subtitles() {
   assert_contains "$out" "url	https://cdn/1080/i.m3u8"
   assert_contains "$out" "referrer	https://zokoanime.video/"
   assert_contains "$out" "subtitles	https://cdn/en.vtt"
+}
+
+t_stream_reports_the_variants_the_episode_has() {
+  local out
+  out=$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
+  assert_contains "$out" "qualities	1080 360"
 }
 
 t_stream_honours_the_requested_quality() {
@@ -220,6 +226,7 @@ check "search needs a query" t_search_needs_a_query
 check "episodes works end to end" t_episodes_end_to_end
 check "episodes needs an id" t_episodes_needs_an_id
 check "stream resolves url, referrer and subtitles" t_stream_resolves_url_referrer_and_subtitles
+check "stream reports the variants the episode has" t_stream_reports_the_variants_the_episode_has
 check "stream honours the requested quality" t_stream_honours_the_requested_quality
 check "stream falls back when the quality is absent" t_stream_falls_back_when_the_quality_is_absent
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked

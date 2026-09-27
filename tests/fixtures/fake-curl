@@ -1,6 +1,4 @@
 #!/bin/bash
-# Stands in for curl. Serves fixtures by url and can be told to fail, so the
-# provider's network paths are exercised without a network.
 # The url being fetched is the first one that is not the referrer, which curl
 # takes as the argument to -e.
 url=""

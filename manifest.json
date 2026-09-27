@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "io.github.fihuza.omani",
   "name": "Omani",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "author": "fihuza",
   "license": "GPL-3.0-or-later",
-  "description": "Watch anime from the Omarchy bar \u2014 search, continue watching and play, with vim motions. Inspired by ani-cli.",
+  "description": "Watch anime from the Omarchy bar — search, continue watching and play, with vim motions.",
   "kinds": [
     "bar-widget"
   ],
@@ -21,15 +21,14 @@
     "defaults": {
       "historyLimit": 8,
       "quality": "best",
-      "mode": "sub",
-      "showNowPlaying": true
+      "mode": "sub"
     },
     "schema": [
       {
         "key": "historyLimit",
         "type": "integer",
         "label": "Continue watching rows",
-        "description": "How many series from ani-cli's history to list.",
+        "description": "How many series from the watch history to list.",
         "min": 1,
         "max": 20,
         "step": 1,
@@ -39,7 +38,7 @@
         "key": "quality",
         "type": "enum",
         "label": "Video quality",
-        "description": "Passed to ani-cli as -q. 'best' lets ani-cli choose.",
+        "description": "Which variant to ask the provider for. 'best' takes the highest it offers.",
         "options": [
           "best",
           "1080",
@@ -60,13 +59,6 @@
           "dub"
         ],
         "defaultValue": "sub"
-      },
-      {
-        "key": "showNowPlaying",
-        "type": "boolean",
-        "label": "Show what is playing",
-        "description": "Put the current mpv title next to the bar icon.",
-        "defaultValue": true
       }
     ]
   }

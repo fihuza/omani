@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import qs.Ui
+import "Model.js" as Model
 
 BarWidget {
     id: root
@@ -41,7 +42,7 @@ BarWidget {
     }
 
     function resumeTop() {
-        omani.resume(omani.rows[0]);
+        omani.resume(Model.resumeTarget(omani.rows, omani.players));
     }
 
     function injectPanel() {
@@ -107,7 +108,7 @@ BarWidget {
         }
         function resumeTop(): string {
             root.resumeTop();
-            return omani.rows.length > 0 ? "ok" : "history is empty";
+            return Model.resumeTarget(omani.rows, omani.players) ? "ok" : "nothing to continue";
         }
     }
 
