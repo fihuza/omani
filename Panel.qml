@@ -70,7 +70,7 @@ Panel {
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, root.watched, service.version, service.repo) : [],
-            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality) : [],
+            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality, service.muted) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
         })
@@ -144,6 +144,9 @@ Panel {
             "pause": function () {
                 root.service.togglePaused();
             },
+            "mute": function () {
+                root.service.toggleMuted();
+            },
             "next": function () {
                 root.service.playNext();
             },
@@ -191,10 +194,10 @@ Panel {
                 root.service.refresh();
             },
             "toggleSettings": function () {
-                root.setView(root.view === "settings" ? "history" : "settings");
+                root.toggleView("settings");
             },
             "toggleShortcuts": function () {
-                root.setView(root.view === "shortcuts" ? "history" : "shortcuts");
+                root.toggleView("shortcuts");
             },
             "close": function () {
                 root.goBack();
@@ -204,7 +207,7 @@ Panel {
     property string openedFrom: ""
 
     function setView(next) {
-        openedFrom = view;
+        openedFrom = Model.originFor(view, next, openedFrom);
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;
@@ -215,6 +218,13 @@ Panel {
                 root.close();
             }
         })
+
+    function toggleView(name) {
+        if (view === name)
+            goBack();
+        else
+            setView(name);
+    }
 
     function goBack() {
         var next = Model.backFrom(view, openedFrom);
@@ -230,7 +240,8 @@ Panel {
             return;
         var result = Model.reduceKey(keyState, key, {
             rowCount: rows.length,
-            pageSize: pageSize
+            pageSize: pageSize,
+            searchable: Model.searchable(view)
         });
         keyState = result.state;
         if (!result.command)
@@ -411,7 +422,7 @@ Panel {
                                     iconSize: Style.font.subtitle * 1.5
                                     horizontalPadding: Style.space(5)
                                     verticalPadding: Style.space(2)
-                                    onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
+                                    onClicked: root.toggleView("shortcuts")
                                 }
 
                                 Button {
@@ -422,7 +433,7 @@ Panel {
                                     iconSize: Style.font.subtitle * 1.5
                                     horizontalPadding: Style.space(5)
                                     verticalPadding: Style.space(2)
-                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
+                                    onClicked: root.toggleView("settings")
                                 }
                             }
                         }
@@ -435,7 +446,7 @@ Panel {
 
                     Item {
                         width: parent.width
-                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                        visible: root.ready && Model.searchable(root.view)
                         implicitHeight: searchField.implicitHeight + Style.space(4)
 
                         TextField {
@@ -457,16 +468,33 @@ Panel {
                         SectionLabel {
                             id: headingLabel
                             anchors.left: parent.left
-                            anchors.right: headingClock.visible ? headingClock.left : parent.right
-                            anchors.rightMargin: headingClock.visible ? Style.space(8) : 0
+                            anchors.right: parent.right
                             text: Model.heading(root.headings, root.view, root.busy, root.launching)
+                        }
+                    }
+
+                    Item {
+                        width: parent.width
+                        visible: root.view === "player" && root.playerProgress !== null && episodeCaption.text !== ""
+                        implicitHeight: episodeCaption.implicitHeight
+
+                        Text {
+                            id: episodeCaption
+                            anchors.left: parent.left
+                            anchors.right: episodeClock.left
+                            anchors.rightMargin: Style.space(8)
+                            elide: Text.ElideRight
+                            textFormat: Text.PlainText
+                            text: Model.episodeCaption(root.liveEpisode)
+                            color: root.foreground
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
                         }
 
                         Text {
-                            id: headingClock
-                            visible: root.view === "player" && root.playerProgress !== null
+                            id: episodeClock
                             anchors.right: parent.right
-                            anchors.verticalCenter: headingLabel.verticalCenter
+                            anchors.verticalCenter: episodeCaption.verticalCenter
                             textFormat: Text.PlainText
                             text: root.playerProgress ? root.playerProgress.clock : ""
                             color: root.dim
