@@ -39,6 +39,17 @@ Panel {
                 root.notice = "";
         }
     }
+    readonly property var heroState: ({
+            ready: root.ready,
+            tracking: service ? service.tracking : true,
+            missing: root.missing,
+            playing: service ? service.playing : false,
+            nowPlaying: service ? service.nowPlaying : "",
+            elapsed: service ? service.elapsed : "",
+            notice: root.notice,
+            quality: root.quality,
+            mode: root.mode
+        })
     readonly property bool countVisible: keyState.pendingCount !== "" || keyState.pendingG
     readonly property string liveSeries: service ? Model.seriesOf(service.players, service.playingId, service.playingSeries) : ""
     readonly property string liveEpisode: service ? Model.episodeOf(service.players, service.playingId, service.playingEpisode) : ""
@@ -369,17 +380,8 @@ Panel {
                     PanelHero {
                         width: parent.width
                         title: "Omani"
-                        meta: Model.heroMeta({
-                            ready: root.ready,
-                            tracking: root.service ? root.service.tracking : true,
-                            missing: root.missing,
-                            playing: root.service ? root.service.playing : false,
-                            nowPlaying: root.service ? root.service.nowPlaying : "",
-                            elapsed: root.service ? root.service.elapsed : "",
-                            notice: root.notice,
-                            quality: root.quality,
-                            mode: root.mode
-                        })
+                        meta: Model.heroMeta(root.heroState)
+                        detail: Model.heroDetail(root.heroState)
                         foreground: root.ready ? root.foreground : root.urgent
                         fontFamily: root.fontFamily
                         iconComponent: Component {
@@ -445,12 +447,9 @@ Panel {
                         Keys.onEscapePressed: keyCatcher.forceActiveFocus()
                     }
 
-                    PanelSectionHeader {
+                    SectionLabel {
                         visible: root.ready && root.view !== "history" && text !== ""
-                        width: parent.width
                         text: Model.heading(root.headings, root.view, root.busy, root.launching)
-                        foreground: root.foreground
-                        fontFamily: root.fontFamily
                     }
                 }
 
@@ -511,20 +510,10 @@ Panel {
                                 width: column.width
                                 spacing: Style.space(10)
 
-                                PanelSeparator {
-                                    visible: rowItem.index > 0 && rowItem.section !== ""
-                                    height: visible ? implicitHeight : 0
-                                    width: parent.width
-                                    foreground: root.foreground
-                                }
-
-                                PanelSectionHeader {
+                                SectionLabel {
                                     visible: rowItem.section !== ""
                                     height: visible ? implicitHeight : 0
-                                    width: parent.width
                                     text: rowItem.section
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
                                 }
 
                                 CursorSurface {
@@ -584,6 +573,9 @@ Panel {
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.right: rowForget.visible ? rowForget.left : parent.right
                                             anchors.rightMargin: rowForget.visible ? Style.space(8) : 0
+                                            width: Math.min(implicitWidth, parent.width * 0.45)
+                                            horizontalAlignment: Text.AlignRight
+                                            elide: Text.ElideRight
                                             textFormat: Text.PlainText
                                             text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
                                             color: root.dim
@@ -623,7 +615,7 @@ Panel {
                                     id: shortcutKeys
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
-                                    anchors.leftMargin: Style.space(8)
+                                    anchors.leftMargin: Style.space(10)
                                     textFormat: Text.PlainText
                                     text: shortcutRow.modelData.keys
                                     color: root.foreground
@@ -634,7 +626,7 @@ Panel {
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.right: parent.right
-                                    anchors.rightMargin: Style.space(8)
+                                    anchors.rightMargin: Style.space(10)
                                     textFormat: Text.PlainText
                                     text: shortcutRow.modelData.action
                                     color: root.dim
@@ -681,5 +673,14 @@ Panel {
                 onCanceled: opened = false
             }
         }
+    }
+
+    component SectionLabel: PanelSectionHeader {
+        width: parent ? parent.width : 0
+        elide: Text.ElideRight
+        topPadding: Style.space(4)
+        bottomPadding: Style.space(4)
+        foreground: root.foreground
+        fontFamily: root.fontFamily
     }
 }

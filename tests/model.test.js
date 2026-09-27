@@ -612,8 +612,9 @@ test("the player on the bus is found by the title it reports", () => {
 
 test("the hero says how far into what is playing", () => {
   const state = { ready: true, tracking: true, missing: "", playing: true, nowPlaying: "Naruto Episode 5", elapsed: "4:12 / 23:22", quality: "best", mode: "sub" }
-  assert.equal(Model.heroMeta(state), "Naruto Episode 5 \u00b7 4:12 / 23:22")
-  assert.equal(Model.heroMeta(Object.assign({}, state, { elapsed: "" })), "Naruto Episode 5")
+  assert.equal(Model.heroMeta(state), "Naruto Episode 5")
+  assert.equal(Model.heroDetail(state), "4:12 / 23:22")
+  assert.equal(Model.heroDetail(Object.assign({}, state, { elapsed: "" })), "")
 })
 
 test("only the first line of a failure is shown", () => {
@@ -622,6 +623,12 @@ test("only the first line of a failure is shown", () => {
   assert.equal(Model.firstLine("no prefix here"), "no prefix here")
   assert.equal(Model.firstLine(""), "")
   assert.equal(Model.firstLine(null), "")
+})
+
+test("the clock is not shown for anything but a player that is running", () => {
+  assert.equal(Model.heroDetail(hero({ playing: true, elapsed: "1:00", notice: "boom" })), "")
+  assert.equal(Model.heroDetail(hero({ playing: true, elapsed: "1:00", ready: false })), "")
+  assert.equal(Model.heroDetail(hero({ playing: false, elapsed: "1:00" })), "")
 })
 
 test("a failure outranks everything else the hero could say", () => {

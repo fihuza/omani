@@ -408,8 +408,15 @@ function heroMeta(state) {
   if (state.notice) return state.notice
   if (!state.ready) return "missing: " + state.missing
   if (!state.tracking) return "mpv-mpris missing \u00b7 players are not tracked"
-  if (state.playing) return state.nowPlaying + (state.elapsed ? " \u00b7 " + state.elapsed : "")
+  if (state.playing) return state.nowPlaying
   return state.quality + " \u00b7 " + state.mode
+}
+
+// The clock rides beside the title rather than after the episode, where a long
+// series name would push it out of a line that elides.
+function heroDetail(state) {
+  if (state.notice || !state.ready || !state.playing) return ""
+  return state.elapsed || ""
 }
 
 function heading(labels, view, busy, launching) {
@@ -568,6 +575,7 @@ if (typeof module !== "undefined") {
     episodeLabel: episodeLabel,
     heading: heading,
     heroMeta: heroMeta,
+    heroDetail: heroDetail,
     clock: clock,
     elapsed: elapsed,
     playerFor: playerFor,
