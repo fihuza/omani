@@ -12,37 +12,6 @@ test("treats an empty or absent history as no rows", () => {
   assert.deepEqual(Model.parseHistory("\n\n  \n"), [])
 })
 
-test("going back from a view lands where it came from", () => {
-  assert.equal(Model.backFrom("episodes"), "results")
-  assert.equal(Model.backFrom("results"), "history")
-  assert.equal(Model.backFrom("settings"), "history")
-  assert.equal(Model.backFrom("shortcuts"), "history")
-  assert.equal(Model.backFrom("player"), "history")
-})
-
-test("leaving the episode list returns to the view it was opened from", () => {
-  assert.equal(Model.backFrom("episodes", "player"), "player",
-    "opened from the player menu by Select episode")
-  assert.equal(Model.backFrom("episodes", "results"), "results",
-    "opened by choosing a series from a search")
-  assert.equal(Model.backFrom("episodes", "history"), "history")
-})
-
-test("an episode list with no remembered origin falls back to the search results", () => {
-  assert.equal(Model.backFrom("episodes"), "results")
-  assert.equal(Model.backFrom("episodes", ""), "results")
-})
-
-test("a view that is reached from one place only goes where it always did", () => {
-  assert.equal(Model.backFrom("results", "history"), "history")
-  assert.equal(Model.backFrom("results", "episodes"), "history", "results open from a search and nowhere else")
-})
-
-test("going back from the history closes the panel", () => {
-  assert.equal(Model.backFrom("history"), "close")
-  assert.equal(Model.backFrom("nonsense"), "close")
-})
-
 test("player records are read back with every field", () => {
   const [record] = Model.playerRecords("4242\tNaruto Episode 79\tnaruto-1335\t79\t1080 720\n")
   assert.deepEqual(record, { pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79", qualities: "1080 720" })
@@ -627,10 +596,6 @@ test("a record written before variants were tracked still parses", () => {
   assert.equal(rows[0].qualities, "")
 })
 
-test("leaving the quality list returns to the player it was opened from", () => {
-  assert.equal(Model.backFrom("quality"), "player")
-})
-
 test("the caption names the episode under the series heading", () => {
   assert.equal(Model.episodeCaption("4"), "Episode 4")
   assert.equal(Model.episodeCaption("7.5"), "Episode 7.5")
@@ -789,60 +754,53 @@ test("about comes last and opens the repository", () => {
   assert.deepEqual(Model.settingAction(last), { type: "open", url: "https://github.com/fihuza/omani" })
 })
 
-test("one overlay opened from another keeps the view they both sit over", () => {
-  assert.equal(Model.originFor("player", "settings", ""), "player")
-  assert.equal(Model.originFor("settings", "shortcuts", "player"), "player",
-    "the shortcut list still sits over the player menu, not over the settings")
-  assert.equal(Model.originFor("shortcuts", "settings", "player"), "player")
+test("a view opened is a view you can come back from", () => {
+  assert.deepEqual(Model.pushView(["history"], "results"), ["history", "results"])
+  assert.deepEqual(Model.pushView(["history", "results"], "episodes"), ["history", "results", "episodes"])
 })
 
-test("the settings opened over the episode list return to the list", () => {
-  const origin = Model.originFor("episodes", "settings", "results")
-  assert.equal(origin, "episodes", "the episode list is somewhere you went, not an overlay")
-  assert.equal(Model.backFrom("settings", origin), "episodes")
+test("going back leaves the one you came from showing", () => {
+  assert.deepEqual(Model.popView(["history", "results", "episodes"]), { stack: ["history", "results"], view: "results" })
+  assert.deepEqual(Model.popView(["history", "player"]), { stack: ["history"], view: "history" })
 })
 
-test("an overlay opened from an ordinary view remembers that view", () => {
-  assert.equal(Model.originFor("history", "settings", ""), "history")
-  assert.equal(Model.originFor("results", "episodes", "history"), "results")
+test("going back from the first view closes the panel", () => {
+  assert.deepEqual(Model.popView(["history"]), { stack: ["history"], view: "close" })
+  assert.deepEqual(Model.popView([]), { stack: [], view: "close" })
+  assert.deepEqual(Model.popView(undefined), { stack: [], view: "close" },
+    "a panel asked to go back before it has a stack closes rather than throwing")
 })
 
-test("no pair of views can send each other back and forth", () => {
+test("returning to a view already open comes back to it rather than stacking", () => {
+  assert.deepEqual(Model.pushView(["history", "player", "episodes"], "player"), ["history", "player"],
+    "the episode list is left behind, not remembered twice")
+  assert.deepEqual(Model.pushView(["history", "results"], "results"), ["history", "results"])
+})
+
+test("the shortcut list opened over the episode list goes back to it, once", () => {
+  let stack = ["history", "player", "episodes"]
+  stack = Model.pushView(stack, "shortcuts")
+  assert.deepEqual(stack, ["history", "player", "episodes", "shortcuts"])
+  let back = Model.popView(stack)
+  assert.equal(back.view, "episodes")
+  back = Model.popView(back.stack)
+  assert.equal(back.view, "player", "and on to the player menu, never back to the shortcuts")
+})
+
+test("no sequence of views can be walked back forever", () => {
   const views = ["history", "results", "episodes", "player", "settings", "shortcuts", "quality"]
-  for (const from of views) {
-    for (const to of views) {
-      if (from === to) continue
-      let view = to
-      let origin = Model.originFor(from, to, "")
-      const walked = []
-      while (view !== "close" && walked.length <= views.length) {
-        walked.push(view)
-        const next = Model.backFrom(view, origin)
-        origin = ""
-        view = next
+  for (const a of views) {
+    for (const b of views) {
+      let stack = Model.pushView(Model.pushView(["history"], a), b)
+      let steps = 0
+      let out = { stack: stack, view: "" }
+      while (out.view !== "close" && steps <= views.length + 2) {
+        out = Model.popView(out.stack)
+        steps++
       }
-      assert.ok(walked.length <= views.length,
-        from + " -> " + to + " never stops going back: " + walked.join(" -> "))
+      assert.ok(out.view === "close", a + " then " + b + " never closes")
     }
   }
-})
-
-test("settings and the shortcut list cannot send each other back and forth", () => {
-  let view = "player"
-  let origin = ""
-  for (const next of ["settings", "shortcuts"]) {
-    origin = Model.originFor(view, next, origin)
-    view = next
-  }
-  assert.equal(view, "shortcuts")
-  assert.equal(Model.backFrom(view, origin), "player")
-})
-
-test("leaving the settings returns to the view that opened them", () => {
-  assert.equal(Model.backFrom("settings", "player"), "player")
-  assert.equal(Model.backFrom("shortcuts", "player"), "player")
-  assert.equal(Model.backFrom("settings", "history"), "history")
-  assert.equal(Model.backFrom("settings"), "history", "with no origin, where they always went")
 })
 
 test("choosing the version row opens the release it names", () => {

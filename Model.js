@@ -44,31 +44,22 @@ function progressLabel(row) {
   return "ep " + row.episode + " \u00b7 " + percent + "%"
 }
 
-var BACK_FROM = {
-  episodes: "results",
-  results: "history",
-  settings: "history",
-  shortcuts: "history",
-  player: "history",
-  quality: "player"
-}
-
-var REMEMBERS_ORIGIN = { episodes: true, settings: true, shortcuts: true, quality: true }
-
 var OVERLAY = { settings: true, shortcuts: true, quality: true }
 
 function searchable(view) {
   return !OVERLAY[view] && view !== "player"
 }
 
-function originFor(view, next, openedFrom) {
-  if (OVERLAY[view] && OVERLAY[next]) return openedFrom
-  return view
+function pushView(stack, next) {
+  var at = stack.indexOf(next)
+  if (at !== -1) return stack.slice(0, at + 1)
+  return stack.concat([next])
 }
 
-function backFrom(view, openedFrom) {
-  if (REMEMBERS_ORIGIN[view] && openedFrom) return openedFrom
-  return BACK_FROM[view] || "close"
+function popView(stack) {
+  if (!stack || stack.length <= 1) return { stack: stack || [], view: "close" }
+  var out = stack.slice(0, stack.length - 1)
+  return { stack: out, view: out[out.length - 1] }
 }
 
 function playerRecords(raw) {
@@ -653,8 +644,8 @@ if (typeof module !== "undefined") {
     parseHistory: parseHistory,
     watchedFraction: watchedFraction,
     progressLabel: progressLabel,
-    backFrom: backFrom,
-    originFor: originFor,
+    pushView: pushView,
+    popView: popView,
     searchable: searchable,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
