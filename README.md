@@ -172,7 +172,19 @@ named.
 omarchy plugin remove io.github.fihuza.omani
 ```
 
-Your watch history is left alone.
+That takes the widget out of the bar and its settings with it. Your watch
+history is deliberately left behind, so reinstalling picks up where you were.
+
+To delete that as well:
+
+```bash
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/omani" \
+  "${XDG_RUNTIME_DIR:-/tmp}/omani"
+```
+
+The first holds `history.json`, its lock, and the `.bak` that clearing the
+history leaves. The second holds the record of players Omani started, which the
+system clears on its own at reboot. Nothing else is written anywhere.
 
 ## Development
 
