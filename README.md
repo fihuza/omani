@@ -25,6 +25,7 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Control what is playing | Pick it under **Playing** — pause, follow the series, change quality, stop |
 | Forget a series | Hover its row and click ✕, or select it and press `d` or `x` |
 | Settings | The gear button in the header, or press `s` |
+| Open this repository | Press Enter on **Version** in the settings |
 
 ### Keyboard
 
@@ -126,6 +127,7 @@ external command it can invoke is listed here.
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
 | `flock` | serialising writes to the watch history | `util-linux`, required by `base` |
+| `omarchy-launch-browser` | opening this repository from the settings | Omarchy |
 
 **On Omarchy there is nothing to install.** Every one of these is already
 there, and `mpv-mpris` is too. That last one is not a command Omani runs — it

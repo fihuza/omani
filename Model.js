@@ -355,12 +355,20 @@ function settingChange(row) {
 }
 
 
-function settingRows(quality, mode, version) {
+function settingRows(quality, mode, version, repo) {
   return [
-    { key: "quality", value: quality, title: "Quality", label: quality },
-    { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed" },
-    { key: "version", value: version, title: "Version", label: version }
+    { key: "quality", value: quality, title: "Quality", label: quality, link: "" },
+    { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed", link: "" },
+    { key: "version", value: version, title: "Version", label: version, link: repo || "" }
   ]
+}
+
+// Choosing a settings row either moves its value on or opens what it points at.
+function settingAction(row) {
+  if (!row) return null
+  if (row.link) return { type: "open", url: row.link }
+  var change = settingChange(row)
+  return change ? { type: "set", key: change.key, value: change.value } : null
 }
 
 function tabRows(raw) {
@@ -640,6 +648,7 @@ if (typeof module !== "undefined") {
     playerRows: playerRows,
     qualityRows: qualityRows,
     settingRows: settingRows,
+    settingAction: settingAction,
     seriesRows: seriesRows,
     episodeRows: episodeRows,
     forgettable: forgettable,

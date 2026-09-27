@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
+import qs.Commons
 import "Model.js" as Model
 
 Item {
@@ -17,6 +18,7 @@ Item {
     property int watchedFraction: 100
     property string missing: ""
     property string version: ""
+    property string repo: ""
     property string historyPath: ""
 
     property var rows: []
@@ -125,6 +127,7 @@ Item {
         watchedFraction = Number(parsed.watchedFraction) || watchedFraction;
         missing = String(parsed.missing || "");
         version = String(parsed.version || "");
+        repo = String(parsed.repo || "");
         historyPath = String(parsed.historyPath || "");
         playersPath = String(parsed.playersPath || "");
     }
@@ -267,6 +270,10 @@ Item {
 
     function forget(animeId) {
         Quickshell.execDetached(command(["forget", animeId]));
+    }
+
+    function openLink(url) {
+        Util.execArgv(["omarchy-launch-browser", String(url)]);
     }
 
     function clearHistory() {

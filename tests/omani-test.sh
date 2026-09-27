@@ -134,6 +134,10 @@ t_status_reports_the_history_path() {
   assert_eq "$("$OMANI" status | jq -r .historyPath)" "$OMANI_HIST_FILE"
 }
 
+t_status_reports_the_repository() {
+  assert_eq "$("$OMANI" status | jq -r .repo)" "https://github.com/fihuza/omani"
+}
+
 t_status_reports_the_plugin_version() {
   printf '{"version":"9.9.9"}\n' >"$WORK/manifest.json"
   assert_eq "$(OMANI_MANIFEST="$WORK/manifest.json" "$OMANI" status | jq -r .version)" "9.9.9"
@@ -736,6 +740,7 @@ t_help_succeeds() {
 
 check "status is valid json" t_status_json
 check "status reports the history path" t_status_reports_the_history_path
+check "status reports the repository" t_status_reports_the_repository
 check "status reports the plugin version" t_status_reports_the_plugin_version
 check "status survives a missing manifest" t_status_survives_a_missing_manifest
 check "status names a player that is missing" t_status_names_a_missing_player

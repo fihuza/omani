@@ -66,7 +66,7 @@ Panel {
             "history": service ? Model.historyView(service.rows, service.players) : [],
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
-            "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],
+            "settings": service ? Model.settingRows(root.quality, root.mode, service.version, service.repo) : [],
             "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
@@ -107,14 +107,24 @@ Panel {
                 root.showPlayer();
             },
             "settings": function (i) {
-                var change = Model.settingChange(root.rows[i]);
-                if (change)
-                    root.applySetting(change.key, change.value);
+                var action = Model.settingAction(root.rows[i]);
+                var run = action ? root.settingActions[action.type] : null;
+                if (run)
+                    run(action);
             },
             "player": function (i) {
                 var action = root.playerActions[root.rows[i].key];
                 if (action)
                     action();
+            }
+        })
+
+    readonly property var settingActions: ({
+            "open": function (action) {
+                root.service.openLink(action.url);
+            },
+            "set": function (action) {
+                root.applySetting(action.key, action.value);
             }
         })
 

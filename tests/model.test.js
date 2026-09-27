@@ -554,6 +554,26 @@ test("settings are rows like every other view, so the same keys drive them", () 
   assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "version"])
 })
 
+test("the version row points at the repository", () => {
+  const rows = Model.settingRows("best", "sub", "1.0.4", "https://github.com/fihuza/omani")
+  const version = rows.find(r => r.key === "version")
+  assert.equal(version.link, "https://github.com/fihuza/omani")
+  assert.deepEqual(Model.settingAction(version), { type: "open", url: "https://github.com/fihuza/omani" })
+})
+
+test("a version row with nowhere to point does nothing when chosen", () => {
+  const version = Model.settingRows("best", "sub", "1.0.4", "").find(r => r.key === "version")
+  assert.equal(version.link, "")
+  assert.equal(Model.settingAction(version), null)
+})
+
+test("choosing any other row moves its value on", () => {
+  const rows = Model.settingRows("720", "sub", "1.0.4", "https://example.test")
+  assert.deepEqual(Model.settingAction(rows[0]), { type: "set", key: "quality", value: "480" })
+  assert.deepEqual(Model.settingAction(rows[1]), { type: "set", key: "mode", value: "dub" })
+  assert.equal(Model.settingAction(null), null)
+})
+
 test("choosing a cycling row yields the next value", () => {
   const [quality] = Model.settingRows("best", "sub", "1.0.0")
   assert.deepEqual(Model.settingChange(quality), { key: "quality", value: "1080" })

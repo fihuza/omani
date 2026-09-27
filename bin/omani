@@ -6,6 +6,7 @@ SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]
 PROVIDER="${OMANI_PROVIDER:-$(dirname "$SELF")/omani-provider}"
 MANIFEST="${OMANI_MANIFEST:-$(dirname "$(dirname "$SELF")")/manifest.json}"
 PLAYER="${OMANI_PLAYER:-mpv}"
+REPO="https://github.com/fihuza/omani"
 PLAYER_RECORD_CAP=20
 MPV_SCRIPT_DIRS="${OMANI_MPV_SCRIPT_DIRS:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv/scripts:/etc/mpv/scripts:/usr/lib/mpv-mpris}"
 MPV_CONF_FILES="${OMANI_MPV_CONF_FILES:-${MPV_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/mpv}/mpv.conf:/etc/mpv/mpv.conf}"
@@ -342,13 +343,14 @@ cmd_status() {
 
   jq -n \
     --arg version "$version" \
+    --arg repo "$REPO" \
     --argjson ready "$( ((${#missing[@]} == 0)) && echo true || echo false)" \
     --argjson watchedFraction "$WATCHED_FRACTION" \
     --argjson tracking "$(mpris_present && echo true || echo false)" \
     --arg missing "${missing[*]:-}" \
     --arg historyPath "$HIST_FILE" \
     --arg playersPath "$PLAYERS_FILE" \
-    '{ready: $ready, tracking: $tracking, watchedFraction: $watchedFraction, version: $version, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
+    '{ready: $ready, tracking: $tracking, watchedFraction: $watchedFraction, version: $version, repo: $repo, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
 }
 
 # Finishing an episode moves the series on, so what the panel offers to
