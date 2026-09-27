@@ -119,13 +119,15 @@ record_progress() {
     --arg id "$id" --arg episode "$episode" \
     --argjson position "$position" --argjson duration "$duration" \
     --argjson now "$(date +%s%3N)" '
-      (.series[$id] // {title: "", episodes: {}}) as $entry
-      | .series[$id] = ($entry + {
-          updated: $now,
-          episodes: (($entry.episodes // {}) + {
-            ($episode): {position: $position, duration: $duration}
+      if (.series[$id] | type) != "object" then . else
+        .series[$id] as $entry
+        | .series[$id] = ($entry + {
+            updated: $now,
+            episodes: (($entry.episodes | objects // {}) + {
+              ($episode): {position: $position, duration: $duration}
+            })
           })
-        })
+      end
     '
 }
 
@@ -264,16 +266,21 @@ episode_field() {
   jq -r --arg ep "$2" --arg f "$3" '((.episodes? // {})[$ep]?[$f]? | numbers) // 0' <<<"$1"
 }
 
+seconds_or_zero() {
+  [[ $1 =~ ^[0-9]+$ ]] && printf '%s\n' "$1" && return 0
+  printf '0\n'
+}
+
 episode_watched() {
   local position duration
-  position=$(episode_field "$1" "$2" position)
-  duration=$(episode_field "$1" "$2" duration)
+  position=$(seconds_or_zero "$(episode_field "$1" "$2" position)")
+  duration=$(seconds_or_zero "$(episode_field "$1" "$2" duration)")
   ((duration > 0 && position * 100 >= duration * WATCHED_FRACTION))
 }
 
 episode_start() {
   episode_watched "$1" "$2" && printf '0\n' && return 0
-  episode_field "$1" "$2" position
+  seconds_or_zero "$(episode_field "$1" "$2" position)"
 }
 
 cmd_resume() {

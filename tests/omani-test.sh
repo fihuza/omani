@@ -476,6 +476,16 @@ t_forget_drops_one_series() {
   assert_eq "$("$OMANI" history | jq -r '.series | keys | join(",")')" "naruto-2"
 }
 
+t_a_report_racing_a_forget_does_not_bring_the_series_back() {
+  local i
+  for i in $(seq 1 12); do
+    OMANI_DRY_RUN='' "$OMANI" progress frieren-1 "$i" $((i * 10)) 1400 &
+  done
+  OMANI_DRY_RUN='' "$OMANI" forget frieren-1 &
+  wait
+  assert_eq "$("$OMANI" history | jq -r '.series | has("frieren-1")')" "false"
+}
+
 t_forget_refuses_a_series_not_in_history() {
   local out
   out=$("$OMANI" forget nope-0 2>&1)
@@ -524,6 +534,15 @@ t_replay_starts_at_the_beginning_however_far_in_you_were() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 600, "duration": 1400}}}}'
   assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2 0)" "--start="
+}
+
+t_a_position_that_is_not_a_count_of_seconds_starts_from_the_beginning() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
+                 "episodes": {"2": {"position": -5, "duration": 1400}}}}'
+  local out
+  out=$("$OMANI" play frieren-1 "Frieren" 2 2>&1)
+  assert_ok $?
+  assert_lacks "$out" "--start="
 }
 
 t_a_position_past_the_end_counts_as_watched() {
@@ -1009,6 +1028,7 @@ check "previous resumes an episode left part way" t_previous_resumes_an_episode_
 check "previous restarts an episode already watched" t_previous_restarts_an_episode_already_watched
 check "previous starts an episode never opened at the beginning" t_previous_starts_an_episode_never_opened_at_the_beginning
 check "next resumes an episode left part way" t_next_resumes_an_episode_left_part_way
+check "a position that is not a count of seconds starts from the beginning" t_a_position_that_is_not_a_count_of_seconds_starts_from_the_beginning
 check "a position past the end counts as watched" t_a_position_past_the_end_counts_as_watched
 check "a position with no duration is still where it was left" t_a_position_with_no_duration_is_still_where_it_was_left
 check "an episodes field that is not an object starts from the beginning" t_an_episodes_field_that_is_not_an_object_starts_from_the_beginning
@@ -1044,6 +1064,7 @@ check "a record whose player is gone is pruned by the next one" t_a_record_whose
 check "stopping an unknown player is not an error" t_stop_an_unknown_player_is_not_an_error
 check "stopping with no players is not an error" t_stop_without_any_player_is_not_an_error
 check "forget drops one series and leaves the rest" t_forget_drops_one_series
+check "a report racing a forget does not bring the series back" t_a_report_racing_a_forget_does_not_bring_the_series_back
 check "forget refuses a series not in history" t_forget_refuses_a_series_not_in_history
 check "forget needs an id" t_forget_needs_an_id
 check "a write does not depend on TMPDIR being usable" t_writes_do_not_depend_on_tmpdir

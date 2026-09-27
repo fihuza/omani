@@ -88,6 +88,13 @@ t_an_id_carrying_a_regex_character_matches_itself() {
   assert_eq "$out" ""
 }
 
+t_a_page_that_is_not_valid_text_is_parsed_without_complaint() {
+  local out
+  out=$(printf '<div class="film-detail"><h3 class="film-name"><a href="/watch/x-1" title="A\xff\xfeB"></a></h3></div>\n' |
+    "$PROVIDER" parse-search 2>&1 >/dev/null)
+  assert_eq "$out" ""
+}
+
 t_search_stops_at_the_sidebar() {
   local out
   out=$(printf '<div class="film-detail"><h3 class="film-name"><a href="/watch/a-1" title="A"></h3>\n<div id="main-sidebar"><div class="film-detail"><h3 class="film-name"><a href="/watch/a-1" title="A"></h3></div>\n' |
@@ -341,6 +348,7 @@ check "search reads an anchor whatever else it carries" t_search_reads_an_anchor
 check "a title holding a tab stays one row" t_a_title_holding_a_tab_stays_one_row
 check "episode rows do not depend on attribute order" t_episode_rows_do_not_depend_on_attribute_order
 check "an id carrying a regex character matches itself" t_an_id_carrying_a_regex_character_matches_itself
+check "a page that is not valid text is parsed without complaint" t_a_page_that_is_not_valid_text_is_parsed_without_complaint
 check "search stops at the sidebar that repeats results" t_search_stops_at_the_sidebar
 check "episode rows come back as id and number" t_episode_rows
 check "episodes belonging to another series are ignored" t_episodes_ignore_another_series

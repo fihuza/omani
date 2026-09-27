@@ -4,6 +4,11 @@
 
 set -uo pipefail
 
+# The pages are parsed as bytes. In a multibyte locale awk warns about a body
+# that is not valid text, and what the parsers match would depend on the locale
+# the user happens to run.
+export LC_ALL=C
+
 BASE_API="${OMANI_BASE_API:-https://hianime.at}"
 AGENT="${OMANI_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36}"
 
