@@ -84,9 +84,9 @@ function playerRecords(raw) {
   return records
 }
 
-// What to tell the history about each player on the bus: the record says which
-// series and episode a title belongs to, and mpris reports seconds as
-// microseconds.
+// What to tell the history about each player on the bus: the record is what says
+// which series and episode a title belongs to, and mpris reports fractional
+// seconds where the history keeps whole ones.
 function progressReports(records, players) {
   var reports = []
   for (var i = 0; i < players.length; i++) {
@@ -128,6 +128,18 @@ function remembered(fallback) {
   return fallback ? String(fallback) : ""
 }
 
+// Which player the panel should take as the one it is controlling. The
+// selection lives in the panel, so a shell restart or a popout on another
+// monitor leaves a live player with nobody holding it, and a selection left
+// from a player that has since gone names nothing.
+function adoptable(players, playingId) {
+  if (!players || players.length === 0) return null
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === playingId) return null
+  }
+  return players[0]
+}
+
 function qualitiesOf(players, animeId) {
   if (!animeId) return ""
   for (var i = 0; i < players.length; i++) {
@@ -136,11 +148,14 @@ function qualitiesOf(players, animeId) {
   return ""
 }
 
+function seriesTitle(title) {
+  return String(title).replace(/ Episode [^ ]*$/, "")
+}
+
 function seriesOf(players, animeId, fallback) {
   if (!animeId) return remembered(fallback)
   for (var i = 0; i < players.length; i++) {
-    if (players[i].animeId === animeId)
-      return String(players[i].title).replace(/ Episode [^ ]*$/, "")
+    if (players[i].animeId === animeId) return seriesTitle(players[i].title)
   }
   return remembered(fallback)
 }
@@ -171,7 +186,9 @@ function isPlayingSeries(players, animeId) {
 
 function historyView(rows, players) {
   var view = []
+  var live = {}
   for (var p = 0; p < players.length; p++) {
+    live[players[p].animeId] = true
     view.push({
       kind: "playing",
       section: p === 0 ? "PLAYING" : "",
@@ -182,11 +199,16 @@ function historyView(rows, players) {
       pid: players[p].pid
     })
   }
+  // Playing owns the row for a series that has a player: repeating it below
+  // would offer to continue what is already running.
+  var kept = 0
   for (var i = 0; i < rows.length; i++) {
+    if (live[rows[i].animeId]) continue
     var row = {}
     for (var field in rows[i]) row[field] = rows[i][field]
     row.kind = "series"
-    row.section = i === 0 ? "CONTINUE WATCHING" : ""
+    row.section = kept === 0 ? "CONTINUE WATCHING" : ""
+    kept++
     view.push(row)
   }
   return view
@@ -525,7 +547,9 @@ if (typeof module !== "undefined") {
     isPlayingSeries: isPlayingSeries,
     playingTitleOf: playingTitleOf,
     launchedPlayer: launchedPlayer,
+    adoptable: adoptable,
     qualitiesOf: qualitiesOf,
+    seriesTitle: seriesTitle,
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,

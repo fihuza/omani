@@ -128,6 +128,12 @@ test("the series name comes from the player that is actually running", () => {
   assert.equal(Model.episodeOf(players, "naruto-1335", ""), "34")
 })
 
+test("the series is the title without the episode suffix", () => {
+  assert.equal(Model.seriesTitle("Naruto Episode 79"), "Naruto")
+  assert.equal(Model.seriesTitle("Re:ZERO -Starting Life- Episode 2"), "Re:ZERO -Starting Life-")
+  assert.equal(Model.seriesTitle("Naruto"), "Naruto")
+})
+
 test("a title with no episode suffix is left whole", () => {
   const players = [{ title: "Naruto", animeId: "naruto-1335", episode: "1" }]
   assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
@@ -187,6 +193,17 @@ test("every playing episode leads the history, under one section", () => {
   const view = Model.historyView([{ animeId: "c", title: "C", label: "ep 3" }], players)
   assert.deepEqual(view.map((r) => r.kind), ["playing", "playing", "series"])
   assert.deepEqual(view.map((r) => r.section), ["PLAYING", "", "CONTINUE WATCHING"])
+})
+
+test("a series with a player of its own is not repeated below it", () => {
+  const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 2" }, { animeId: "b", title: "B", label: "ep 9" }], [{ pid: "1", title: "A Episode 2", animeId: "a", episode: "2" }])
+  assert.deepEqual(view.map(r => r.kind), ["playing", "series"])
+  assert.deepEqual(view.map(r => r.animeId), ["a", "b"])
+})
+
+test("the continue watching header lands on the first row that is kept", () => {
+  const view = Model.historyView([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [{ pid: "1", title: "A Episode 2", animeId: "a", episode: "2" }])
+  assert.equal(view[1].section, "CONTINUE WATCHING")
 })
 
 test("a playing row carries what the player menu needs to act", () => {
@@ -369,6 +386,26 @@ test("the shortcut list is non-empty and fully labelled", () => {
     assert.ok(row.keys.length > 0)
     assert.ok(row.action.length > 0)
   }
+})
+
+test("a panel that has nothing selected takes the player that is running", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }, { pid: "2", title: "B Episode 2", animeId: "b", episode: "2" }]
+  assert.equal(Model.adoptable(players, "").animeId, "a")
+})
+
+test("a selection that is still playing is left alone", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }, { pid: "2", title: "B Episode 2", animeId: "b", episode: "2" }]
+  assert.equal(Model.adoptable(players, "b"), null)
+})
+
+test("a selection whose player has gone is replaced by one that is live", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.equal(Model.adoptable(players, "gone").animeId, "a")
+})
+
+test("with nothing playing there is nothing to adopt", () => {
+  assert.equal(Model.adoptable([], ""), null)
+  assert.equal(Model.adoptable(null, ""), null)
 })
 
 test("the variants come from the player that is running", () => {

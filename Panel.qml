@@ -232,7 +232,7 @@ Panel {
         service.playingId = row.animeId;
         service.playingEpisode = row.episode;
         service.playingTitle = row.title;
-        service.playingSeries = row.title.replace(/ Episode [^ ]*$/, "");
+        service.playingSeries = Model.seriesTitle(row.title);
     }
 
     function showPlayer() {
@@ -312,6 +312,9 @@ Panel {
         if (!service)
             return;
         service.refresh();
+        var adopt = Model.adoptable(service.players, service.playingId);
+        if (adopt)
+            selectPlayer(adopt);
         if (service.playing)
             showPlayer();
     }
