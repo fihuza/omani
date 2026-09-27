@@ -281,16 +281,21 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
-    onPlayersChanged: {
-        if (Model.launchDone(launchState))
-            launching = false;
-    }
-
-    readonly property var launchState: ({
+    // Built where it is read rather than bound: a bound object refreshes on its
+    // own schedule, and this handler asked it the question before the players it
+    // describes had changed.
+    function launchState() {
+        return {
             tracking: root.tracking,
             players: root.players,
             launchPids: root.launchPids
-        })
+        };
+    }
+
+    onPlayersChanged: {
+        if (Model.launchDone(launchState()))
+            launching = false;
+    }
 
     // The script exits once the player is spawned, so its status is the answer
     // to whether the launch worked. Nothing else can say: the player itself is
@@ -334,7 +339,7 @@ Item {
                 return;
             }
             if (exitCode === 0) {
-                if (Model.launchDone(root.launchState))
+                if (Model.launchDone(root.launchState()))
                     root.launching = false;
                 return;
             }
