@@ -652,12 +652,6 @@ test("the pane takes the progress of the episode it controls", () => {
   assert.equal(Model.progressFor(null, "a"), null)
 })
 
-test("the icon says whether that player is paused", () => {
-  const paused = Model.progressRows([{ animeId: "a", title: "A" }], [{ title: "A", position: 1, duration: 2, playing: false }])
-  const running = Model.progressRows([{ animeId: "a", title: "A" }], [{ title: "A", position: 1, duration: 2, playing: true }])
-  assert.notEqual(paused[0].icon, running[0].icon)
-})
-
 test("only the first line of a failure is shown", () => {
   assert.equal(Model.firstLine("omani: no episode after 12\nstack\ntrace"), "no episode after 12")
   assert.equal(Model.firstLine("omani-provider: episode 9999 not found"), "episode 9999 not found")

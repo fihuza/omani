@@ -59,7 +59,7 @@ parse_episodes() {
 }
 
 b64_decode() {
-  base64 -d 2>/dev/null <<<"$1" || base64 -D 2>/dev/null <<<"$1" || openssl base64 -d -A 2>/dev/null <<<"$1"
+  base64 -d 2>/dev/null <<<"$1"
 }
 
 # The embed ships its config as base64(json XOR "otaku-embed-v1").

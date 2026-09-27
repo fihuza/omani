@@ -44,7 +44,6 @@ Panel {
             ready: root.ready,
             tracking: service ? service.tracking : true,
             missing: root.missing,
-            playing: service ? service.playing : false,
             notice: root.notice,
             quality: root.quality,
             mode: root.mode
@@ -275,8 +274,8 @@ Panel {
         });
     }
 
-    // The first press of a motion key reveals the cursor rather than moving it,
-    // as it does in every panel; where it appears is this panel's own answer.
+    // Every panel's first motion key reveals the cursor rather than moving it.
+    // Where it lands is this one's own answer.
     function activateCursor() {
         cursorActive = true;
         keyState = Object.assign({}, keyState, {
@@ -628,8 +627,6 @@ Panel {
                                             implicitHeight: rowTitle.implicitHeight
                                             clip: true
 
-                                            // A name too long to fit reads to its end while the row is
-                                            // under the cursor, then returns.
                                             readonly property real overflow: Math.max(0, rowTitle.implicitWidth - width)
                                             readonly property bool scrolling: rowItem.selected && overflow > 0
 

@@ -428,9 +428,8 @@ function heroMeta(state) {
   return state.quality + " \u00b7 " + state.mode
 }
 
-// One line for each player, because one line naming the first of them says the
-// wrong thing the moment a second is started or that one is paused. The
-// position is read fresh every tick: mpris never announces it.
+// How far into its episode each player is. Read fresh every tick, because mpris
+// never announces a position.
 function progressRows(records, positions) {
   var rows = []
   for (var i = 0; i < records.length; i++) {
@@ -443,14 +442,11 @@ function progressRows(records, positions) {
     }
     var position = live ? Math.floor(Number(live.position) || 0) : 0
     var duration = live ? Math.floor(Number(live.duration) || 0) : 0
-    var paused = live ? live.playing !== true : false
     rows.push({
       animeId: records[i].animeId,
-      title: records[i].title,
       clock: elapsed(position, duration),
       fraction: duration > 0 ? Math.min(1, position / duration) : 0,
-      paused: paused,
-      icon: paused ? "\u{f03e4}" : "\u{f040a}"
+      paused: live ? live.playing !== true : false
     })
   }
   return rows
