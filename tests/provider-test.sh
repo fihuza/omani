@@ -3,6 +3,8 @@
 set -uo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 PROVIDER="$ROOT/bin/omani-provider"
 FIXTURES="$ROOT/tests/fixtures"
 
@@ -33,6 +35,11 @@ assert_eq() {
 assert_contains() {
   [[ $1 == *"$2"* ]] && return 0
   fail "$current" "expected output to contain '$2', got: $1"
+}
+
+assert_missing() {
+  [[ ! -e $1 ]] && return 0
+  fail "$current" "did not expect the file: $1"
 }
 
 check() {
@@ -300,6 +307,24 @@ t_a_server_is_found_whatever_order_its_attributes_are_in() {
   assert_contains "$out" "url	"
 }
 
+t_stream_refuses_an_embed_that_is_not_a_web_address() {
+  local out
+  if out=$(FAKE_SERVERS="$FIXTURES/servers-local-file.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "not a playable"
+}
+
+t_the_fetcher_speaks_only_http() {
+  local reached="$WORK/reached" spy="$WORK/spy"
+  printf '#!/bin/sh\ntouch %s\n' "$reached" >"$spy"
+  chmod +x "$spy"
+  local out
+  out=$(OMANI_CURL="$spy" OMANI_BASE_API="file:///etc/hostname#" "$PROVIDER" search x 2>&1)
+  assert_contains "$out" "not a web address"
+  assert_missing "$reached"
+}
+
 t_stream_refuses_a_source_that_is_not_a_web_address() {
   local out
   if out=$(FAKE_EMBED="$FIXTURES/embed-blob-local-file.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
@@ -346,6 +371,8 @@ check "stream falls back when the quality is absent" t_stream_falls_back_when_th
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked
 check "stream refuses an episode that is not listed" t_stream_refuses_an_episode_that_is_not_listed
 check "a server is found whatever order its attributes are in" t_a_server_is_found_whatever_order_its_attributes_are_in
+check "stream refuses an embed that is not a web address" t_stream_refuses_an_embed_that_is_not_a_web_address
+check "the fetcher speaks only http" t_the_fetcher_speaks_only_http
 check "stream refuses a source that is not a web address" t_stream_refuses_a_source_that_is_not_a_web_address
 check "stream refuses a mode with no source" t_stream_refuses_a_mode_with_no_source
 check "stream reports a server list with no usable player" t_stream_reports_a_server_list_without_a_usable_player

@@ -30,7 +30,10 @@ CURL="${OMANI_CURL:-$(pick_curl)}" || die "curl not found"
 
 fetch() {
   local body status
-  body=$("$CURL" -sL -A "$AGENT" --max-time 15 -w ' %{http_code}' "$@") || status=$?
+  [[ ${1:-} == https://* || ${1:-} == http://* ]] || die "not a web address: ${1:-}"
+  body=$("$CURL" -sL -A "$AGENT" --max-time 15 \
+    --proto '=http,https' --proto-redir '=http,https' \
+    -w ' %{http_code}' "$@") || status=$?
   local code=${body##* }
   body=${body% *}
   if [[ -n ${status:-} ]]; then
@@ -181,6 +184,7 @@ cmd_stream() {
   [[ -n $hash ]] || die "no ZokoAnime source for $mode"
   embed=$(b64_decode "$hash")
   [[ -n $embed ]] || die "could not decode the embed url"
+  [[ $embed == https://* || $embed == http://* ]] || die "not a playable embed: $embed"
 
   local referrer blob json master subs links url
   referrer=$(sed -E 's|^(https?://[^/]*).*|\1/|' <<<"$embed")
