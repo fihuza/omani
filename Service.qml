@@ -292,7 +292,7 @@ Item {
     // the bus to ask, so the last sample is what a resume has to go on.
     Timer {
         id: historySample
-        interval: 10000
+        interval: 5000
         running: root.playing
         repeat: true
         onTriggered: root.reportProgress()
