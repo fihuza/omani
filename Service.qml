@@ -73,8 +73,6 @@ Item {
     readonly property var currentPlayer: Model.playerFor(playerList, playingTitle)
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
-    // mpris owns playback state, so pausing asks the player rather than going
-    // back through the script that started it.
     function togglePaused() {
         if (currentPlayer)
             currentPlayer.togglePlaying();

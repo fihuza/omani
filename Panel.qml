@@ -281,7 +281,6 @@ Panel {
     }
 
     // Every panel's first motion key reveals the cursor rather than moving it.
-    // Where it lands is this one's own answer.
     function activateCursor() {
         cursorActive = true;
         keyState = Object.assign({}, keyState, {

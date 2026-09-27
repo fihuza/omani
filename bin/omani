@@ -122,7 +122,6 @@ record_history() {
     '
 }
 
-# Called while a player runs, so the next resume starts where this one stopped.
 # Which episode the series is on is not touched here: that belongs to starting
 # one and to finishing one, and a report arriving after either would undo it.
 record_progress() {
@@ -220,9 +219,7 @@ cmd_play() {
   qualities=$(awk -F'\t' '$1 == "qualities" { print $2 }' <<<"$stream")
   [[ -n $url ]] || die "no playable source for episode $episode"
 
-  # One player per series, whoever asked: following a series, replaying it, or
-  # picking another episode of it all close the one already running, and only a
-  # different series adds a second player.
+  # One player per series, whoever asked: only a different series adds a second.
   cmd_stop "$id"
 
   local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
@@ -237,9 +234,7 @@ cmd_play() {
 
   mkdir -p "$STATE_DIR"
   # Launched directly rather than through setsid --fork, whose pid belongs to a
-  # wrapper that exits at once; the record has to name the player itself or
-  # nothing can be listed or stopped. This script is already detached, so the
-  # player is reparented when it exits.
+  # wrapper that exits at once: the record has to name the player itself.
   "${args[@]}" </dev/null >/dev/null 2>&1 &
   record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities"
   disown

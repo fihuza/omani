@@ -27,7 +27,6 @@ function parseHistory(raw) {
       updated: Number(entry.updated) || 0
     })
   }
-  // Most recently watched first, which is the order someone continuing looks in.
   rows.sort(function (a, b) {
     return b.updated - a.updated
   })
@@ -77,9 +76,7 @@ function playerRecords(raw) {
   return records
 }
 
-// What to tell the history about each player on the bus: the record is what says
-// which series and episode a title belongs to, and mpris reports fractional
-// seconds where the history keeps whole ones.
+// mpris reports fractional seconds where the history keeps whole ones.
 function progressReports(records, players) {
   var reports = []
   for (var i = 0; i < players.length; i++) {
@@ -118,11 +115,9 @@ function launchPids(players) {
 }
 
 // A step replaces a player of the same series, so the series cannot say whether
-// the new one has arrived; a pid that was not there when the launch started can.
-// With nothing tracking players there is no arrival to wait for, and waiting
-// anyway would refuse every later play. The three are arguments rather than one
-// object, so a caller cannot hand over a description of the players that is
-// older than the players themselves.
+// the new one has arrived; a pid that was not there when the launch began can.
+// Nothing tracking players means no arrival to wait for. Three arguments rather
+// than one object, so no caller can pass a description older than the players.
 function launchDone(tracking, players, before) {
   if (!tracking) return true
   var running = players || []
@@ -133,9 +128,8 @@ function launchDone(tracking, players, before) {
   return false
 }
 
-// What the bar icon resumes: the first series in the history that has no player
-// of its own, since resuming one that is playing would close it and start the
-// same episode again a few seconds behind.
+// Resuming a series that is playing would close its player and start the same
+// episode again, seconds behind where it was.
 function resumeTarget(rows, players) {
   for (var i = 0; i < rows.length; i++) {
     var live = false
@@ -159,10 +153,8 @@ function remembered(fallback) {
   return fallback ? String(fallback) : ""
 }
 
-// Which player the panel should take as the one it is controlling. The
-// selection lives in the panel, so a shell restart or a popout on another
-// monitor leaves a live player with nobody holding it, and a selection left
-// from a player that has since gone names nothing.
+// The selection lives in the panel, so a shell restart leaves a live player with
+// nobody holding it, and a selection whose player has gone names nothing.
 function adoptable(players, playingId) {
   if (!players || players.length === 0) return null
   for (var i = 0; i < players.length; i++) {
@@ -355,8 +347,8 @@ function playerRows(title, episode, paused, quality) {
   ]
 }
 
-// The version row is shown, not chosen: yielding no change is what keeps
-// activating it from writing to the stored settings.
+// The version row is shown, not chosen: yielding no change keeps activating it
+// from writing to the stored settings.
 function settingChange(row) {
   var next = nextSetting(row.key, row.value)
   if (next === row.value) return null
@@ -372,7 +364,6 @@ function settingRows(quality, mode, version, repo) {
   ]
 }
 
-// Choosing a settings row either moves its value on or opens what it points at.
 function settingAction(row) {
   if (!row) return null
   if (row.link) return { type: "open", url: row.link }
@@ -419,9 +410,8 @@ function episodeRows(raw, progress, fraction) {
   })
 }
 
-// Only a series the history remembers can be forgotten: the episode playing is
-// written back by the next progress report, and no other view lists anything
-// the history holds.
+// The episode playing is written back by the next progress report, so forgetting
+// it would not stick.
 function forgettable(view, row) {
   return view === "history" && !!row && row.kind === "series"
 }
@@ -458,9 +448,8 @@ function playerFor(players, title) {
   return null
 }
 
-// A stop has to name something the script can match. The pid is the surest, the
-// title next; the series id is the one that survives a step from one episode to
-// the next, when the title of the player being built is not known yet.
+// The series id is the one that survives a step from one episode to the next,
+// when the title of the player being built is not known yet.
 function stopTarget(record) {
   if (!record) return ""
   return String(record.pid || record.title || record.animeId || "")

@@ -721,7 +721,8 @@ t_forgetting_the_last_series_leaves_a_history_that_reads() {
 t_status_survives_a_missing_players_file() {
   rm -rf "$OMANI_STATE_DIR"
   assert_eq "$("$OMANI" players | wc -l)" "0"
-  assert_eq "$("$OMANI" status | jq -r .ready)" "true"
+  assert_ok $?
+  assert_eq "$("$OMANI" status | jq -r .playersPath)" "$OMANI_STATE_DIR/players"
 }
 
 t_clearing_an_already_empty_history_keeps_it_valid() {
