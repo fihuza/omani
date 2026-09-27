@@ -941,6 +941,24 @@ t_progress_reports_arriving_together_are_not_lost() {
   assert_eq "$(series_field frieren-1 '.episodes["8"].position')" "80"
 }
 
+t_a_title_holding_a_line_break_keeps_the_record_readable() {
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play broken-9 "$(printf 'A\nB')" 3
+  assert_eq "$(wc -l <"$OMANI_STATE_DIR/players")" "1"
+  assert_eq "$(awk -F'\t' '$3 == "broken-9" { print $2 }' "$OMANI_STATE_DIR/players")" "A B Episode 3"
+}
+
+t_one_unreadable_record_does_not_hide_the_others() {
+  local pid
+  pid=$(live_player "Frieren Episode 3" frieren-1 3)
+  printf 'not a record\n' >>"$OMANI_STATE_DIR/players"
+  printf '123\n' >>"$OMANI_STATE_DIR/players"
+  local out
+  out=$("$OMANI" players 2>&1)
+  assert_contains "$out" "Frieren Episode 3"
+  assert_lacks "$out" "unbound"
+  printf '%s\n' "$pid" >>"$WORK/spawned"
+}
+
 t_a_title_holding_a_tab_keeps_the_record_readable() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play tabbed-9 "$(printf 'A\tB')" 3
   local fields
@@ -1118,6 +1136,8 @@ check "next refuses when the episode is no longer listed" t_next_refuses_when_th
 check "resume after forgetting the series fails cleanly" t_resume_after_forgetting_the_series_fails_cleanly
 check "an episode number carrying a decimal plays" t_an_episode_number_carrying_a_decimal_plays
 check "progress reports arriving together are not lost" t_progress_reports_arriving_together_are_not_lost
+check "a title holding a line break keeps the record readable" t_a_title_holding_a_line_break_keeps_the_record_readable
+check "one unreadable record does not hide the others" t_one_unreadable_record_does_not_hide_the_others
 check "a title holding a tab keeps the player record readable" t_a_title_holding_a_tab_keeps_the_record_readable
 check "a first play creates the history" t_a_first_play_creates_the_history
 check "forgetting the last series leaves a history that reads" t_forgetting_the_last_series_leaves_a_history_that_reads

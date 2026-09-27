@@ -176,7 +176,7 @@ cmd_players() {
   local line
   while IFS= read -r line; do
     split_record "$line"
-    [[ ${RECORD[0]} =~ ^[0-9]+$ && -n ${RECORD[1]} && -n ${RECORD[2]} && -n ${RECORD[3]} ]] || continue
+    [[ ${RECORD[0]:-} =~ ^[0-9]+$ && -n ${RECORD[1]:-} && -n ${RECORD[2]:-} && -n ${RECORD[3]:-} ]] || continue
     read_started_at "${RECORD[0]}"
     [[ -n $STARTED_AT ]] || continue
     [[ -n ${RECORD[5]:-} && ${RECORD[5]} != "$STARTED_AT" ]] && continue
@@ -222,6 +222,7 @@ cmd_play() {
   [[ $start =~ ^[0-9]+$ ]] || die "start must be whole seconds"
 
   title=${title//$'\t'/ }
+  title=${title//$'\n'/ }
 
   local stream url referrer subtitles
   stream=$("$PROVIDER" stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
