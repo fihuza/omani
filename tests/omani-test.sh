@@ -102,7 +102,8 @@ FAKEPLAYER
 teardown() {
   if [[ -f $WORK/spawned ]]; then
     local pid
-    while read -r pid; do kill -9 "$pid" 2>/dev/null; done <"$WORK/spawned"
+    while read -r pid; do kill "$pid" 2>/dev/null; done <"$WORK/spawned"
+    while read -r pid; do still_running "$pid" && kill -9 "$pid" 2>/dev/null; done <"$WORK/spawned"
   fi
   rm -rf "$WORK"
 }
@@ -799,6 +800,7 @@ t_an_episode_a_second_short_of_the_threshold_resumes() {
 t_stop_ends_a_player_that_ignores_being_asked() {
   bash -c 'trap "" TERM; while :; do sleep 0.2; done' >/dev/null 2>&1 &
   local pid=$!
+  disown
   printf '%s\n' "$pid" >>"$WORK/spawned"
   mkdir -p "$OMANI_STATE_DIR"
   printf '%s\tStubborn Episode 1\tstubborn-1\t1\t1080\t%s\n' "$pid" "$(awk '{print $22}' "/proc/$pid/stat")" \
