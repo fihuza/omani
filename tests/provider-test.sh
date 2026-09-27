@@ -119,6 +119,13 @@ t_deobfuscate_round_trip() {
   assert_contains "$out" "$expected_default"
 }
 
+t_a_payload_in_another_script_survives_deobfuscation() {
+  local out
+  out=$("$PROVIDER" deobfuscate "$(cat "$FIXTURES/embed-blob-utf8.txt")")
+  assert_contains "$out" '"label":"日本語"'
+  assert_contains "$out" "https://cdn/日本語/master.m3u8"
+}
+
 t_qualities_sorted_best_first() {
   local out
   out=$(printf '#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=640x360,FRAME-RATE=24.000\n360/index.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2,RESOLUTION=1920x1080,FRAME-RATE=24.000\n1080/index.m3u8\n' |
@@ -342,6 +349,7 @@ check "an id carrying a regex character matches itself" t_an_id_carrying_a_regex
 check "search stops at the sidebar that repeats results" t_search_stops_at_the_sidebar
 check "episode rows come back as id and number" t_episode_rows
 check "episodes belonging to another series are ignored" t_episodes_ignore_another_series
+check "a payload in another script survives deobfuscation" t_a_payload_in_another_script_survives_deobfuscation
 check "the embed payload round-trips through deobfuscation" t_deobfuscate_round_trip
 check "qualities are sorted best first and made absolute" t_qualities_sorted_best_first
 check "qualities survive tags between the variants" t_qualities_survive_tags_between_the_variants

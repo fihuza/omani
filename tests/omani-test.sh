@@ -644,6 +644,35 @@ t_two_episodes_are_tracked_at_once() {
   assert_eq "$("$OMANI" players | wc -l)" "2"
 }
 
+t_the_players_file_does_not_grow_without_end() {
+  local i
+  for i in $(seq 1 25); do
+    OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" "$i" >/dev/null
+  done
+  local lines
+  lines=$(wc -l <"$OMANI_STATE_DIR/players")
+  ((lines <= 20)) || fail "$current" "the players file holds $lines records"
+}
+
+t_resume_reports_a_provider_that_refuses_the_episode() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n' ;;
+stream)
+  printf 'omani-provider: episode %s not found\n' "$3" >&2
+  exit 1
+  ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "99", "episodes": {"99": {"position": 10, "duration": 1400}}}}'
+  local out
+  out=$("$OMANI" resume frieren-1 2>&1)
+  assert_fails $?
+  assert_contains "$out" "could not resolve episode 99"
+}
+
 t_players_omits_one_that_exited() {
   live_player "Naruto Episode 9" naruto-2 9 >/dev/null
   printf '999999\tGhost Episode 1\tghost-0\t1\n' >>"$OMANI_STATE_DIR/players"
@@ -971,6 +1000,8 @@ check "one player per series, whoever asks" t_one_player_per_series_whoever_asks
 check "another series adds a player rather than replacing one" t_another_series_adds_a_player_rather_than_replacing_one
 check "play records the player it started" t_play_records_the_player_it_started
 check "two episodes are tracked at once" t_two_episodes_are_tracked_at_once
+check "the players file does not grow without end" t_the_players_file_does_not_grow_without_end
+check "resume reports a provider that refuses the episode" t_resume_reports_a_provider_that_refuses_the_episode
 check "players omits one that has exited" t_players_omits_one_that_exited
 check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_record
 check "playing a second episode keeps both records" t_playing_a_second_episode_keeps_both_records
