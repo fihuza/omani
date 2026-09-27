@@ -285,9 +285,16 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
-    onPlayersChanged: {
-        if (Model.launchDone(tracking, players, launchPids))
+    onPlayersChanged: settleLaunch()
+
+    function settleLaunch() {
+        if (launching && Model.launchDone(tracking, players, launchPids))
             launching = false;
+    }
+
+    function abandonLaunch(message) {
+        launching = false;
+        failed(message);
     }
 
     function launch(argv, qualityOverride) {
@@ -326,12 +333,10 @@ Item {
                 return;
             }
             if (exitCode === 0) {
-                if (Model.launchDone(root.tracking, root.players, root.launchPids))
-                    root.launching = false;
+                root.settleLaunch();
                 return;
             }
-            root.launching = false;
-            root.failed(Model.firstLine(String(launchErr.text || "the player could not be started")));
+            root.abandonLaunch(Model.firstLine(String(launchErr.text || "the player could not be started")));
         }
     }
 
