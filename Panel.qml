@@ -445,14 +445,20 @@ Panel {
                         foreground: root.foreground
                     }
 
-                    TextField {
-                        id: searchField
-                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                    Item {
                         width: parent.width
-                        placeholderText: "Search anime\u2026   (/ to focus)"
-                        foreground: root.foreground
-                        onAccepted: root.submitSearch()
-                        Keys.onEscapePressed: keyCatcher.forceActiveFocus()
+                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                        implicitHeight: searchField.implicitHeight + Style.space(8)
+
+                        TextField {
+                            id: searchField
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width
+                            placeholderText: "Search anime\u2026   (/ to focus)"
+                            foreground: root.foreground
+                            onAccepted: root.submitSearch()
+                            Keys.onEscapePressed: keyCatcher.forceActiveFocus()
+                        }
                     }
 
                     Item {
