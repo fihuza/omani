@@ -206,6 +206,14 @@ test("the continue watching header lands on the first row that is kept", () => {
   assert.equal(view[1].section, "CONTINUE WATCHING")
 })
 
+test("two episodes of one series both lead the list, and it is not repeated", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }, { pid: "2", title: "A Episode 2", animeId: "a", episode: "2" }]
+  const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 2" }, { animeId: "b", title: "B", label: "ep 1" }], players)
+  assert.deepEqual(view.map(r => r.kind), ["playing", "playing", "series"])
+  assert.deepEqual(view.map(r => r.animeId), ["a", "a", "b"])
+  assert.equal(view[2].section, "CONTINUE WATCHING")
+})
+
 test("a playing row carries what the player menu needs to act", () => {
   const view = Model.historyView([], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
   assert.equal(view[0].animeId, "a")
@@ -274,6 +282,14 @@ test("an entry missing its optional fields still reads", () => {
   assert.equal(row.updated, 0)
   assert.equal(row.position, 0)
   assert.equal(row.duration, 0)
+})
+
+test("an episode number carrying a decimal is kept as written", () => {
+  const raw = JSON.stringify({ version: 1, series: { a: { title: "A", episode: "7.5", updated: 2, episodes: { "7.5": { position: 60, duration: 1200 } } } } })
+  const rows = Model.parseHistory(raw)
+  assert.equal(rows[0].episode, "7.5")
+  assert.equal(rows[0].position, 60)
+  assert.equal(Model.progressLabel(rows[0]), "ep 7.5 \u00b7 5%")
 })
 
 test("an entry with no title or episode is skipped", () => {
@@ -361,6 +377,13 @@ test("the first row shows the header above it rather than just itself", () => {
 
 test("the last row goes to the very bottom", () => {
   assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
+})
+
+test("the last row of a list that fits does not scroll", () => {
+  // The panel is sized to its content; anything else leaves the last row
+  // dragging the list a few pixels on the way to it.
+  assert.equal(Model.scrollTarget({ current: 0, viewport: 400, content: 400, rowTop: 360, rowHeight: 30, index: 9, lastIndex: 9, margin: 6 }), 0)
+  assert.equal(Model.scrollTarget({ current: 0, viewport: 400, content: 380, rowTop: 340, rowHeight: 30, index: 9, lastIndex: 9, margin: 6 }), 0)
 })
 
 test("a list shorter than the viewport never scrolls", () => {
