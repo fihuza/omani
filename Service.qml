@@ -200,16 +200,21 @@ Item {
         episodesProcess.running = true;
     }
 
-    function play(id, title, episode) {
+    // Without a start the script picks the episode up where it was left; Replay
+    // is the one caller that asks for the beginning.
+    function play(id, title, episode, start) {
         if (!ready || launching)
             return;
+        var args = ["play", id, title, String(episode)];
+        if (start !== undefined)
+            args.push(String(start));
         beginLaunch();
         playingQuality = "";
         playingId = String(id);
         playingSeries = String(title);
         playingEpisode = String(episode);
         playingTitle = title + " Episode " + episode;
-        launch(command(["play", id, title, String(episode)]));
+        launch(command(args));
     }
 
     function resume(row) {
@@ -259,7 +264,7 @@ Item {
     function replayCurrent() {
         if (!ready || playingId === "")
             return;
-        play(playingId, playingSeries, playingEpisode);
+        play(playingId, playingSeries, playingEpisode, 0);
     }
 
     function stop() {

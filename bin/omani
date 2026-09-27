@@ -34,7 +34,7 @@ usage: omani <subcommand> [args]
   status                              JSON: dependencies and paths
   search <query>                      anime-id<TAB>title
   episodes <anime-id>                 episode-id<TAB>number
-  play <anime-id> <title> <episode>   resolve and start playback
+  play <id> <title> <episode> [start]  play it, from [start] or where it was left
   resume <anime-id>                   continue where the series was left off
   next <anime-id>                     play the episode after the one in history
   previous <anime-id>                 play the episode before the one in history
@@ -190,8 +190,11 @@ cmd_stop() {
 }
 
 cmd_play() {
-  local id="${1:-}" title="${2:-}" episode="${3:-}" start="${4:-0}"
+  local id="${1:-}" title="${2:-}" episode="${3:-}" start="${4:-}"
   [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode> [start-seconds]"
+  # Told where to start, start there; told nothing, pick the episode up where it
+  # was left. Replay is the caller that asks for zero and means it.
+  [[ -n $start ]] || start=$(episode_start "$(entry_for "$id" || printf '{}')" "$episode")
   [[ $start =~ ^[0-9]+$ ]] || die "start must be whole seconds"
 
   title=${title//$'\t'/ }

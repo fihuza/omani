@@ -6,8 +6,6 @@ set -uo pipefail
 
 BASE_API="${OMANI_BASE_API:-https://hianime.at}"
 AGENT="${OMANI_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36}"
-CIPHERS='ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305'
-TLS13_CIPHERS='TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256'
 
 die() {
   printf 'omani-provider: %s\n' "$1" >&2
@@ -26,19 +24,18 @@ pick_curl() {
 CURL="${OMANI_CURL:-$(pick_curl)}" || die "curl not found"
 
 fetch() {
-  local cipher_flag=()
-  [[ $(uname -s) == Darwin ]] && cipher_flag=(--ciphers "$CIPHERS" --tls13-ciphers "$TLS13_CIPHERS")
   local body status
-  body=$("$CURL" -sL -A "$AGENT" --max-time 15 "${cipher_flag[@]}" -w ' %{http_code}' "$@") || status=$?
+  body=$("$CURL" -sL -A "$AGENT" --max-time 15 -w ' %{http_code}' "$@") || status=$?
   local code=${body##* }
   body=${body% *}
   if [[ -n ${status:-} ]]; then
     die "could not fetch $1 (HTTP ${code:-none}, curl exit $status)"
   fi
-  case "$code" in
-  2??) ;;
-  *) grep -qi "Just a moment" <<<"$body" || die "HTTP $code from $1" ;;
-  esac
+  if grep -qi "<title>Just a moment" <<<"$body"; then
+    [[ $CURL == curl ]] && die "blocked by cloudflare; install curl-impersonate"
+    die "blocked by cloudflare"
+  fi
+  [[ $code == 2?? ]] || die "HTTP $code from $1"
   printf '%s' "$body"
 }
 
@@ -88,7 +85,7 @@ pick_quality() {
   case "$wanted" in
   best) chosen=$(head -n 1 <<<"$links") ;;
   worst) chosen=$(grep -E '^[0-9]{3,4}' <<<"$links" | tail -n 1) ;;
-  *) chosen=$(grep -m 1 "$wanted" <<<"$links") ;;
+  *) chosen=$(grep -m 1 -E "^${wanted}p? *>" <<<"$links") ;;
   esac
   [[ -n $chosen ]] || chosen=$(head -n 1 <<<"$links")
   cut -d '>' -f 2 <<<"$chosen"
@@ -100,10 +97,6 @@ cmd_search() {
   # A die inside a command substitution ends only that subshell, so without this
   # a failed fetch would leave an empty page and still report success.
   page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')") || exit 1
-  if grep -qi "<title>Just a moment" <<<"$page"; then
-    [[ $CURL == curl ]] && die "blocked by cloudflare; install curl-impersonate"
-    die "blocked by cloudflare"
-  fi
   parse_search <<<"$page"
 }
 

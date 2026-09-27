@@ -132,6 +132,29 @@ t_search_reports_a_cloudflare_block() {
   assert_contains "$out" "cloudflare"
 }
 
+t_episodes_reports_a_cloudflare_block() {
+  local out
+  if out=$(FAKE_CLOUDFLARE=1 FAKE_CODE=403 "$PROVIDER" episodes frieren-beyond-journeys-end-481 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "cloudflare"
+}
+
+t_stream_reports_a_cloudflare_block() {
+  local out
+  if out=$(FAKE_CLOUDFLARE=1 FAKE_CODE=403 "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "cloudflare"
+}
+
+t_quality_is_matched_on_its_height_not_the_url() {
+  # The 1080 variant's url carries "720" in a path segment.
+  local out
+  out=$(FAKE_MASTER="$FIXTURES/master-decoy.m3u8" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub 720)
+  assert_contains "$out" "url	https://cdn/plain/720/i.m3u8"
+}
+
 t_search_reports_a_transport_failure() {
   local out
   if out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1); then
@@ -220,6 +243,9 @@ t_stream_needs_an_id_and_an_episode() {
 
 check "search works end to end against saved pages" t_search_end_to_end
 check "search reports a cloudflare block" t_search_reports_a_cloudflare_block
+check "episodes reports a cloudflare block" t_episodes_reports_a_cloudflare_block
+check "stream reports a cloudflare block" t_stream_reports_a_cloudflare_block
+check "a quality is matched on its height, not anywhere in the url" t_quality_is_matched_on_its_height_not_the_url
 check "search reports a transport failure" t_search_reports_a_transport_failure
 check "search reports a bad http status" t_search_reports_a_bad_status
 check "search needs a query" t_search_needs_a_query

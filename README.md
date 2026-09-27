@@ -75,6 +75,9 @@ list, or the bar icon — so following a series never leaves a trail of players
 behind. A different series adds a second player, so two can run side by side,
 each listed under **Playing** with its own menu.
 
+**Select episode** picks the chosen episode up where you left it, and so does
+changing quality; **Replay** is the one control that starts an episode over.
+
 **Change quality** applies to the episode playing, not to the setting, and is
 offered only when the provider has more than one variant of it. The next
 episode starts at the `quality` setting again.
