@@ -102,7 +102,7 @@ FAKEPLAYER
 teardown() {
   if [[ -f $WORK/spawned ]]; then
     local pid
-    while read -r pid; do kill "$pid" 2>/dev/null; done <"$WORK/spawned"
+    while read -r pid; do kill -9 "$pid" 2>/dev/null; done <"$WORK/spawned"
   fi
   rm -rf "$WORK"
 }
@@ -796,6 +796,20 @@ t_an_episode_a_second_short_of_the_threshold_resumes() {
   assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--start=1259"
 }
 
+t_stop_ends_a_player_that_ignores_being_asked() {
+  bash -c 'trap "" TERM; while :; do sleep 0.2; done' >/dev/null 2>&1 &
+  local pid=$!
+  printf '%s\n' "$pid" >>"$WORK/spawned"
+  mkdir -p "$OMANI_STATE_DIR"
+  printf '%s\tStubborn Episode 1\tstubborn-1\t1\t1080\t%s\n' "$pid" "$(awk '{print $22}' "/proc/$pid/stat")" \
+    >>"$OMANI_STATE_DIR/players"
+
+  OMANI_DRY_RUN='' "$OMANI" stop stubborn-1 >/dev/null 2>&1
+
+  still_running "$pid" && fail "$current" "the player ignored the stop and is still running"
+  assert_lacks "$(cat "$OMANI_STATE_DIR/players")" "Stubborn Episode 1"
+}
+
 t_a_record_without_qualities_is_kept_and_can_be_stopped() {
   sleep 60 &
   local pid=$!
@@ -1195,6 +1209,7 @@ check "a player waiting to be reaped is not playing" t_a_player_waiting_to_be_re
 check "players says nothing on stderr about a pid that is gone" t_players_says_nothing_on_stderr_about_a_pid_that_is_gone
 check "an episode watched to exactly the threshold restarts" t_an_episode_watched_to_exactly_the_threshold_restarts
 check "an episode a second short of the threshold resumes" t_an_episode_a_second_short_of_the_threshold_resumes
+check "stop ends a player that ignores being asked" t_stop_ends_a_player_that_ignores_being_asked
 check "a record without qualities is kept and can be stopped" t_a_record_without_qualities_is_kept_and_can_be_stopped
 check "play refuses a start that is not whole seconds" t_play_refuses_a_start_that_is_not_whole_seconds
 check "a record from an older version still counts while alive" t_a_record_from_an_older_version_still_counts_while_alive

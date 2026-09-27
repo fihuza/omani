@@ -190,6 +190,30 @@ cmd_players() {
   done <"$PLAYERS_FILE"
 }
 
+process_gone() {
+  [[ $1 =~ ^[0-9]+$ ]] || return 0
+  read_started_at "$1"
+  [[ -z $STARTED_AT ]]
+}
+
+end_players() {
+  local pid waited=0 alive
+  while ((waited < 40)); do
+    alive=""
+    for pid in $1; do
+      process_gone "$pid" || alive=yes
+    done
+    [[ -z $alive ]] && return 0
+    if ((waited == 20)); then
+      for pid in $1; do
+        process_gone "$pid" || kill -9 "$pid" 2>/dev/null
+      done
+    fi
+    sleep 0.05
+    waited=$((waited + 1))
+  done
+}
+
 cmd_stop() {
   local target="${1:-all}"
   [[ -f $PLAYERS_FILE ]] || return 0
@@ -209,14 +233,18 @@ cmd_stop() {
     return 0
   fi
 
-  local pid tmp
+  local pid tmp gone=""
   for pid in $pids; do
     [[ $pid =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
+  done
+  end_players "$pids"
+  for pid in $pids; do
+    process_gone "$pid" && gone+="$pid"$'\n'
   done
   tmp=$(players_tmp) || die "cannot write the player list in $STATE_DIR"
   (
     trap 'rm -f "$tmp"' EXIT
-    list="$pids" awk -F'\t' '
+    list="$gone" awk -F'\t' '
       BEGIN { n = split(ENVIRON["list"], k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
       !dead[$1]
     ' "$PLAYERS_FILE" >"$tmp"

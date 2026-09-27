@@ -80,6 +80,23 @@ test("only records with a player still on the bus count as live", () => {
   assert.deepEqual(live.map((r) => r.title), ["B Episode 2"])
 })
 
+test("a record whose process is gone is not live, however the bus still names it", () => {
+  const records = Model.playerRecords("220332\tNaruto Episode 4\tnaruto-1335\t4\t800\n")
+  assert.deepEqual(Model.livePlayers(records, ["Naruto Episode 4"], ["2906198"]), [],
+    "an orphan player keeps the title on the bus; the dead record must not ride on it")
+})
+
+test("a record is live when the script still reports its pid", () => {
+  const records = Model.playerRecords("2906198\tNaruto Episode 4\tnaruto-1335\t4\t800\n")
+  const live = Model.livePlayers(records, ["Naruto Episode 4"], ["2906198"])
+  assert.deepEqual(live.map((r) => r.pid), ["2906198"])
+})
+
+test("with no pid list the bus alone decides, as it did before", () => {
+  const records = Model.playerRecords("1\tA Episode 1\ta\t1\n")
+  assert.deepEqual(Model.livePlayers(records, ["A Episode 1"]).map((r) => r.pid), ["1"])
+})
+
 test("a player the plugin did not start is not adopted", () => {
   const records = Model.playerRecords("1\tA Episode 1\ta\t1\n")
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])

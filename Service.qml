@@ -147,8 +147,18 @@ Item {
         syncPlayingFromHistory();
     }
 
+    property var livePids: null
+
     function reloadPlayers() {
-        players = Model.livePlayers(Model.playerRecords(playersFile.text()), liveTitles);
+        applyPlayers();
+        if (scriptPath !== "" && !playersProcess.running) {
+            playersProcess.command = command(["players"]);
+            playersProcess.running = true;
+        }
+    }
+
+    function applyPlayers() {
+        players = Model.livePlayers(Model.playerRecords(playersFile.text()), liveTitles, livePids);
     }
 
     function stopPlayer(record) {
@@ -342,6 +352,21 @@ Item {
                 return;
             }
             root.abandonLaunch(Model.firstLine(String(launchErr.text || "the player could not be started")));
+        }
+    }
+
+    Process {
+        id: playersProcess
+        running: false
+        command: []
+        environment: root.settingsEnv("")
+        stdout: StdioCollector {
+            id: playersOut
+            waitForEnd: true
+        }
+        onExited: function (exitCode) {
+            root.livePids = exitCode === 0 ? Model.launchPids(Model.playerRecords(String(playersOut.text || ""))) : null;
+            root.applyPlayers();
         }
     }
 
