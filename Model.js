@@ -53,7 +53,8 @@ var BACK_FROM = {
   quality: "player"
 }
 
-function backFrom(view) {
+function backFrom(view, openedFrom) {
+  if (view === "episodes" && openedFrom) return openedFrom
   return BACK_FROM[view] || "close"
 }
 
