@@ -103,13 +103,15 @@ and reach no network.
 
 Omani keeps its own watch history: which episode of a series you are on, how
 far into it you are, how long it runs, and every episode you have finished. It
-samples the player's position while it runs, so continuing a series picks the
-episode up where you stopped rather than at the beginning. Only an episode
+samples the player's position every few seconds while it runs, so continuing a
+series picks the episode up where you stopped rather than at the beginning. Only an episode
 watched past ninety percent counts as finished; continuing then moves to the
 next one, which the provider's episode list decides — so numbering that skips
 or carries decimals is handled by the real list rather than by adding one.
 
-A series you are done with is dropped with `d`, and `x` clears the lot.
+A series you are done with is dropped with `d` or `x`, the key every Omarchy
+panel uses to remove the row under the cursor. `c` clears the history entirely,
+and asks first.
 
 ## Dependencies
 
@@ -122,6 +124,7 @@ external command it can invoke is listed here.
 | `jq` | status and manifest reading | Omarchy's base packages |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
+| `flock` | serialising writes to the watch history | `util-linux`, required by `base` |
 
 **On Omarchy there is nothing to install.** Every one of these is already
 there, and `mpv-mpris` is too. That last one is not a command Omani runs — it
@@ -134,8 +137,8 @@ so rather than leaving you to guess.
 `curl` is blocked.
 
 No privileged commands, no services, no installers. Omani writes only its own
-watch history under `$XDG_STATE_HOME/omani` (with a `.bak` beside it) and a
-record of the players it started.
+watch history under `$XDG_STATE_HOME/omani` (with a `.bak` and a lock file
+beside it) and a record of the players it started, under `$XDG_RUNTIME_DIR`.
 
 ## Remove
 

@@ -162,6 +162,11 @@ parsers, reading a saved page on stdin:
   parse-episodes <anime-id>
   parse-qualities <master-url>
   deobfuscate <blob>
+
+environment:
+  OMANI_BASE_API   provider origin        (default: https://hianime.at)
+  OMANI_AGENT      user agent sent with every request
+  OMANI_CURL       the curl to use        (default: curl-impersonate, else curl)
 USAGE
 }
 
