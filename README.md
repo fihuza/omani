@@ -66,7 +66,8 @@ dimmed while it is paused.
 
 **Next episode** and **Previous episode** move through the series whatever is
 left of the episode you are on: the one you leave keeps the progress it had
-rather than counting as watched.
+rather than counting as watched, and the one you land on picks up where you
+left it unless you watched it to the end.
 
 **One player per series.** Starting any episode of a series closes whatever
 else of that series is running, however you got there — the menu, the episode

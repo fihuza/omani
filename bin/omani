@@ -236,22 +236,36 @@ neighbour_episode() {
   fi
 }
 
+episode_field() {
+  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
+  jq -r --arg ep "$2" ".episodes[\$ep].$3 // 0" <<<"$1"
+}
+
+episode_watched() {
+  local position duration
+  position=$(episode_field "$1" "$2" position)
+  duration=$(episode_field "$1" "$2" duration)
+  ((duration > 0 && position * 100 >= duration * WATCHED_FRACTION))
+}
+
+# Where an episode picks up: where it was left, unless it was watched to the end.
+episode_start() {
+  episode_watched "$1" "$2" && printf '0\n' && return 0
+  episode_field "$1" "$2" position
+}
+
 cmd_resume() {
   local id="${1:-}"
   [[ -n $id ]] || die "usage: omani resume <anime-id>"
   local entry
   entry=$(entry_for "$id") || die "'$id' is not in history"
 
-  local title episode position duration
+  local title episode
   title=$(jq -r '.title' <<<"$entry")
   episode=$(jq -r '.episode' <<<"$entry")
-  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
-  position=$(jq -r --arg ep "$episode" '.episodes[$ep].position // 0' <<<"$entry")
-  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
-  duration=$(jq -r --arg ep "$episode" '.episodes[$ep].duration // 0' <<<"$entry")
 
-  if ((duration == 0 || position * 100 < duration * WATCHED_FRACTION)); then
-    cmd_play "$id" "$title" "$episode" "$position"
+  if ! episode_watched "$entry" "$episode"; then
+    cmd_play "$id" "$title" "$episode" "$(episode_start "$entry" "$episode")"
     return
   fi
 
@@ -279,7 +293,7 @@ cmd_step() {
   target=$(neighbour_episode "$current" "$side" "$episodes")
   [[ -n $target ]] || die "no episode $side $current of $title"
 
-  cmd_play "$id" "$title" "$target"
+  cmd_play "$id" "$title" "$target" "$(episode_start "$entry" "$target")"
 }
 
 mpris_present() {

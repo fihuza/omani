@@ -454,6 +454,38 @@ t_previous_plays_the_episode_before_the_one_watched() {
   assert_contains "$("$OMANI" previous frieren-1)" "--force-media-title=Frieren Episode 1"
 }
 
+t_previous_resumes_an_episode_left_part_way() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
+                 "episodes": {"1": {"position": 300, "duration": 1400}}}}'
+  assert_contains "$("$OMANI" previous frieren-1)" "--start=300"
+}
+
+t_previous_restarts_an_episode_already_watched() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
+                 "episodes": {"1": {"position": 1350, "duration": 1400}}}}'
+  local out
+  out=$("$OMANI" previous frieren-1)
+  assert_contains "$out" "Frieren Episode 1"
+  assert_lacks "$out" "--start="
+}
+
+t_previous_starts_an_episode_never_opened_at_the_beginning() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
+  assert_lacks "$("$OMANI" previous frieren-1)" "--start="
+}
+
+t_next_resumes_an_episode_left_part_way() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "1",
+                 "episodes": {"2": {"position": 420, "duration": 1400}}}}'
+  assert_contains "$("$OMANI" next frieren-1)" "--start=420"
+}
+
+t_replay_starts_at_the_beginning_however_far_in_you_were() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
+                 "episodes": {"2": {"position": 600, "duration": 1400}}}}'
+  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2)" "--start="
+}
+
 t_previous_refuses_at_the_first_episode() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "episodes": {}}}'
   local out
@@ -807,6 +839,11 @@ check "a history carrying trailing garbage reads as empty" t_a_history_that_carr
 check "next refuses at the last episode" t_next_refuses_at_the_last_episode
 check "next refuses a series not in history" t_next_refuses_an_unknown_series
 check "previous plays the episode before the one watched" t_previous_plays_the_episode_before_the_one_watched
+check "previous resumes an episode left part way" t_previous_resumes_an_episode_left_part_way
+check "previous restarts an episode already watched" t_previous_restarts_an_episode_already_watched
+check "previous starts an episode never opened at the beginning" t_previous_starts_an_episode_never_opened_at_the_beginning
+check "next resumes an episode left part way" t_next_resumes_an_episode_left_part_way
+check "replay starts at the beginning however far in you were" t_replay_starts_at_the_beginning_however_far_in_you_were
 check "previous refuses at the first episode" t_previous_refuses_at_the_first_episode
 check "previous refuses a series not in history" t_previous_refuses_an_unknown_series
 check "the recorded pid is the player itself" t_the_recorded_pid_is_the_player_itself
