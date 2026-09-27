@@ -413,6 +413,14 @@ function playerFor(players, title) {
   return null
 }
 
+// A stop has to name something the script can match. The pid is the surest, the
+// title next; the series id is the one that survives a step from one episode to
+// the next, when the title of the player being built is not known yet.
+function stopTarget(record) {
+  if (!record) return ""
+  return String(record.pid || record.title || record.animeId || "")
+}
+
 function progressFor(rows, animeId) {
   if (!animeId || !rows) return null
   for (var i = 0; i < rows.length; i++) {
@@ -611,6 +619,7 @@ if (typeof module !== "undefined") {
     heroMeta: heroMeta,
     progressRows: progressRows,
     progressFor: progressFor,
+    stopTarget: stopTarget,
     clock: clock,
     elapsed: elapsed,
     playerFor: playerFor,

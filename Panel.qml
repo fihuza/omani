@@ -157,7 +157,8 @@ Panel {
             "stop": function () {
                 root.service.stopPlayer({
                     pid: "",
-                    title: root.service.playingTitle
+                    title: root.service.playingTitle,
+                    animeId: root.service.playingId
                 });
                 root.setView("history");
             }

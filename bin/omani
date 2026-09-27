@@ -41,7 +41,7 @@ usage: omani <subcommand> [args]
   next <anime-id>                     play the episode after the one in history
   previous <anime-id>                 play the episode before the one in history
   players                             pid<TAB>title<TAB>anime-id<TAB>episode, live only
-  stop [pid|title|all]                stop a player this plugin started
+  stop [pid|title|anime-id|all]       stop a player this plugin started
   progress <id> <ep> <seconds> <total>  record how far into an episode you are
   history                             print the watch history as json
   forget <anime-id>                   drop one series from the history
@@ -160,8 +160,10 @@ cmd_stop() {
   if [[ $target == "all" ]]; then
     pids=$(cut -f1 "$PLAYERS_FILE")
   else
+    # A player is named by its pid, its title or the series it belongs to: only
+    # the last of those is known while an episode is being replaced.
     pids=$(target="$target" awk -F'\t' \
-      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"]) { print $1 }' "$PLAYERS_FILE")
+      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"] || $3 == ENVIRON["target"]) { print $1 }' "$PLAYERS_FILE")
   fi
   [[ -n $pids ]] || return 0
 

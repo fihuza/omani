@@ -139,12 +139,24 @@ Item {
     }
 
     function stopPlayer(record) {
-        if (!record)
+        var target = Model.stopTarget(record);
+        if (target === "")
             return;
-        var target = record.pid ? record.pid : record.title;
-        if (!target)
-            return;
+        cancelLaunch();
         Quickshell.execDetached(command(["stop", target]));
+    }
+
+    // A launch that is still resolving its stream would go on to start a player
+    // nobody wants any more. The stop is sent as well, because the player may
+    // have been spawned a moment before this arrived.
+    property bool cancelled: false
+
+    function cancelLaunch() {
+        if (!launching)
+            return;
+        cancelled = true;
+        launchProcess.running = false;
+        launching = false;
     }
 
     function syncPlayingFromHistory() {
@@ -247,7 +259,7 @@ Item {
     }
 
     function stop() {
-        launching = false;
+        cancelLaunch();
         playingQuality = "";
         playingId = "";
         playingSeries = "";
@@ -309,6 +321,10 @@ Item {
             waitForEnd: true
         }
         onExited: function (exitCode) {
+            if (root.cancelled) {
+                root.cancelled = false;
+                return;
+            }
             if (exitCode === 0)
                 return;
             root.launching = false;

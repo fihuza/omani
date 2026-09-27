@@ -556,6 +556,24 @@ t_stop_targets_one_player_by_title() {
   assert_eq "$("$OMANI" stop "Naruto Episode 9")" "stop $pid"
 }
 
+t_stop_targets_a_series_by_its_id() {
+  # The pane knows the series id even while an episode is being replaced, when
+  # the title of the player it is about is not settled yet.
+  local pid
+  pid=$(live_player "Naruto Episode 9" naruto-2 9)
+  assert_eq "$("$OMANI" stop naruto-2)" "stop $pid"
+}
+
+t_stop_by_id_leaves_other_series_alone() {
+  local naruto frieren
+  naruto=$(live_player "Naruto Episode 9" naruto-2 9)
+  frieren=$(live_player "Frieren Episode 3" frieren-1 3)
+  local out
+  out=$("$OMANI" stop frieren-1)
+  assert_eq "$out" "stop $frieren"
+  assert_lacks "$out" "$naruto"
+}
+
 t_stop_matches_a_title_holding_a_backslash() {
   local pid
   pid=$(live_player 'A\D Episode 1' tricky-3 1)
@@ -708,6 +726,8 @@ check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_r
 check "playing a second episode keeps both records" t_playing_a_second_episode_keeps_both_records
 check "stop targets one player by pid" t_stop_targets_one_player_by_pid
 check "stop targets one player by title" t_stop_targets_one_player_by_title
+check "stop targets a series by its id" t_stop_targets_a_series_by_its_id
+check "stop by id leaves another series playing" t_stop_by_id_leaves_other_series_alone
 check "stop matches a title holding a backslash" t_stop_matches_a_title_holding_a_backslash
 check "stop all targets every player" t_stop_all_targets_every_player
 check "stop forgets the player it stopped" t_stop_forgets_the_player_it_stopped

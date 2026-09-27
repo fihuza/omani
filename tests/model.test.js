@@ -644,6 +644,16 @@ test("a position past the end never overfills the bar", () => {
   assert.equal(rows[0].fraction, 1)
 })
 
+test("a stop names something the script can match, even mid-step", () => {
+  // Stepping to the next episode clears the title while the new player is
+  // resolving, and the pane's stop button went out with nothing to match.
+  assert.equal(Model.stopTarget({ pid: "42", title: "A Episode 1", animeId: "a" }), "42")
+  assert.equal(Model.stopTarget({ pid: "", title: "A Episode 1", animeId: "a" }), "A Episode 1")
+  assert.equal(Model.stopTarget({ pid: "", title: "", animeId: "a" }), "a")
+  assert.equal(Model.stopTarget({ pid: "", title: "", animeId: "" }), "")
+  assert.equal(Model.stopTarget(null), "")
+})
+
 test("the pane takes the progress of the episode it controls", () => {
   const rows = Model.progressRows([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [{ title: "B", position: 30, duration: 60, playing: true }])
   assert.equal(Model.progressFor(rows, "b").fraction, 0.5)
