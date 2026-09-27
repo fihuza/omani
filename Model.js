@@ -281,10 +281,16 @@ function historyRows(raw, limit) {
   })
 }
 
+function wheelTarget(current, delta, content, viewport) {
+  var limit = Math.max(0, content - viewport)
+  return Math.max(0, Math.min(limit, current - delta))
+}
+
 function scrollTarget(list) {
   var limit = Math.max(0, list.content - list.viewport)
   if (list.index <= 0) return 0
-  if (list.index >= list.lastIndex) return limit
+  if (list.index >= list.lastIndex)
+    return Math.max(0, Math.max(limit, list.rowTop + list.rowHeight - list.viewport))
   var above = list.rowTop - list.margin
   if (above < list.current) return Math.max(0, Math.min(limit, above))
   var below = list.rowTop + list.rowHeight + list.margin
@@ -669,6 +675,7 @@ if (typeof module !== "undefined") {
     historyEntry: historyEntry,
     historyRows: historyRows,
     scrollTarget: scrollTarget,
+    wheelTarget: wheelTarget,
     shortcuts: shortcuts,
     withSetting: withSetting,
     nextSetting: nextSetting,

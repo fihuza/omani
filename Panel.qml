@@ -553,6 +553,14 @@ Panel {
                         policy: ScrollBar.AsNeeded
                     }
 
+                    WheelHandler {
+                        onWheel: function (event) {
+                            if (event.angleDelta.y === 0)
+                                return;
+                            panelFlick.contentY = Model.wheelTarget(panelFlick.contentY, event.angleDelta.y, panelFlick.contentHeight, panelFlick.height);
+                        }
+                    }
+
                     Column {
                         id: column
                         width: panelFlick.width

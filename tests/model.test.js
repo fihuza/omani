@@ -490,6 +490,38 @@ test("the first row shows the header above it rather than just itself", () => {
   assert.equal(Model.scrollTarget(list({ index: 0, current: 500 })), 0)
 })
 
+test("the last row is reached even while the content height lags behind it", () => {
+  // 220 delegates do not finish laying out at once, so the column reports less
+  // than it ends up holding; trusting it alone stops short of the last rows.
+  const at = Model.scrollTarget({
+    current: 0, viewport: 400, content: 5000, rowTop: 5200, rowHeight: 50,
+    index: 219, lastIndex: 219, margin: 30
+  })
+  assert.equal(at, 4850, "the last row sits against the bottom of the viewport")
+})
+
+test("a content taller than the last row still ends at the content", () => {
+  const at = Model.scrollTarget({
+    current: 0, viewport: 400, content: 6000, rowTop: 5200, rowHeight: 50,
+    index: 219, lastIndex: 219, margin: 30
+  })
+  assert.equal(at, 5600, "trailing space below the last row is still scrolled to")
+})
+
+test("a wheel notch moves further than a nudge", () => {
+  assert.equal(Model.wheelTarget(1000, -120, 5000, 400), 1120)
+  assert.equal(Model.wheelTarget(1000, 120, 5000, 400), 880)
+})
+
+test("the wheel stops at both ends of the list", () => {
+  assert.equal(Model.wheelTarget(50, 600, 5000, 400), 0)
+  assert.equal(Model.wheelTarget(4500, -600, 5000, 400), 4600)
+})
+
+test("a list that fits does not move under the wheel", () => {
+  assert.equal(Model.wheelTarget(0, -600, 300, 400), 0)
+})
+
 test("the last row goes to the very bottom", () => {
   assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
 })
