@@ -79,11 +79,13 @@ read_history() {
 }
 
 update_history() {
-  local tmp
+  local tmp dir
   [[ -f $HIST_FILE ]] && ! history_parses &&
     die "refusing to write over a history that is not valid json: $HIST_FILE"
-  mkdir -p "$(dirname "$HIST_FILE")"
-  tmp=$(mktemp "$HIST_FILE.XXXXXX")
+  dir=$(dirname "$HIST_FILE")
+  mkdir -p "$dir" 2>/dev/null
+  [[ -w $dir ]] || die "cannot write the history in $dir"
+  tmp=$(mktemp "$HIST_FILE.XXXXXX" 2>/dev/null) || die "cannot write the history in $dir"
   (
     trap 'rm -f "$tmp"' EXIT
     flock -w 5 9 || die "could not take the history lock"

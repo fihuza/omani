@@ -446,6 +446,20 @@ t_a_history_that_carries_trailing_garbage_reads_as_empty() {
   assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
 }
 
+t_a_history_that_cannot_be_written_is_said_so() {
+  local dir="$WORK/readonly"
+  mkdir -p "$dir"
+  cp "$OMANI_HIST_FILE" "$dir/history.json"
+  chmod 500 "$dir"
+  local out
+  out=$(OMANI_HIST_FILE="$dir/history.json" OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400 2>&1)
+  local code=$?
+  chmod 700 "$dir"
+  ((code != 0)) || fail "$current" "reported success while writing nothing"
+  assert_contains "$out" "history"
+  assert_lacks "$out" "mktemp"
+}
+
 t_a_history_that_does_not_parse_is_never_written_over() {
   printf 'not json at all\n' >"$OMANI_HIST_FILE"
   local out
@@ -1018,6 +1032,7 @@ check "resume refuses when nothing follows" t_resume_refuses_when_nothing_follow
 check "next plays the episode after the one watched" t_next_plays_the_episode_after_the_one_watched
 check "next moves on from an episode barely started" t_next_moves_on_from_an_episode_barely_started
 check "next leaves the progress of the episode it leaves" t_next_leaves_the_progress_of_the_episode_it_leaves
+check "a history that cannot be written is said so" t_a_history_that_cannot_be_written_is_said_so
 check "a history that does not parse is never written over" t_a_history_that_does_not_parse_is_never_written_over
 check "next steps from the episode actually playing" t_next_steps_from_the_episode_actually_playing
 check "a history carrying trailing garbage reads as empty" t_a_history_that_carries_trailing_garbage_reads_as_empty
