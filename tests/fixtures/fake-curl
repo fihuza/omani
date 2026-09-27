@@ -1,6 +1,4 @@
 #!/bin/bash
-# The url being fetched is the first one that is not the referrer, which curl
-# takes as the argument to -e.
 url=""
 prev=""
 for arg in "$@"; do

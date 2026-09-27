@@ -39,8 +39,6 @@ fetch() {
   printf '%s' "$body"
 }
 
-# Attributes are read one at a time, by name: the markup can carry them in any
-# order, with anything else beside them.
 AWK_ATTR='
 function attr(line, key,   m) {
   if (!match(line, key "=\"[^\"]*\"")) return ""
@@ -104,10 +102,6 @@ deobfuscate() (
 )
 
 parse_qualities() {
-  # A variant is its RESOLUTION attribute and the first line under it that is
-  # not a tag: an audio-only rendition carries no resolution, an i-frame entry
-  # carries its url as an attribute, and either one desynchronises a parse that
-  # pairs each line with the next.
   base="${1%/*}" awk '
     /^#EXT-X-I-FRAME-STREAM-INF/ { next }
     /^#EXT-X-STREAM-INF/ {
@@ -145,8 +139,6 @@ pick_quality() {
 cmd_search() {
   [[ -n ${1:-} ]] || die "usage: omani-provider search <query>"
   local page
-  # A die inside a command substitution ends only that subshell, so without this
-  # a failed fetch would leave an empty page and still report success.
   page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')") || exit 1
   parse_search <<<"$page"
 }

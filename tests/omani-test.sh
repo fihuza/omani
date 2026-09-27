@@ -40,9 +40,6 @@ wait_until_gone() {
   return 1
 }
 
-# A real process, because `players` reports only the ones still alive. The pid is
-# noted in a file rather than a variable: callers read this through $(...), and
-# an array assignment made in that subshell never reaches the caller.
 started_at() {
   local stat
   stat=$(</proc/"$1"/stat) 2>/dev/null || return 1
@@ -283,8 +280,6 @@ t_history_timestamps_are_finer_than_a_second() {
 }
 
 t_a_record_carries_when_its_player_started() {
-  # Read at the call site: a player that exits at once is reaped while the
-  # record is still being written, and then there is nothing left to read.
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 3
   local started
   started=$(awk -F'\t' '$3 == "frieren-1" { print $6 }' "$OMANI_STATE_DIR/players")
@@ -538,7 +533,6 @@ t_a_position_past_the_end_counts_as_watched() {
 }
 
 t_a_position_with_no_duration_is_still_where_it_was_left() {
-  # mpris reports a length of zero for a stream it has not measured yet.
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 240, "duration": 0}}}}'
   assert_contains "$("$OMANI" play frieren-1 "Frieren" 2)" "--start=240"
@@ -670,8 +664,6 @@ FAKE
 }
 
 t_a_player_waiting_to_be_reaped_is_not_playing() {
-  # The parent execs, so it never calls wait() and the child it leaves behind
-  # stays a zombie for as long as it runs.
   bash -c 'sleep 0.1 & exec sleep 5' &
   local parent=$!
   printf '%s\n' "$parent" >>"$WORK/spawned"
@@ -803,9 +795,6 @@ t_stop_without_any_player_is_not_an_error() {
 }
 
 t_writes_do_not_depend_on_tmpdir() {
-  # A temp file in TMPDIR lands on another filesystem, where mv copies instead of
-  # renaming and a reader can be handed half a file. An absent TMPDIR proves the
-  # temp file is made beside its target.
   export TMPDIR="$WORK/absent"
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
   assert_ok $?

@@ -325,7 +325,6 @@ Panel {
             bar.shell.updateEntryInline(root.moduleName, entry);
     }
 
-    // On the way in, not on the way out: the card stays on screen while it fades.
     onOpenedChanged: {
         if (!opened || !service)
             return;

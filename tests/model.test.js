@@ -834,8 +834,6 @@ test("a view with no label heads nothing rather than undefined", () => {
 })
 
 test("maps the control characters Qt reports for ctrl-d and ctrl-u", () => {
-  // PanelKeyCatcher forwards any single character to onTextKey without
-  // inspecting modifiers, so Ctrl-D arrives as the raw 0x04 byte.
   assert.equal(Model.normalizeKey("\u0004"), "ctrl+d")
   assert.equal(Model.normalizeKey("\u0015"), "ctrl+u")
 })

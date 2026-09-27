@@ -209,7 +209,6 @@ t_stream_reports_a_cloudflare_block() {
 }
 
 t_quality_is_matched_on_its_height_not_the_url() {
-  # The 1080 variant's url carries "720" in a path segment.
   local out
   out=$(FAKE_MASTER="$FIXTURES/master-decoy.m3u8" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub 720)
   assert_contains "$out" "url	https://cdn/plain/720/i.m3u8"
@@ -256,8 +255,6 @@ t_stream_resolves_url_referrer_and_subtitles() {
 }
 
 t_stream_takes_the_source_the_payload_names() {
-  # A subtitle track can be served as m3u8 too; the stream is the payload's own
-  # src, not whichever one happens to be written last.
   local out
   out=$(FAKE_EMBED="$FIXTURES/embed-blob-two-sources.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
   assert_contains "$out" "https://cdn/real/"
