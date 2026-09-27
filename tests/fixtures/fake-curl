@@ -8,6 +8,8 @@ done
 
 emit() { printf '%s %s' "$1" "${FAKE_CODE:-200}"; }
 
+[[ -n ${FAKE_URL_LOG:-} ]] && printf '%s\n' "$url" >>"$FAKE_URL_LOG"
+
 [[ -n ${FAKE_CURL_FAIL:-} ]] && exit 7
 
 [[ -n ${FAKE_CLOUDFLARE:-} ]] && emit "<html><title>Just a moment...</title></html>" && exit 0
@@ -16,7 +18,13 @@ case "$url" in
 */search*) emit "$(cat "$FIXTURES/search.html")" ;;
 */episode/list/*) emit "$(cat "$FIXTURES/episodes.json")" ;;
 */episode/servers*) emit "$(cat "${FAKE_SERVERS:-$FIXTURES/servers.html}")" ;;
-*zokoanime*) emit "window.__P=\"$(cat "${FAKE_EMBED:-$FIXTURES/embed-blob.txt}")\"" ;;
+*zokoanime*)
+  if [[ -n ${FAKE_EMBED_PAGE:-} ]]; then
+    emit "$(cat "$FAKE_EMBED_PAGE")"
+  else
+    emit "window.__P=\"$(cat "${FAKE_EMBED:-$FIXTURES/embed-blob.txt}")\""
+  fi
+  ;;
 *master.m3u8*) emit "$(cat "${FAKE_MASTER:-$FIXTURES/master.m3u8}")" ;;
 *) emit "" ;;
 esac

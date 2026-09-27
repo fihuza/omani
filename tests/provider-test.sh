@@ -51,6 +51,11 @@ SPY
   printf '%s' "$spy"
 }
 
+assert_lacks() {
+  [[ $1 != *"$2"* ]] && return 0
+  fail "$current" "did not expect '$2' in: $1"
+}
+
 assert_missing() {
   [[ ! -e $1 ]] && return 0
   fail "$current" "did not expect the file: $1"
@@ -61,6 +66,9 @@ check() {
   shift
   local before=$failed
   "$@"
+  local status=$?
+  ((failed != before)) && return
+  ((status == 0)) || fail "$current" "the test itself exited $status"
   ((failed == before)) && pass "$current"
 }
 
@@ -321,6 +329,97 @@ t_a_server_is_found_whatever_order_its_attributes_are_in() {
   assert_contains "$out" "url	"
 }
 
+t_a_height_does_not_carry_to_the_next_variant() {
+  local out
+  out=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5300000,RESOLUTION=1920x1080\n#EXT-X-STREAM-INF:BANDWIDTH=800000\naudio/i.m3u8\n' |
+    "$PROVIDER" parse-qualities "https://host/p/master.m3u8")
+  assert_eq "$out" ""
+}
+
+t_one_variant_line_is_offered_per_declaration() {
+  local out
+  out=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5300000,RESOLUTION=1920x1080\n1080/i.m3u8\nstray/i.m3u8\n' |
+    "$PROVIDER" parse-qualities "https://host/p/master.m3u8")
+  assert_eq "$out" "1080p >https://host/p/1080/i.m3u8"
+}
+
+t_the_first_matching_server_is_the_one_used() {
+  local servers="$WORK/two-zoko.html"
+  {
+    printf '<div class="server-item" data-type="sub" data-server-name="ZokoAnime" data-hash="%s"></div>\n' \
+      "$(printf 'https://zokoanime.video/first' | base64 -w0)"
+    printf '<div class="server-item" data-type="sub" data-server-name="ZokoAnime" data-hash="%s"></div>\n' \
+      "$(printf 'https://zokoanime.video/second' | base64 -w0)"
+  } >"$servers"
+  local log="$WORK/asked-for"
+  : >"$log"
+  FAKE_URL_LOG="$log" FAKE_SERVERS="$servers" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best >/dev/null 2>&1
+  assert_contains "$(cat "$log")" "https://zokoanime.video/first"
+  assert_lacks "$(cat "$log")" "second"
+}
+
+t_an_embed_hash_that_is_not_base64_is_refused() {
+  local servers="$WORK/bad-hash.html"
+  printf '<div class="server-item" data-type="sub" data-server-name="ZokoAnime" data-hash="!!not base64!!"></div>\n' >"$servers"
+  local out
+  if out=$(FAKE_SERVERS="$servers" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "could not decode the embed url"
+}
+
+t_an_embed_page_without_a_payload_is_refused() {
+  local page="$WORK/no-payload.html"
+  printf '<html><body>nothing here</body></html>\n' >"$page"
+  local out
+  if out=$(FAKE_EMBED_PAGE="$page" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "embed page carried no payload"
+}
+
+t_a_payload_without_a_source_is_refused() {
+  local out
+  if out=$(FAKE_EMBED="$FIXTURES/embed-blob-no-source.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "no m3u8 in the payload"
+}
+
+t_a_subtitle_that_is_not_a_web_address_is_dropped() {
+  local out
+  out=$(FAKE_EMBED="$FIXTURES/embed-blob-local-subtitle.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "subtitles	"
+  assert_lacks "$out" "passwd"
+}
+
+t_a_master_playlist_with_no_variants_is_refused() {
+  local master="$WORK/empty.m3u8"
+  printf '#EXTM3U\n' >"$master"
+  local out
+  if out=$(FAKE_MASTER="$master" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "no playable qualities"
+}
+
+t_a_cloudflare_block_on_plain_curl_names_the_fix() {
+  local bin="$WORK/plaincurl"
+  mkdir -p "$bin"
+  cp "$FIXTURES/fake-curl" "$bin/curl"
+  local out
+  out=$(FAKE_CLOUDFLARE=1 PATH="$bin:/usr/bin:/bin" env -u OMANI_CURL "$PROVIDER" search x 2>&1)
+  assert_contains "$out" "install curl-impersonate"
+}
+
+t_usage_names_every_subcommand() {
+  local usage sub
+  usage=$("$PROVIDER" 2>&1)
+  for sub in search episodes stream parse-search parse-episodes parse-qualities deobfuscate; do
+    assert_contains "$usage" "$sub"
+  done
+}
+
 t_a_query_carrying_url_syntax_is_encoded() {
   local asked="$WORK/asked"
   OMANI_CURL=$(url_spy "$asked") "$PROVIDER" search "tom & jerry #1" >/dev/null 2>&1
@@ -397,6 +496,16 @@ check "stream falls back when the quality is absent" t_stream_falls_back_when_th
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked
 check "stream refuses an episode that is not listed" t_stream_refuses_an_episode_that_is_not_listed
 check "a server is found whatever order its attributes are in" t_a_server_is_found_whatever_order_its_attributes_are_in
+check "a height does not carry to the next variant" t_a_height_does_not_carry_to_the_next_variant
+check "one variant line is offered per declaration" t_one_variant_line_is_offered_per_declaration
+check "the first matching server is the one used" t_the_first_matching_server_is_the_one_used
+check "an embed hash that is not base64 is refused" t_an_embed_hash_that_is_not_base64_is_refused
+check "an embed page without a payload is refused" t_an_embed_page_without_a_payload_is_refused
+check "a payload without a source is refused" t_a_payload_without_a_source_is_refused
+check "a subtitle that is not a web address is dropped" t_a_subtitle_that_is_not_a_web_address_is_dropped
+check "a master playlist with no variants is refused" t_a_master_playlist_with_no_variants_is_refused
+check "a cloudflare block on plain curl names the fix" t_a_cloudflare_block_on_plain_curl_names_the_fix
+check "usage names every subcommand" t_usage_names_every_subcommand
 check "a query carrying url syntax is encoded" t_a_query_carrying_url_syntax_is_encoded
 check "a query in another script is encoded as utf8" t_a_query_in_another_script_is_encoded_as_utf8
 check "stream refuses an embed that is not a web address" t_stream_refuses_an_embed_that_is_not_a_web_address

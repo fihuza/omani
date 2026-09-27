@@ -120,7 +120,11 @@ check() {
   setup
   local before=$failed
   "$@"
-  ((failed == before)) && pass "$current"
+  local status=$?
+  if ((failed == before)); then
+    ((status == 0)) || fail "$current" "the test itself exited $status"
+    ((failed == before)) && pass "$current"
+  fi
   teardown
 }
 

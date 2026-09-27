@@ -851,6 +851,57 @@ test("normalizes nothing to an empty string", () => {
 const ctx = { rowCount: 10, pageSize: 4 }
 const start = () => Model.initialKeyState()
 
+test("a row still reads before any progress has been reported", () => {
+  const row = { kind: "playing", title: "A Episode 3", episode: "3", label: "" }
+  assert.equal(Model.rowLabel(row, null), "ep 3")
+  assert.equal(Model.rowLabel(row, undefined), "ep 3")
+})
+
+test("a history row carries what choosing it needs, not just a title", () => {
+  const raw = JSON.stringify({version: 1, series: {"a-1": {title: "A", episode: "7", position: 0, duration: 0, watched: [], updated: 1}}})
+  assert.deepEqual(Model.historyRows(raw, 1), [
+    { episode: "7", animeId: "a-1", title: "A", label: "ep 7" }
+  ])
+})
+
+test("one series is reported once however many records name it", () => {
+  const records = [
+    { pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" },
+    { pid: "2", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }
+  ]
+  const players = [{ title: "A Episode 1", position: 600, duration: 1400 }]
+  assert.equal(Model.progressReports(records, players).length, 1)
+})
+
+test("a row takes the first position reported for its title", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  const rows = Model.progressRows(records, [
+    { title: "A Episode 1", position: 100, duration: 1000 },
+    { title: "A Episode 1", position: 900, duration: 1000 }
+  ])
+  assert.equal(rows[0].clock, Model.elapsed(100, 1000))
+  assert.equal(rows[0].fraction, 0.1)
+})
+
+test("a playing row and a series row each carry their own icon", () => {
+  const view = Model.historyView(
+    [{ animeId: "b", title: "B", label: "ep 1" }],
+    [{ pid: "1", title: "A Episode 2", animeId: "a", episode: "2" }]
+  )
+  assert.equal(view[0].kind, "playing")
+  assert.equal(view[1].kind, "series")
+  assert.ok(view[0].icon, "a playing row has an icon")
+  assert.ok(view[1].icon, "a series row has an icon")
+  assert.notEqual(view[0].icon, view[1].icon, "the two are told apart by their icon")
+  assert.equal(view[0].label, "", "a playing row is labelled by the progress rows, not here")
+})
+
+test("a digit cancels a pending g rather than arming it further", () => {
+  const after = press(["g", "3"])
+  assert.equal(after.state.pendingG, false)
+  assert.equal(press(["g", "3", "g"]).state.index, 0, "the second g arms rather than jumping")
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {

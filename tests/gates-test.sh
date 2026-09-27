@@ -27,6 +27,9 @@ check() {
   shift
   local before=$failed
   "$@"
+  local status=$?
+  ((failed != before)) && return
+  ((status == 0)) || fail "$current" "the test itself exited $status"
   ((failed == before)) && pass "$current"
 }
 
