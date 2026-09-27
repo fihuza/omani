@@ -351,8 +351,8 @@ function neighbourLabel(episode, step) {
   return at < 1 ? "" : "episode " + at
 }
 
-function restoredVolume(remembered) {
-  var level = Number(remembered)
+function restoredVolume(before) {
+  var level = Number(before)
   return isFinite(level) && level > 0 ? level : 1
 }
 

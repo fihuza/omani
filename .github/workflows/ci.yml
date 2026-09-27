@@ -24,7 +24,7 @@ jobs:
       - name: Install toolchain
         run: |
           pacman -Syu --noconfirm --needed \
-            git jq nodejs shellcheck shfmt qt6-declarative quickshell diffutils
+            git jq nodejs shellcheck shfmt qt6-declarative quickshell diffutils eslint
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -46,6 +46,10 @@ jobs:
       - name: Lint (QML)
         if: ${{ !cancelled() }}
         run: ./scripts/pre-commit qml-lint
+
+      - name: Lint (JavaScript)
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit js-lint
       - name: Manifest
         if: ${{ !cancelled() }}
         run: ./scripts/pre-commit manifest

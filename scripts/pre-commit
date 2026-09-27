@@ -10,7 +10,7 @@ failed=0
 
 TARGET="${1:-all}"
 
-GATES=(qml-format qml-lint shell-format shell-lint manifest unit shell-tests version)
+GATES=(qml-format qml-lint shell-format shell-lint js-lint manifest unit shell-tests version)
 
 if [[ $TARGET != all ]] && ! printf '%s\n' "${GATES[@]}" | grep -qx -- "$TARGET"; then
   printf 'no such gate: %s\n' "$TARGET" >&2
@@ -111,6 +111,13 @@ if wanted qml-lint; then
     fi
   elif [[ ! -d $OMARCHY_PATH/shell ]]; then
     fail "\$OMARCHY_PATH/shell ($OMARCHY_PATH/shell) is absent -- qs.* imports cannot resolve, so this gate did NOT run"
+  fi
+fi
+
+if wanted js-lint; then
+  step "Lint (JavaScript)"
+  if require eslint "eslint (mise install)"; then
+    eslint --max-warnings 0 . || fail "eslint found problems"
   fi
 fi
 

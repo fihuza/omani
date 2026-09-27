@@ -1,3 +1,4 @@
 [tools]
-node = "26.2.0"
-git-cliff = "2.14.1"
+node = "26.10.0"
+git-cliff = "2.14.2"
+"npm:eslint" = "10.11.0"
