@@ -72,11 +72,6 @@ Panel {
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
-    readonly property var keyContext: ({
-            rowCount: rows.length,
-            pageSize: root.pageSize
-        })
-
     readonly property var headings: ({
             "history": "Continue watching",
             "results": "Results",
@@ -226,7 +221,10 @@ Panel {
     function dispatch(key) {
         if (key === "" || !service)
             return;
-        var result = Model.reduceKey(keyState, key, keyContext);
+        var result = Model.reduceKey(keyState, key, {
+            rowCount: rows.length,
+            pageSize: pageSize
+        });
         keyState = result.state;
         if (!result.command)
             return;
