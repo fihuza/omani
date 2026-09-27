@@ -851,6 +851,31 @@ test("normalizes nothing to an empty string", () => {
 const ctx = { rowCount: 10, pageSize: 4 }
 const start = () => Model.initialKeyState()
 
+test("changing one setting keeps the rest and the module id", () => {
+  const source = { id: "old.id", quality: "best", mode: "sub", historyLimit: 8 }
+  assert.deepEqual(Model.withSetting(source, "io.github.fihuza.omani", "quality", "720"), {
+    id: "io.github.fihuza.omani",
+    quality: "720",
+    mode: "sub",
+    historyLimit: 8
+  })
+})
+
+test("a setting can be added to settings that do not carry it yet", () => {
+  assert.deepEqual(Model.withSetting({ id: "x" }, "x", "watched", "85"), { id: "x", watched: "85" })
+})
+
+test("absent settings still yield an entry the shell can store", () => {
+  assert.deepEqual(Model.withSetting(null, "x", "mode", "dub"), { id: "x", mode: "dub" })
+  assert.deepEqual(Model.withSetting(undefined, "x", "mode", "dub"), { id: "x", mode: "dub" })
+})
+
+test("changing a setting does not mutate the settings it was given", () => {
+  const source = { id: "x", quality: "best" }
+  Model.withSetting(source, "x", "quality", "360")
+  assert.deepEqual(source, { id: "x", quality: "best" })
+})
+
 test("every setting the panel cycles offers exactly what the manifest declares", () => {
   const manifest = require("../manifest.json")
   const declared = {}

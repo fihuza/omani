@@ -479,6 +479,18 @@ t_a_history_that_carries_trailing_garbage_reads_as_empty() {
   assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
 }
 
+t_clearing_refuses_when_the_backup_cannot_be_written() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
+  # A symlink to a directory that does not exist: cp follows it and fails, which
+  # root cannot bypass the way it bypasses permissions.
+  ln -s "$WORK/no-such-dir/history.json" "$OMANI_HIST_FILE.bak"
+  local out
+  out=$(OMANI_DRY_RUN='' "$OMANI" history-clear 2>&1)
+  local code=$?
+  ((code != 0)) || fail "$current" "cleared the history while keeping no backup"
+  assert_contains "$(cat "$OMANI_HIST_FILE")" "Frieren"
+}
+
 t_a_player_record_leaves_no_temporary_file_behind() {
   OMANI_DRY_RUN='' "$OMANI" play frieren-1 "Frieren" 4 >/dev/null 2>&1
   OMANI_DRY_RUN='' "$OMANI" stop frieren-1 >/dev/null 2>&1
@@ -1185,6 +1197,7 @@ check "a first play creates the history" t_a_first_play_creates_the_history
 check "forgetting the last series leaves a history that reads" t_forgetting_the_last_series_leaves_a_history_that_reads
 check "status survives a missing players file" t_status_survives_a_missing_players_file
 check "clearing an already empty history keeps it valid" t_clearing_an_already_empty_history_keeps_it_valid
+check "clearing refuses when the backup cannot be written" t_clearing_refuses_when_the_backup_cannot_be_written
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
 check "history-clear on an absent history is not an error" t_history_clear_on_an_absent_history_is_not_an_error
 check "an unknown subcommand fails loudly" t_unknown_subcommand_fails_loudly

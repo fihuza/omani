@@ -311,13 +311,7 @@ Panel {
 
     function applySetting(key, value) {
         var source = service ? service.settings : root.settings;
-        var entry = {
-            id: root.moduleName
-        };
-        for (var existing in source)
-            if (existing !== "id")
-                entry[existing] = source[existing];
-        entry[key] = value;
+        var entry = Model.withSetting(source, root.moduleName, key, value);
         root.settings = entry;
         if (service)
             service.settings = entry;

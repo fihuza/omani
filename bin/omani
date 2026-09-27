@@ -256,7 +256,6 @@ cmd_play() {
     return 0
   fi
 
-  mkdir -p "$STATE_DIR"
   "${args[@]}" </dev/null >/dev/null 2>&1 &
   read_started_at "$!"
   record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities" "$STARTED_AT"
@@ -421,7 +420,8 @@ cmd_history_clear() {
     printf 'truncate %s\n' "$HIST_FILE"
     return 0
   fi
-  cp "$HIST_FILE" "$HIST_FILE.bak"
+  cp "$HIST_FILE" "$HIST_FILE.bak" 2>/dev/null ||
+    die "refusing to clear a history that cannot be backed up: $HIST_FILE.bak"
   update_history '{version: 1, series: {}}'
 }
 

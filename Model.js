@@ -303,6 +303,14 @@ var WATCHED = ["80", "85", "90", "95"]
 
 var RINGS = { quality: QUALITIES, mode: MODES, watched: WATCHED }
 
+function withSetting(source, moduleName, key, value) {
+  var entry = { id: moduleName }
+  for (var existing in source)
+    if (existing !== "id") entry[existing] = source[existing]
+  entry[key] = value
+  return entry
+}
+
 function nextSetting(key, current) {
   var ring = RINGS[key]
   return ring ? nextInRing(ring, current) : current
@@ -619,6 +627,7 @@ if (typeof module !== "undefined") {
     historyRows: historyRows,
     scrollTarget: scrollTarget,
     shortcuts: shortcuts,
+    withSetting: withSetting,
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,
