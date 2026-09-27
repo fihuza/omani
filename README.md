@@ -60,6 +60,9 @@ the second you stopped, and opens its menu:
 
 ![The player menu: next episode, replay, previous episode, select episode, change quality and stop](controls.png)
 
+Everything Omani has playing is listed under the header with its own bar: the
+episode, how far in it is, and whether it is paused.
+
 **Next episode** and **Previous episode** move through the series whatever is
 left of the episode you are on: the one you leave keeps the progress it had
 rather than counting as watched.

@@ -44,8 +44,6 @@ Panel {
             tracking: service ? service.tracking : true,
             missing: root.missing,
             playing: service ? service.playing : false,
-            nowPlaying: service ? service.nowPlaying : "",
-            elapsed: service ? service.elapsed : "",
             notice: root.notice,
             quality: root.quality,
             mode: root.mode
@@ -390,7 +388,6 @@ Panel {
                         width: parent.width
                         title: "Omani"
                         meta: Model.heroMeta(root.heroState)
-                        detail: Model.heroDetail(root.heroState)
                         foreground: root.ready ? root.foreground : root.urgent
                         fontFamily: root.fontFamily
                         iconComponent: Component {
@@ -444,6 +441,93 @@ Panel {
                     PanelSeparator {
                         width: parent.width
                         foreground: root.foreground
+                    }
+
+                    // One bar per player: which episode, how far in, and
+                    // whether it is paused.
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(8)
+                        visible: root.ready && playing.count > 0
+
+                        Repeater {
+                            id: playing
+                            model: root.service ? root.service.progress : []
+
+                            delegate: Column {
+                                id: playingRow
+
+                                required property var modelData
+
+                                width: parent.width
+                                spacing: Style.space(4)
+
+                                Item {
+                                    width: parent.width
+                                    implicitHeight: playingTitle.implicitHeight
+
+                                    Text {
+                                        id: playingIcon
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        textFormat: Text.PlainText
+                                        text: playingRow.modelData.icon
+                                        color: root.dim
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                    }
+
+                                    Text {
+                                        id: playingTitle
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: playingIcon.right
+                                        anchors.leftMargin: Style.space(6)
+                                        anchors.right: playingClock.left
+                                        anchors.rightMargin: Style.space(8)
+                                        textFormat: Text.PlainText
+                                        text: playingRow.modelData.title
+                                        color: root.foreground
+                                        elide: Text.ElideRight
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                    }
+
+                                    Text {
+                                        id: playingClock
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.right: parent.right
+                                        textFormat: Text.PlainText
+                                        text: playingRow.modelData.clock
+                                        color: root.dim
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                    }
+                                }
+
+                                Rectangle {
+                                    id: track
+                                    width: parent.width
+                                    height: Math.max(3, Math.round(Style.spacing.controlHeight * 0.08))
+                                    radius: height / 2
+                                    color: Style.selectedFillFor(root.foreground, Color.accent)
+
+                                    Rectangle {
+                                        width: track.width * playingRow.modelData.fraction
+                                        height: track.height
+                                        radius: track.radius
+                                        color: root.foreground
+                                        opacity: playingRow.modelData.paused ? 0.45 : 1.0
+
+                                        Behavior on width {
+                                            NumberAnimation {
+                                                duration: 220
+                                                easing.type: Easing.OutCubic
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     TextField {

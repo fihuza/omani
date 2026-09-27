@@ -616,11 +616,38 @@ test("the player on the bus is found by the title it reports", () => {
   assert.equal(Model.playerFor(players, ""), null)
 })
 
-test("the hero says how far into what is playing", () => {
-  const state = { ready: true, tracking: true, missing: "", playing: true, nowPlaying: "Naruto Episode 5", elapsed: "4:12 / 23:22", quality: "best", mode: "sub" }
-  assert.equal(Model.heroMeta(state), "Naruto Episode 5")
-  assert.equal(Model.heroDetail(state), "4:12 / 23:22")
-  assert.equal(Model.heroDetail(Object.assign({}, state, { elapsed: "" })), "")
+test("every player gets a line of its own, with how far in it is", () => {
+  const records = [{ animeId: "a", title: "A Episode 1" }, { animeId: "b", title: "B Episode 2" }]
+  const positions = [{ title: "B Episode 2", position: 300, duration: 1200, playing: true }, { title: "A Episode 1", position: 600, duration: 1200, playing: false }]
+  const rows = Model.progressRows(records, positions)
+  assert.deepEqual(rows.map(r => r.animeId), ["a", "b"])
+  assert.equal(rows[0].fraction, 0.5)
+  assert.equal(rows[0].clock, "10:00 / 20:00")
+  assert.equal(rows[0].paused, true)
+  assert.equal(rows[1].fraction, 0.25)
+  assert.equal(rows[1].paused, false)
+})
+
+test("a player the bus has not reported yet reads as no progress", () => {
+  const rows = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [])
+  assert.equal(rows[0].fraction, 0)
+  assert.equal(rows[0].clock, "")
+
+  // On the bus, but before it has answered with a position or a length.
+  const opened = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [{ title: "A Episode 1", playing: true }])
+  assert.equal(opened[0].fraction, 0)
+  assert.equal(opened[0].clock, "")
+})
+
+test("a position past the end never overfills the bar", () => {
+  const rows = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [{ title: "A Episode 1", position: 1300, duration: 1200, playing: true }])
+  assert.equal(rows[0].fraction, 1)
+})
+
+test("the icon says whether that player is paused", () => {
+  const paused = Model.progressRows([{ animeId: "a", title: "A" }], [{ title: "A", position: 1, duration: 2, playing: false }])
+  const running = Model.progressRows([{ animeId: "a", title: "A" }], [{ title: "A", position: 1, duration: 2, playing: true }])
+  assert.notEqual(paused[0].icon, running[0].icon)
 })
 
 test("only the first line of a failure is shown", () => {
@@ -629,12 +656,6 @@ test("only the first line of a failure is shown", () => {
   assert.equal(Model.firstLine("no prefix here"), "no prefix here")
   assert.equal(Model.firstLine(""), "")
   assert.equal(Model.firstLine(null), "")
-})
-
-test("the clock is not shown for anything but a player that is running", () => {
-  assert.equal(Model.heroDetail(hero({ playing: true, elapsed: "1:00", notice: "boom" })), "")
-  assert.equal(Model.heroDetail(hero({ playing: true, elapsed: "1:00", ready: false })), "")
-  assert.equal(Model.heroDetail(hero({ playing: false, elapsed: "1:00" })), "")
 })
 
 test("a failure outranks everything else the hero could say", () => {
@@ -648,10 +669,6 @@ test("a missing dependency is what the hero says", () => {
 
 test("losing player tracking is said without claiming the plugin is broken", () => {
   assert.equal(Model.heroMeta(hero({ tracking: false })), "mpv-mpris missing \u00b7 players are not tracked")
-})
-
-test("what is playing outranks the settings summary", () => {
-  assert.equal(Model.heroMeta(hero({ playing: true, nowPlaying: "Naruto Episode 3" })), "Naruto Episode 3")
 })
 
 test("with nothing playing the hero summarises the settings", () => {

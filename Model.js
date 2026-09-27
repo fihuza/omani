@@ -417,15 +417,35 @@ function heroMeta(state) {
   if (state.notice) return state.notice
   if (!state.ready) return "missing: " + state.missing
   if (!state.tracking) return "mpv-mpris missing \u00b7 players are not tracked"
-  if (state.playing) return state.nowPlaying
   return state.quality + " \u00b7 " + state.mode
 }
 
-// The clock rides beside the title rather than after the episode, where a long
-// series name would push it out of a line that elides.
-function heroDetail(state) {
-  if (state.notice || !state.ready || !state.playing) return ""
-  return state.elapsed || ""
+// One line for each player, because one line naming the first of them says the
+// wrong thing the moment a second is started or that one is paused. The
+// position is read fresh every tick: mpris never announces it.
+function progressRows(records, positions) {
+  var rows = []
+  for (var i = 0; i < records.length; i++) {
+    var live = null
+    for (var p = 0; p < positions.length; p++) {
+      if (positions[p].title === records[i].title) {
+        live = positions[p]
+        break
+      }
+    }
+    var position = live ? Math.floor(Number(live.position) || 0) : 0
+    var duration = live ? Math.floor(Number(live.duration) || 0) : 0
+    var paused = live ? live.playing !== true : false
+    rows.push({
+      animeId: records[i].animeId,
+      title: records[i].title,
+      clock: elapsed(position, duration),
+      fraction: duration > 0 ? Math.min(1, position / duration) : 0,
+      paused: paused,
+      icon: paused ? "\u{f03e4}" : "\u{f040a}"
+    })
+  }
+  return rows
 }
 
 function heading(labels, view, busy, launching) {
@@ -585,7 +605,7 @@ if (typeof module !== "undefined") {
     episodeLabel: episodeLabel,
     heading: heading,
     heroMeta: heroMeta,
-    heroDetail: heroDetail,
+    progressRows: progressRows,
     clock: clock,
     elapsed: elapsed,
     playerFor: playerFor,

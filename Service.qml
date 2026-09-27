@@ -51,7 +51,8 @@ Item {
             return {
                 title: String(p.trackTitle || ""),
                 position: Number(p.position) || 0,
-                duration: Number(p.length) || 0
+                duration: Number(p.length) || 0,
+                playing: p.isPlaying === true
             };
         });
     }
@@ -64,9 +65,10 @@ Item {
             Quickshell.execDetached(command(["progress", reports[i].animeId, reports[i].episode, String(reports[i].position), String(reports[i].duration)]));
     }
     readonly property bool playing: players.length > 0
-    readonly property string nowPlaying: players.length > 0 ? players[0].title : ""
 
-    readonly property var currentPlayer: Model.playerFor(playerList, nowPlaying)
+    // The player this panel is controlling, which is not the first one on the
+    // bus: pausing from one episode's menu must not pause another.
+    readonly property var currentPlayer: Model.playerFor(playerList, playingTitle)
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
     // mpris owns playback state, so pausing asks the player rather than going
@@ -80,9 +82,9 @@ Item {
     // every time, but nothing tells a binding to look again. The tick is what
     // makes the clock move.
     property int clockTick: 0
-    readonly property string elapsed: {
+    readonly property var progress: {
         clockTick;
-        return currentPlayer ? Model.elapsed(currentPlayer.position, currentPlayer.length) : "";
+        return Model.progressRows(players, livePositions());
     }
 
     Timer {
