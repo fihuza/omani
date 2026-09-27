@@ -189,6 +189,10 @@ cmd_play() {
   [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode> [start-seconds]"
   [[ $start =~ ^[0-9]+$ ]] || die "start must be whole seconds"
 
+  # The player record is tab separated and the title is what matches it to the
+  # player on the bus, so the tab goes before mpv is told what to call itself.
+  title=${title//$'\t'/ }
+
   local stream url referrer subtitles
   stream=$("$PROVIDER" stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
   url=$(awk -F'\t' '$1 == "url" { print $2 }' <<<"$stream")

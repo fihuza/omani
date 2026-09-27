@@ -633,6 +633,66 @@ t_a_write_leaves_no_temporary_file_behind() {
   assert_eq "$leftovers" "0"
 }
 
+t_next_refuses_when_the_episode_is_no_longer_listed() {
+  # The provider dropped or renumbered the episode the series was on.
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "99", "episodes": {}}}'
+  local out
+  out=$("$OMANI" next frieren-1 2>&1)
+  assert_fails $?
+  assert_contains "$out" "no episode after"
+}
+
+t_resume_after_forgetting_the_series_fails_cleanly() {
+  OMANI_DRY_RUN='' "$OMANI" forget frieren-1
+  local out
+  out=$("$OMANI" resume frieren-1 2>&1)
+  assert_fails $?
+  assert_contains "$out" "not in history"
+}
+
+t_an_episode_number_carrying_a_decimal_plays() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001	7
+9002	7.5
+9003	8
+' ;;
+stream) printf 'url	https://cdn/%s/%s.m3u8
+referrer	https://embed/
+' "$2" "$3" ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "7", "episodes": {}}}'
+  assert_contains "$("$OMANI" next frieren-1)" "Frieren Episode 7.5"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "7.5", "episodes": {}}}'
+  assert_contains "$("$OMANI" next frieren-1)" "Frieren Episode 8"
+  assert_contains "$("$OMANI" previous frieren-1)" "Frieren Episode 7"
+}
+
+t_progress_reports_arriving_together_are_not_lost() {
+  # Two players report every few seconds; a read-modify-write of the whole file
+  # loses one of them if they interleave.
+  local i
+  for i in 1 2 3 4 5 6 7 8; do
+    OMANI_DRY_RUN='' "$OMANI" progress frieren-1 "$i" $((i * 10)) 1400 &
+    OMANI_DRY_RUN='' "$OMANI" progress naruto-2 "$i" $((i * 10)) 1400 &
+  done
+  wait
+  assert_eq "$(series_field frieren-1 '.episodes | length')" "8"
+  assert_eq "$(series_field naruto-2 '.episodes | length')" "8"
+  assert_eq "$(series_field frieren-1 '.episodes["8"].position')" "80"
+}
+
+t_a_title_holding_a_tab_keeps_the_record_readable() {
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play tabbed-9 "$(printf 'A\tB')" 3
+  local fields
+  fields=$(awk -F'\t' '$3 == "tabbed-9" { print NF }' "$OMANI_STATE_DIR/players")
+  assert_eq "$fields" "5"
+  assert_eq "$(awk -F'\t' '$3 == "tabbed-9" { print $4 }' "$OMANI_STATE_DIR/players")" "3"
+}
+
 t_history_clear_empties_and_backs_up() {
   OMANI_DRY_RUN='' "$OMANI" history-clear
   assert_ok $?
@@ -738,6 +798,11 @@ check "forget refuses a series not in history" t_forget_refuses_a_series_not_in_
 check "forget needs an id" t_forget_needs_an_id
 check "a write does not depend on TMPDIR being usable" t_writes_do_not_depend_on_tmpdir
 check "a write leaves no temporary file behind" t_a_write_leaves_no_temporary_file_behind
+check "next refuses when the episode is no longer listed" t_next_refuses_when_the_episode_is_no_longer_listed
+check "resume after forgetting the series fails cleanly" t_resume_after_forgetting_the_series_fails_cleanly
+check "an episode number carrying a decimal plays" t_an_episode_number_carrying_a_decimal_plays
+check "progress reports arriving together are not lost" t_progress_reports_arriving_together_are_not_lost
+check "a title holding a tab keeps the player record readable" t_a_title_holding_a_tab_keeps_the_record_readable
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
 check "history-clear on an absent history is not an error" t_history_clear_on_an_absent_history_is_not_an_error
 check "an unknown subcommand fails loudly" t_unknown_subcommand_fails_loudly
