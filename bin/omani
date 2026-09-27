@@ -156,16 +156,28 @@ read_started_at() {
   STARTED_AT=${fields[19]}
 }
 
+# read splits on IFS, and a tab is IFS whitespace: two in a row count as one, so
+# an empty field disappears and everything after it moves up.
+split_record() {
+  local line=$1
+  RECORD=()
+  while [[ $line == *$'\t'* ]]; do
+    RECORD+=("${line%%$'\t'*}")
+    line=${line#*$'\t'}
+  done
+  RECORD+=("$line")
+}
+
 cmd_players() {
   [[ -f $PLAYERS_FILE ]] || return 0
-  local pid rest started
-  while IFS=$'\t' read -r pid rest; do
-    [[ $pid =~ ^[0-9]+$ ]] || continue
-    started=${rest##*$'\t'}
-    [[ $started =~ ^[0-9]+$ ]] || continue
-    read_started_at "$pid"
-    [[ $STARTED_AT == "$started" ]] || continue
-    printf '%s\t%s\n' "$pid" "${rest%$'\t'*}"
+  local line
+  while IFS= read -r line; do
+    split_record "$line"
+    [[ ${RECORD[0]} =~ ^[0-9]+$ && -n ${RECORD[1]} && -n ${RECORD[2]} && -n ${RECORD[3]} ]] || continue
+    read_started_at "${RECORD[0]}"
+    [[ -n $STARTED_AT ]] || continue
+    [[ -n ${RECORD[5]:-} && ${RECORD[5]} != "$STARTED_AT" ]] && continue
+    printf '%s\t%s\t%s\t%s\t%s\n' "${RECORD[0]}" "${RECORD[1]}" "${RECORD[2]}" "${RECORD[3]}" "${RECORD[4]:-}"
   done <"$PLAYERS_FILE"
 }
 

@@ -692,6 +692,16 @@ t_players_says_nothing_on_stderr_about_a_pid_that_is_gone() {
   assert_eq "$noise" ""
 }
 
+t_a_record_from_an_older_version_still_counts_while_alive() {
+  sleep 60 &
+  local pid=$!
+  printf '%s\n' "$pid" >>"$WORK/spawned"
+  mkdir -p "$OMANI_STATE_DIR"
+  printf '%s\tOlder Episode 3\tolder-1\t3\t1080\n' "$pid" >>"$OMANI_STATE_DIR/players"
+  assert_contains "$("$OMANI" players)" "Older Episode 3"
+  assert_eq "$("$OMANI" stop older-1)" "stop $pid"
+}
+
 t_players_omits_one_that_exited() {
   live_player "Naruto Episode 9" naruto-2 9 >/dev/null
   printf '999999\tGhost Episode 1\tghost-0\t1\n' >>"$OMANI_STATE_DIR/players"
@@ -1018,6 +1028,7 @@ check "the players file does not grow without end" t_the_players_file_does_not_g
 check "resume reports a provider that refuses the episode" t_resume_reports_a_provider_that_refuses_the_episode
 check "a player waiting to be reaped is not playing" t_a_player_waiting_to_be_reaped_is_not_playing
 check "players says nothing on stderr about a pid that is gone" t_players_says_nothing_on_stderr_about_a_pid_that_is_gone
+check "a record from an older version still counts while alive" t_a_record_from_an_older_version_still_counts_while_alive
 check "players omits one that has exited" t_players_omits_one_that_exited
 check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_record
 check "playing a second episode keeps both records" t_playing_a_second_episode_keeps_both_records
