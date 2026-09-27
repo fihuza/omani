@@ -746,6 +746,56 @@ test("about comes last and opens the repository", () => {
   assert.deepEqual(Model.settingAction(last), { type: "open", url: "https://github.com/fihuza/omani" })
 })
 
+test("one overlay opened from another keeps the view they both sit over", () => {
+  assert.equal(Model.originFor("player", "settings", ""), "player")
+  assert.equal(Model.originFor("settings", "shortcuts", "player"), "player",
+    "the shortcut list still sits over the player menu, not over the settings")
+  assert.equal(Model.originFor("shortcuts", "settings", "player"), "player")
+})
+
+test("the settings opened over the episode list return to the list", () => {
+  const origin = Model.originFor("episodes", "settings", "results")
+  assert.equal(origin, "episodes", "the episode list is somewhere you went, not an overlay")
+  assert.equal(Model.backFrom("settings", origin), "episodes")
+})
+
+test("an overlay opened from an ordinary view remembers that view", () => {
+  assert.equal(Model.originFor("history", "settings", ""), "history")
+  assert.equal(Model.originFor("results", "episodes", "history"), "results")
+})
+
+test("no pair of views can send each other back and forth", () => {
+  const views = ["history", "results", "episodes", "player", "settings", "shortcuts", "quality"]
+  for (const from of views) {
+    for (const to of views) {
+      if (from === to) continue
+      let view = to
+      let origin = Model.originFor(from, to, "")
+      const walked = []
+      while (view !== "close" && walked.length <= views.length) {
+        walked.push(view)
+        const next = Model.backFrom(view, origin)
+        origin = ""
+        view = next
+      }
+      assert.ok(walked.length <= views.length,
+        from + " -> " + to + " never stops going back: " + walked.join(" -> "))
+    }
+  }
+})
+
+test("settings and the shortcut list cannot send each other back and forth", () => {
+  // s then ? then back: the way out is the player menu, not the other overlay.
+  let view = "player"
+  let origin = ""
+  for (const next of ["settings", "shortcuts"]) {
+    origin = Model.originFor(view, next, origin)
+    view = next
+  }
+  assert.equal(view, "shortcuts")
+  assert.equal(Model.backFrom(view, origin), "player")
+})
+
 test("leaving the settings returns to the view that opened them", () => {
   assert.equal(Model.backFrom("settings", "player"), "player")
   assert.equal(Model.backFrom("shortcuts", "player"), "player")

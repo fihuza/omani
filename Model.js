@@ -55,6 +55,13 @@ var BACK_FROM = {
 
 var REMEMBERS_ORIGIN = { episodes: true, settings: true, shortcuts: true, quality: true }
 
+var OVERLAY = { settings: true, shortcuts: true, quality: true }
+
+function originFor(view, next, openedFrom) {
+  if (OVERLAY[view] && OVERLAY[next]) return openedFrom
+  return view
+}
+
 function backFrom(view, openedFrom) {
   if (REMEMBERS_ORIGIN[view] && openedFrom) return openedFrom
   return BACK_FROM[view] || "close"
@@ -632,6 +639,7 @@ if (typeof module !== "undefined") {
     watchedFraction: watchedFraction,
     progressLabel: progressLabel,
     backFrom: backFrom,
+    originFor: originFor,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     progressReports: progressReports,

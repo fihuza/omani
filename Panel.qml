@@ -207,7 +207,7 @@ Panel {
     property string openedFrom: ""
 
     function setView(next) {
-        openedFrom = view;
+        openedFrom = Model.originFor(view, next, openedFrom);
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;
