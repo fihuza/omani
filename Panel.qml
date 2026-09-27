@@ -116,6 +116,9 @@ Panel {
         })
 
     readonly property var settingActions: ({
+            "clear": function () {
+                confirmClear.opened = true;
+            },
             "open": function (action) {
                 root.service.openLink(action.url);
             },
@@ -405,17 +408,6 @@ Panel {
                                 spacing: Style.space(4)
 
                                 Button {
-                                    iconText: "󰒓"
-                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
-                                    iconSize: Style.font.subtitle * 1.5
-                                    horizontalPadding: Style.space(5)
-                                    verticalPadding: Style.space(2)
-                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
-                                }
-
-                                Button {
                                     iconText: "󰌌"
                                     tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
                                     foreground: root.foreground
@@ -427,14 +419,14 @@ Panel {
                                 }
 
                                 Button {
-                                    iconText: "󰃢"
-                                    tooltipText: "Clear history (c)"
+                                    iconText: "󰒓"
+                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     iconSize: Style.font.subtitle * 1.5
                                     horizontalPadding: Style.space(5)
                                     verticalPadding: Style.space(2)
-                                    onClicked: confirmClear.opened = true
+                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
                                 }
                             }
                         }

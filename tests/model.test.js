@@ -605,9 +605,16 @@ test("an unknown setting is left alone rather than guessed at", () => {
 
 test("settings are rows like every other view, so the same keys drive them", () => {
   const rows = Model.settingRows("720", "dub", "90", "1.0.0", "")
-  assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Counts as watched", "Version"])
-  assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "90%", "1.0.0"])
-  assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "watched", "version"])
+  assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Counts as watched", "Clear watch history", "Version"])
+  assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "90%", "", "1.0.0"])
+  assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "watched", "clear", "version"])
+})
+
+test("clearing the history is a settings row, not a button in the header", () => {
+  const rows = Model.settingRows("best", "sub", "90", "1.1.0", "")
+  const clear = rows.find(r => r.key === "clear")
+  assert.equal(clear.title, "Clear watch history")
+  assert.deepEqual(Model.settingAction(clear), { type: "clear" })
 })
 
 test("the version row points at the repository", () => {
@@ -636,7 +643,7 @@ test("choosing a cycling row yields the next value", () => {
 })
 
 test("choosing the version row writes nothing", () => {
-  const [, , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
+  const [, , , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(Model.settingChange(version), null)
 })
 
@@ -645,7 +652,7 @@ test("a row whose value cannot move writes nothing", () => {
 })
 
 test("the version row shows what it is and changes nothing when chosen", () => {
-  const [, , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
+  const [, , , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(version.label, "1.0.0")
   assert.equal(Model.nextSetting(version.key, version.value), "1.0.0")
 })

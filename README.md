@@ -25,6 +25,7 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Control what is playing | Pick it under **Playing** — pause, follow the series, change quality, stop |
 | Forget a series | Hover its row and click ✕, or select it and press `d` or `x` |
 | Settings | The gear button in the header, or press `s` |
+| Clear the watch history | **Settings → Clear watch history**, or press `c` |
 | Open this repository | Press Enter on **Version** in the settings |
 
 ### Keyboard
