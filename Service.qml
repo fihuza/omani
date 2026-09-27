@@ -82,7 +82,7 @@ Item {
         if (!currentPlayer)
             return;
         if (muted) {
-            currentPlayer.volume = volumeBeforeMute > 0 ? volumeBeforeMute : 1.0;
+            currentPlayer.volume = Model.restoredVolume(volumeBeforeMute);
             return;
         }
         volumeBeforeMute = currentPlayer.volume;

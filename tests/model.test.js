@@ -610,6 +610,17 @@ test("nothing is captioned when the episode is not known yet", () => {
   assert.equal(Model.episodeCaption(undefined), "")
 })
 
+test("unmuting restores the level the player had", () => {
+  assert.equal(Model.restoredVolume(0.54), 0.54)
+})
+
+test("a player muted from silence comes back audible", () => {
+  assert.equal(Model.restoredVolume(0), 1)
+  assert.equal(Model.restoredVolume(null), 1)
+  assert.equal(Model.restoredVolume(undefined), 1)
+  assert.equal(Model.restoredVolume(-1), 1)
+})
+
 test("mute sits right after the control for what is playing", () => {
   const rows = Model.playerRows("Naruto", "4", false, "best", false)
   assert.deepEqual(rows.slice(0, 2).map((r) => r.key), ["pause", "mute"])
@@ -785,7 +796,6 @@ test("no pair of views can send each other back and forth", () => {
 })
 
 test("settings and the shortcut list cannot send each other back and forth", () => {
-  // s then ? then back: the way out is the player menu, not the other overlay.
   let view = "player"
   let origin = ""
   for (const next of ["settings", "shortcuts"]) {

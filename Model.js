@@ -359,6 +359,11 @@ function neighbourLabel(episode, step) {
   return at < 1 ? "" : "episode " + at
 }
 
+function restoredVolume(remembered) {
+  var level = Number(remembered)
+  return isFinite(level) && level > 0 ? level : 1
+}
+
 function playerRows(title, episode, paused, quality, muted) {
   return [
     { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
@@ -669,7 +674,7 @@ if (typeof module !== "undefined") {
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,
-    neighbourLabel: neighbourLabel,
+    restoredVolume: restoredVolume,
     episodeCaption: episodeCaption,
     qualityRows: qualityRows,
     settingRows: settingRows,
