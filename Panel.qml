@@ -63,7 +63,7 @@ Panel {
     readonly property int pageSize: 6
     readonly property real listGap: Style.space(16)
     readonly property var viewRows: ({
-            "history": service ? Model.historyView(service.rows, service.players) : [],
+            "history": service ? Model.historyView(service.rows, service.players, service.progress) : [],
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],

@@ -185,6 +185,20 @@ test("two episodes of one series both lead the list, and it is not repeated", ()
   assert.equal(view[2].section, "CONTINUE WATCHING")
 })
 
+test("a playing row says which episode and how far in", () => {
+  const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
+  const progress = Model.progressRows(players, [{ title: "A Episode 3", position: 450, duration: 1000, playing: true }])
+  const view = Model.historyView([], players, progress)
+  assert.equal(view[0].label, "ep 3 \u00b7 45%")
+})
+
+test("a playing row with nothing reported yet says only the episode", () => {
+  const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
+  assert.equal(Model.historyView([], players, Model.progressRows(players, []))[0].label, "ep 3")
+  assert.equal(Model.historyView([], players, [])[0].label, "ep 3")
+  assert.equal(Model.historyView([], players)[0].label, "ep 3")
+})
+
 test("a playing row carries what the player menu needs to act", () => {
   const view = Model.historyView([], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
   assert.equal(view[0].animeId, "a")

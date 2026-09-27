@@ -179,17 +179,32 @@ function startIndex(rows) {
   return 0
 }
 
-function historyView(rows, players) {
+function progressOfPlayer(progress, title) {
+  if (!progress) return 0
+  for (var i = 0; i < progress.length; i++) {
+    if (progress[i].title === title) return progress[i].fraction
+  }
+  return 0
+}
+
+function playingLabel(episode, fraction) {
+  var percent = Math.round((Number(fraction) || 0) * 100)
+  if (percent <= 0) return "ep " + episode
+  return "ep " + episode + " \u00b7 " + percent + "%"
+}
+
+function historyView(rows, players, progress) {
   var view = []
   var live = {}
   for (var p = 0; p < players.length; p++) {
     live[players[p].animeId] = true
+    var reported = progressOfPlayer(progress, players[p].title)
     view.push({
       kind: "playing",
       section: p === 0 ? "PLAYING" : "",
       icon: "\u{f040a}",
       title: players[p].title,
-      label: "",
+      label: playingLabel(players[p].episode, reported),
       animeId: players[p].animeId,
       episode: players[p].episode,
       pid: players[p].pid
@@ -437,6 +452,7 @@ function progressRows(records, positions) {
     var duration = live ? Math.floor(Number(live.duration) || 0) : 0
     rows.push({
       animeId: records[i].animeId,
+      title: records[i].title,
       clock: elapsed(position, duration),
       fraction: duration > 0 ? Math.min(1, position / duration) : 0,
       paused: live ? live.playing !== true : false
@@ -583,6 +599,7 @@ if (typeof module !== "undefined") {
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,
+    playingLabel: playingLabel,
     startIndex: startIndex,
     historyEntry: historyEntry,
     historyRows: historyRows,
