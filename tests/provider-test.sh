@@ -219,6 +219,15 @@ t_stream_resolves_url_referrer_and_subtitles() {
   assert_contains "$out" "subtitles	https://cdn/en.vtt"
 }
 
+t_stream_takes_the_source_the_payload_names() {
+  # A subtitle track can be served as m3u8 too; the stream is the payload's own
+  # src, not whichever one happens to be written last.
+  local out
+  out=$(FAKE_EMBED="$FIXTURES/embed-blob-two-sources.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
+  assert_contains "$out" "https://cdn/real/"
+  assert_contains "$out" "subtitles	https://cdn/en.vtt"
+}
+
 t_stream_reports_the_variants_the_episode_has() {
   local out
   out=$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
@@ -243,6 +252,12 @@ t_stream_refuses_an_episode_that_is_not_listed() {
     fail "$current" "expected failure"
   fi
   assert_contains "$out" "episode 999 not found"
+}
+
+t_a_server_is_found_whatever_order_its_attributes_are_in() {
+  local out
+  out=$(FAKE_SERVERS="$FIXTURES/servers-reordered.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
+  assert_contains "$out" "url	"
 }
 
 t_stream_refuses_a_mode_with_no_source() {
@@ -276,11 +291,13 @@ check "search needs a query" t_search_needs_a_query
 check "episodes works end to end" t_episodes_end_to_end
 check "episodes needs an id" t_episodes_needs_an_id
 check "stream resolves url, referrer and subtitles" t_stream_resolves_url_referrer_and_subtitles
+check "stream takes the source the payload names" t_stream_takes_the_source_the_payload_names
 check "stream reports the variants the episode has" t_stream_reports_the_variants_the_episode_has
 check "stream honours the requested quality" t_stream_honours_the_requested_quality
 check "stream falls back when the quality is absent" t_stream_falls_back_when_the_quality_is_absent
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked
 check "stream refuses an episode that is not listed" t_stream_refuses_an_episode_that_is_not_listed
+check "a server is found whatever order its attributes are in" t_a_server_is_found_whatever_order_its_attributes_are_in
 check "stream refuses a mode with no source" t_stream_refuses_a_mode_with_no_source
 check "stream reports a server list with no usable player" t_stream_reports_a_server_list_without_a_usable_player
 check "stream needs an id and an episode" t_stream_needs_an_id_and_an_episode

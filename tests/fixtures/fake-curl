@@ -18,7 +18,7 @@ case "$url" in
 */search*) emit "$(cat "$FIXTURES/search.html")" ;;
 */episode/list/*) emit "$(cat "$FIXTURES/episodes.json")" ;;
 */episode/servers*) emit "$(cat "${FAKE_SERVERS:-$FIXTURES/servers.html}")" ;;
-*zokoanime*) emit "window.__P=\"$(cat "$FIXTURES/embed-blob.txt")\"" ;;
+*zokoanime*) emit "window.__P=\"$(cat "${FAKE_EMBED:-$FIXTURES/embed-blob.txt}")\"" ;;
 *master.m3u8*) emit "$(cat "${FAKE_MASTER:-$FIXTURES/master.m3u8}")" ;;
 *) emit "" ;;
 esac

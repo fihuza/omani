@@ -127,7 +127,7 @@ external command it can invoke is listed here.
 | Command | Used for | Comes from |
 |---|---|---|
 | `mpv` | playback | Omarchy's base packages |
-| `jq` | status and manifest reading | Omarchy's base packages |
+| `jq` | the watch history, the embed payload, status | Omarchy's base packages |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
 | `flock` | serialising writes to the watch history | `util-linux`, required by `base` |
