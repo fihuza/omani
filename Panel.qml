@@ -345,7 +345,7 @@ Panel {
             onActivateRequested: if (root.cursorActive)
                 root.dispatch("enter")
             onCloseRequested: root.dispatch("escape")
-            onDeleteRequested: root.dispatch("x")
+            onDeleteRequested: root.dispatch("d")
             onTabRequested: function (direction) {
                 if (root.bar && typeof root.bar.switchPanelFrom === "function")
                     root.bar.switchPanelFrom(root.barIdentity, direction);
@@ -412,7 +412,7 @@ Panel {
 
                                 PanelActionButton {
                                     iconText: "󰃢"
-                                    tooltipText: "Clear history (x)"
+                                    tooltipText: "Clear history (c)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     onClicked: confirmClear.opened = true

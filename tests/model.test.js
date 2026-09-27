@@ -807,8 +807,8 @@ test("only a series in the watch history can be forgotten", () => {
   assert.equal(Model.forgettable("history", undefined), false)
 })
 
-test("x clears history and r refreshes", () => {
-  assert.deepEqual(press("x").command, { type: "clearHistory" })
+test("c clears the history and r refreshes", () => {
+  assert.deepEqual(press("c").command, { type: "clearHistory" })
   assert.deepEqual(press("r").command, { type: "refresh" })
 })
 

@@ -23,7 +23,7 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Search | Type in the field, or press `/` |
 | Play a series | Click its row, or select it and press Enter |
 | Control what is playing | Pick it under **Playing** — pause, follow the series, change quality, stop |
-| Forget a series | Hover its row and click ✕, or select it and press `d` |
+| Forget a series | Hover its row and click ✕, or select it and press `d` or `x` |
 | Settings | The gear button in the header, or press `s` |
 
 ### Keyboard
@@ -43,9 +43,9 @@ moving under the same keys.
 | `Enter` | Open or play the row under the cursor |
 | `s` | Settings — quality and subbed/dubbed |
 | `?` | Keyboard shortcuts |
-| `d` | Forget the series under the cursor |
+| `d` or `x` | Forget the series under the cursor |
+| `c` | Clear the whole watch history (asks first) |
 | `r` | Re-read status and history |
-| `x` | Clear watch history (asks first) |
 | `Esc` | Back, then close |
 | `q` | Close the panel |
 

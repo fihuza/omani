@@ -257,9 +257,9 @@ function shortcuts() {
     { keys: "/ or i", action: "Search field" },
     { keys: "s", action: "Settings" },
     { keys: "?", action: "This list" },
-    { keys: "d", action: "Forget the series" },
+    { keys: "d or x", action: "Forget the series" },
+    { keys: "c", action: "Clear history" },
     { keys: "r", action: "Refresh" },
-    { keys: "x", action: "Clear history" },
     { keys: "Esc", action: "Back, then close" },
     { keys: "q", action: "Close" }
   ]
@@ -518,7 +518,7 @@ function reduceKey(state, key, ctx) {
   if (key === "?") return done({ type: "toggleShortcuts" })
   if (key === "/" || key === "i") return done({ type: "focusSearch" })
   if (key === "d") return done(rowCount > 0 ? { type: "forget", index: next.index } : null)
-  if (key === "x") return done({ type: "clearHistory" })
+  if (key === "c") return done({ type: "clearHistory" })
   if (key === "r") return done({ type: "refresh" })
   if (key === "q") return done({ type: "close" })
 
