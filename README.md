@@ -145,7 +145,9 @@ so rather than leaving you to guess.
 
 No privileged commands, no services, no installers. Omani writes only its own
 watch history under `$XDG_STATE_HOME/omani` (with a `.bak` and a lock file
-beside it) and a record of the players it started, under `$XDG_RUNTIME_DIR`.
+beside it) and a record of the players it started, under `$XDG_RUNTIME_DIR`. A player is only
+ever listed or stopped while its pid still belongs to the process the record
+named.
 
 ## Remove
 

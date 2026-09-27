@@ -105,7 +105,7 @@ record_history() {
   # shellcheck disable=SC2016 # $id and friends are jq variables, bound by --arg
   update_history \
     --arg id "$id" --arg title "$title" --arg episode "$episode" \
-    --argjson now "$(date +%s)" '
+    --argjson now "$(date +%s%3N)" '
       .series[$id] = ((.series[$id] // {episodes: {}}) + {
         title: $title,
         episode: $episode,
@@ -121,7 +121,7 @@ record_progress() {
   update_history \
     --arg id "$id" --arg episode "$episode" \
     --argjson position "$position" --argjson duration "$duration" \
-    --argjson now "$(date +%s)" '
+    --argjson now "$(date +%s%3N)" '
       (.series[$id] // {title: "", episodes: {}}) as $entry
       | .series[$id] = ($entry + {
           updated: $now,
@@ -133,7 +133,7 @@ record_progress() {
 }
 
 record_player() {
-  local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" tmp
+  local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" started="${6:-}" tmp
   mkdir -p "$STATE_DIR"
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
   tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
@@ -141,7 +141,7 @@ record_player() {
   # escape sequences and would mangle a backslash in a series name.
   title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
     tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" >>"$tmp"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" "$started" >>"$tmp"
   mv "$tmp" "$PLAYERS_FILE"
 }
 
@@ -149,13 +149,33 @@ playing_episode() {
   cmd_players | awk -F'\t' -v id="$1" '$3 == id { print $4; exit }'
 }
 
+# The kernel hands a pid out again once the process holding it is gone, so a
+# record is only about the player it named while that pid also started when the
+# record says. A record without a start time is from an older version and its
+# player is not ours to claim.
+# Assigns rather than prints: a command substitution forks, and bash reaps a
+# player that exits at once while that fork happens, taking its /proc entry with
+# it before the record can name when it started.
+read_started_at() {
+  local stat fields
+  STARTED_AT=""
+  read -r stat <"/proc/$1/stat" 2>/dev/null || return 0
+  stat=${stat#*") "}
+  # shellcheck disable=SC2206 # the stat line is split on its own spaces
+  fields=($stat)
+  STARTED_AT=${fields[19]}
+}
+
 cmd_players() {
   [[ -f $PLAYERS_FILE ]] || return 0
-  local pid rest
+  local pid rest started
   while IFS=$'\t' read -r pid rest; do
     [[ $pid =~ ^[0-9]+$ ]] || continue
-    kill -0 "$pid" 2>/dev/null || continue
-    printf '%s\t%s\n' "$pid" "$rest"
+    started=${rest##*$'\t'}
+    [[ $started =~ ^[0-9]+$ ]] || continue
+    read_started_at "$pid"
+    [[ $STARTED_AT == "$started" ]] || continue
+    printf '%s\t%s\n' "$pid" "${rest%$'\t'*}"
   done <"$PLAYERS_FILE"
 }
 
@@ -224,7 +244,8 @@ cmd_play() {
   # Launched directly rather than through setsid --fork, whose pid belongs to a
   # wrapper that exits at once: the record has to name the player itself.
   "${args[@]}" </dev/null >/dev/null 2>&1 &
-  record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities"
+  read_started_at "$!"
+  record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities" "$STARTED_AT"
   disown
 
   record_history "$episode" "$id" "$title"

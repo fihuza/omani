@@ -43,12 +43,19 @@ wait_until_gone() {
 # A real process, because `players` reports only the ones still alive. The pid is
 # noted in a file rather than a variable: callers read this through $(...), and
 # an array assignment made in that subshell never reaches the caller.
+started_at() {
+  local stat
+  stat=$(</proc/"$1"/stat) 2>/dev/null || return 1
+  stat=${stat#*) }
+  awk '{print $20}' <<<"$stat"
+}
+
 live_player() {
   sleep 60 >/dev/null 2>&1 &
   local pid=$!
   printf '%s\n' "$pid" >>"$WORK/spawned"
   mkdir -p "$OMANI_STATE_DIR"
-  printf '%s\t%s\t%s\t%s\n' "$pid" "$1" "$2" "$3" >>"$OMANI_STATE_DIR/players"
+  printf '%s\t%s\t%s\t%s\t\t%s\n' "$pid" "$1" "$2" "$3" "$(started_at "$pid")" >>"$OMANI_STATE_DIR/players"
   printf '%s\n' "$pid"
 }
 
@@ -266,6 +273,37 @@ t_play_advances_a_series_already_watched() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 7
   assert_eq "$(series_field frieren-1 .episode)" "7"
   assert_eq "$("$OMANI" history | jq -r '.series | length')" "2"
+}
+
+t_history_timestamps_are_finer_than_a_second() {
+  # Continue watching is ordered by this, and two series touched in the same
+  # second would otherwise fall back to whatever order they were written in.
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 1
+  local updated
+  updated=$(series_field frieren-1 .updated)
+  ((updated > 1000000000000)) || fail "$current" "updated $updated is in seconds"
+}
+
+t_a_record_carries_when_its_player_started() {
+  # Read at the call site: a player that exits at once is reaped while the
+  # record is still being written, and then there is nothing left to read.
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 3
+  local started
+  started=$(awk -F'\t' '$3 == "frieren-1" { print $6 }' "$OMANI_STATE_DIR/players")
+  [[ $started =~ ^[0-9]+$ ]] || fail "$current" "start time is '$started'"
+}
+
+t_a_player_pid_taken_over_by_something_else_is_not_listed() {
+  # Pids are reused. A record naming one that now belongs to another program
+  # would have the panel offer to stop it.
+  local pid
+  pid=$(live_player "Frieren Episode 3" frieren-1 3)
+  printf '%s\tImpostor Episode 1\timpostor-1\t1\t\t1\n' "$$" >>"$OMANI_STATE_DIR/players"
+  local out
+  out=$("$OMANI" players)
+  assert_contains "$out" "Frieren Episode 3"
+  assert_lacks "$out" "Impostor"
+  printf '%s\n' "$pid" >>"$WORK/spawned"
 }
 
 t_play_leaves_other_series_alone() {
@@ -757,7 +795,7 @@ t_a_title_holding_a_tab_keeps_the_record_readable() {
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play tabbed-9 "$(printf 'A\tB')" 3
   local fields
   fields=$(awk -F'\t' '$3 == "tabbed-9" { print NF }' "$OMANI_STATE_DIR/players")
-  assert_eq "$fields" "5"
+  assert_eq "$fields" "6"
   assert_eq "$(awk -F'\t' '$3 == "tabbed-9" { print $4 }' "$OMANI_STATE_DIR/players")" "3"
 }
 
@@ -847,6 +885,9 @@ check "play needs an id, a title and an episode" t_play_needs_all_three_argument
 check "play fails when no source resolves" t_play_fails_when_no_source_resolves
 check "play records a series not seen before" t_play_records_a_new_series
 check "play advances a series already in history" t_play_advances_a_series_already_watched
+check "history timestamps are finer than a second" t_history_timestamps_are_finer_than_a_second
+check "a record carries when its player started" t_a_record_carries_when_its_player_started
+check "a player pid taken over by something else is not listed" t_a_player_pid_taken_over_by_something_else_is_not_listed
 check "play leaves other series alone" t_play_leaves_other_series_alone
 check "history survives a title with punctuation" t_history_survives_a_title_with_punctuation
 check "progress records how far into an episode you are" t_progress_records_how_far_in_you_are
