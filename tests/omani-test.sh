@@ -703,6 +703,34 @@ t_a_title_holding_a_tab_keeps_the_record_readable() {
   assert_eq "$(awk -F'\t' '$3 == "tabbed-9" { print $4 }' "$OMANI_STATE_DIR/players")" "3"
 }
 
+t_a_first_play_creates_the_history() {
+  rm -f "$OMANI_HIST_FILE"
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 1
+  assert_ok $?
+  assert_file "$OMANI_HIST_FILE"
+  assert_eq "$(series_field frieren-1 .episode)" "1"
+}
+
+t_forgetting_the_last_series_leaves_a_history_that_reads() {
+  OMANI_DRY_RUN='' "$OMANI" forget frieren-1
+  OMANI_DRY_RUN='' "$OMANI" forget naruto-2
+  assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
+  assert_eq "$("$OMANI" history | jq -r '.version')" "1"
+}
+
+t_status_survives_a_missing_players_file() {
+  rm -rf "$OMANI_STATE_DIR"
+  assert_eq "$("$OMANI" players | wc -l)" "0"
+  assert_eq "$("$OMANI" status | jq -r .ready)" "true"
+}
+
+t_clearing_an_already_empty_history_keeps_it_valid() {
+  OMANI_DRY_RUN='' "$OMANI" history-clear
+  OMANI_DRY_RUN='' "$OMANI" history-clear
+  assert_ok $?
+  assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
+}
+
 t_history_clear_empties_and_backs_up() {
   OMANI_DRY_RUN='' "$OMANI" history-clear
   assert_ok $?
@@ -816,6 +844,10 @@ check "resume after forgetting the series fails cleanly" t_resume_after_forgetti
 check "an episode number carrying a decimal plays" t_an_episode_number_carrying_a_decimal_plays
 check "progress reports arriving together are not lost" t_progress_reports_arriving_together_are_not_lost
 check "a title holding a tab keeps the player record readable" t_a_title_holding_a_tab_keeps_the_record_readable
+check "a first play creates the history" t_a_first_play_creates_the_history
+check "forgetting the last series leaves a history that reads" t_forgetting_the_last_series_leaves_a_history_that_reads
+check "status survives a missing players file" t_status_survives_a_missing_players_file
+check "clearing an already empty history keeps it valid" t_clearing_an_already_empty_history_keeps_it_valid
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
 check "history-clear on an absent history is not an error" t_history_clear_on_an_absent_history_is_not_an_error
 check "an unknown subcommand fails loudly" t_unknown_subcommand_fails_loudly

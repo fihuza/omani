@@ -230,6 +230,13 @@ test("a playing row with nothing reported yet says only the episode", () => {
   assert.equal(Model.rowLabel(row, undefined), "ep 3")
 })
 
+test("a player whose series was forgotten still leads the list", () => {
+  const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
+  const view = Model.historyView([{ animeId: "b", title: "B", label: "ep 1" }], players)
+  assert.deepEqual(view.map(r => r.kind), ["playing", "series"])
+  assert.equal(view[0].animeId, "a")
+})
+
 test("a playing row carries what the player menu needs to act", () => {
   const view = Model.historyView([], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
   assert.equal(view[0].animeId, "a")
@@ -306,6 +313,14 @@ test("an episode number carrying a decimal is kept as written", () => {
   assert.equal(rows[0].episode, "7.5")
   assert.equal(rows[0].position, 60)
   assert.equal(Model.progressLabel(rows[0]), "ep 7.5 \u00b7 5%")
+})
+
+test("an entry whose episodes are not an object is still readable", () => {
+  const raw = JSON.stringify({ version: 1, series: { a: { title: "A", episode: "2", updated: 1, episodes: "nonsense" } } })
+  const rows = Model.parseHistory(raw)
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].position, 0)
+  assert.equal(rows[0].duration, 0)
 })
 
 test("an entry with no title or episode is skipped", () => {
@@ -422,6 +437,11 @@ test("a position left beyond the end still lands on the row", () => {
 
 test("a stale position with the row already in view is pulled back into range", () => {
   assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
+})
+
+test("a margin wider than the viewport still yields a position", () => {
+  const at = Model.scrollTarget({ current: 0, viewport: 40, content: 400, rowTop: 200, rowHeight: 30, index: 5, lastIndex: 9, margin: 200 })
+  assert.ok(Number.isFinite(at) && at >= 0 && at <= 360, "got " + at)
 })
 
 test("scrolling never goes past the end to reach a row", () => {
@@ -683,6 +703,14 @@ test("every player gets a line of its own, with how far in it is", () => {
   assert.equal(rows[0].paused, true)
   assert.equal(rows[1].fraction, 0.25)
   assert.equal(rows[1].paused, false)
+})
+
+test("two episodes of one series are told apart by title", () => {
+  const records = [{ animeId: "a", title: "A Episode 1" }, { animeId: "a", title: "A Episode 2" }]
+  const rows = Model.progressRows(records, [{ title: "A Episode 2", position: 60, duration: 120, playing: true }, { title: "A Episode 1", position: 30, duration: 120, playing: false }])
+  assert.equal(rows[0].fraction, 0.25)
+  assert.equal(rows[1].fraction, 0.5)
+  assert.equal(Model.rowLabel({ kind: "playing", title: "A Episode 2", episode: "2" }, rows), "ep 2 \u00b7 50%")
 })
 
 test("a player the bus has not reported yet reads as no progress", () => {
