@@ -30,7 +30,7 @@ jobs:
 
       - name: Fetch Omarchy
         run: |
-          git config --global --add safe.directory '*'
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git clone --depth 1 https://github.com/basecamp/omarchy /opt/omarchy
           echo "OMARCHY_PATH=/opt/omarchy" >>"$GITHUB_ENV"
           echo "/opt/omarchy/bin" >>"$GITHUB_PATH"

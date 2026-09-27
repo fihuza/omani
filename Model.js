@@ -299,7 +299,17 @@ function nextInRing(values, current) {
   return values[(at + 1) % values.length]
 }
 
-var RINGS = { quality: QUALITIES, mode: MODES }
+var WATCHED = ["80", "85", "90", "95"]
+
+var RINGS = { quality: QUALITIES, mode: MODES, watched: WATCHED }
+
+function withSetting(source, moduleName, key, value) {
+  var entry = { id: moduleName }
+  for (var existing in source)
+    if (existing !== "id") entry[existing] = source[existing]
+  entry[key] = value
+  return entry
+}
 
 function nextSetting(key, current) {
   var ring = RINGS[key]
@@ -339,16 +349,19 @@ function settingChange(row) {
 }
 
 
-function settingRows(quality, mode, version, repo) {
+function settingRows(quality, mode, watched, version, repo) {
   return [
     { key: "quality", value: quality, title: "Quality", label: quality, link: "" },
     { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed", link: "" },
-    { key: "version", value: version, title: "Version", label: version, link: repo || "" }
+    { key: "watched", value: watched, title: "Counts as watched", label: watched + "%", link: "" },
+    { key: "version", value: version, title: "Version", label: version, link: repo || "" },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" }
   ]
 }
 
 function settingAction(row) {
   if (!row) return null
+  if (row.key === "clear") return { type: "clear" }
   if (row.link) return { type: "open", url: row.link }
   var change = settingChange(row)
   return change ? { type: "set", key: change.key, value: change.value } : null
@@ -609,12 +622,12 @@ if (typeof module !== "undefined") {
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,
-    playingLabel: playingLabel,
     startIndex: startIndex,
     historyEntry: historyEntry,
     historyRows: historyRows,
     scrollTarget: scrollTarget,
     shortcuts: shortcuts,
+    withSetting: withSetting,
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,

@@ -40,6 +40,7 @@ Item {
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
     readonly property string mode: String(setting("mode", "sub"))
+    readonly property string watched: String(setting("watched", "90"))
 
     readonly property var playerList: Mpris.players ? Mpris.players.values : []
     readonly property var liveTitles: playerList.map(function (p) {
@@ -62,7 +63,7 @@ Item {
             return;
         var reports = Model.progressReports(Model.playerRecords(playersFile.text()), livePositions());
         for (var i = 0; i < reports.length; i++)
-            Quickshell.execDetached(command(["progress", reports[i].animeId, reports[i].episode, String(reports[i].position), String(reports[i].duration)]));
+            run(["progress", reports[i].animeId, reports[i].episode, String(reports[i].position), String(reports[i].duration)]);
     }
     readonly property bool playing: players.length > 0
 
@@ -103,8 +104,23 @@ Item {
         return Math.max(min, Math.min(max, n));
     }
 
-    function command(args, qualityOverride) {
-        return ["env", "OMANI_QUALITY=" + (qualityOverride || quality), "OMANI_MODE=" + mode, scriptPath].concat(args);
+    function command(args) {
+        return [scriptPath].concat(args);
+    }
+
+    function settingsEnv(qualityOverride) {
+        return {
+            OMANI_QUALITY: qualityOverride || quality,
+            OMANI_MODE: mode,
+            OMANI_WATCHED_FRACTION: watched
+        };
+    }
+
+    function run(args) {
+        Quickshell.execDetached({
+            command: command(args),
+            environment: settingsEnv("")
+        });
     }
 
     function refresh() {
@@ -140,7 +156,7 @@ Item {
         if (target === "")
             return;
         cancelLaunch();
-        Quickshell.execDetached(command(["stop", target]));
+        run(["stop", target]);
     }
 
     property bool cancelled: false
@@ -186,16 +202,19 @@ Item {
         episodesProcess.running = true;
     }
 
-    function play(id, title, episode) {
+    function play(id, title, episode, start) {
         if (!ready || launching)
             return;
+        var args = ["play", id, title, String(episode)];
+        if (start !== undefined)
+            args.push(String(start));
         beginLaunch();
         playingQuality = "";
         playingId = String(id);
         playingSeries = String(title);
         playingEpisode = String(episode);
         playingTitle = title + " Episode " + episode;
-        launch(command(["play", id, title, String(episode)]));
+        launch(command(args));
     }
 
     function resume(row) {
@@ -239,13 +258,13 @@ Item {
             return;
         beginLaunch();
         playingQuality = String(value);
-        launch(command(["play", playingId, series, episode], playingQuality));
+        launch(command(["play", playingId, series, episode]), playingQuality);
     }
 
     function replayCurrent() {
         if (!ready || playingId === "")
             return;
-        play(playingId, playingSeries, playingEpisode);
+        play(playingId, playingSeries, playingEpisode, 0);
     }
 
     function stop() {
@@ -255,11 +274,11 @@ Item {
         playingSeries = "";
         playingEpisode = "";
         playingTitle = "";
-        Quickshell.execDetached(command(["stop", "all"]));
+        run(["stop", "all"]);
     }
 
     function forget(animeId) {
-        Quickshell.execDetached(command(["forget", animeId]));
+        run(["forget", animeId]);
     }
 
     function openLink(url) {
@@ -267,16 +286,24 @@ Item {
     }
 
     function clearHistory() {
-        Quickshell.execDetached(command(["history-clear"]));
+        run(["history-clear"]);
     }
 
     onHistoryLimitChanged: reloadHistory()
-    onPlayersChanged: {
-        if (Model.launchDone(tracking, players, launchPids))
+    onPlayersChanged: settleLaunch()
+
+    function settleLaunch() {
+        if (launching && Model.launchDone(tracking, players, launchPids))
             launching = false;
     }
 
-    function launch(argv) {
+    function abandonLaunch(message) {
+        launching = false;
+        failed(message);
+    }
+
+    function launch(argv, qualityOverride) {
+        launchProcess.environment = settingsEnv(qualityOverride);
         launchProcess.command = argv;
         launchProcess.running = true;
     }
@@ -311,12 +338,10 @@ Item {
                 return;
             }
             if (exitCode === 0) {
-                if (Model.launchDone(root.tracking, root.players, root.launchPids))
-                    root.launching = false;
+                root.settleLaunch();
                 return;
             }
-            root.launching = false;
-            root.failed(Model.firstLine(String(launchErr.text || "the player could not be started")));
+            root.abandonLaunch(Model.firstLine(String(launchErr.text || "the player could not be started")));
         }
     }
 
@@ -324,6 +349,7 @@ Item {
         id: statusProcess
         running: false
         command: []
+        environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: statusOut
             waitForEnd: true
@@ -340,6 +366,7 @@ Item {
         id: searchProcess
         running: false
         command: []
+        environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: searchOut
             waitForEnd: true
@@ -361,6 +388,7 @@ Item {
         id: episodesProcess
         running: false
         command: []
+        environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: episodesOut
             waitForEnd: true
