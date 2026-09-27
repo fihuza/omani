@@ -75,14 +75,17 @@ read_history() {
 update_history() {
   local tmp
   mkdir -p "$(dirname "$HIST_FILE")"
-  tmp=$(mktemp)
+  # Beside the history rather than in TMPDIR: mv only renames within one
+  # filesystem, and everything that reads the history takes no lock -- it relies
+  # on never being handed half a file.
+  tmp=$(mktemp "$HIST_FILE.XXXXXX")
   (
-    flock 9
+    trap 'rm -f "$tmp"' EXIT
+    # Bounded, so a writer that wedges fails the next one instead of queueing
+    # players behind it for good.
+    flock -w 5 9 || die "could not take the history lock"
     read_history | jq "$@" >"$tmp"
-    jq -e . "$tmp" >/dev/null 2>&1 || {
-      rm -f "$tmp"
-      die "refusing to write a history that is not valid json"
-    }
+    jq -e . "$tmp" >/dev/null 2>&1 || die "refusing to write a history that is not valid json"
     mv "$tmp" "$HIST_FILE"
   ) 9>"$HIST_FILE.lock"
 }
@@ -130,7 +133,7 @@ record_player() {
   local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" tmp
   mkdir -p "$STATE_DIR"
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
-  tmp=$(mktemp)
+  tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
   # A title reaches awk through the environment rather than -v, which expands
   # escape sequences and would mangle a backslash in a series name.
   title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
@@ -171,7 +174,7 @@ cmd_stop() {
   for pid in $pids; do
     [[ $pid =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
   done
-  tmp=$(mktemp)
+  tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
   awk -F'\t' -v list="$pids" '
     BEGIN { n = split(list, k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
     !dead[$1]

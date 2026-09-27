@@ -594,6 +594,27 @@ t_stop_without_any_player_is_not_an_error() {
   assert_ok $?
 }
 
+t_writes_do_not_depend_on_tmpdir() {
+  # A temp file in TMPDIR lands on another filesystem, where mv copies instead of
+  # renaming and a reader can be handed half a file. An absent TMPDIR proves the
+  # temp file is made beside its target.
+  export TMPDIR="$WORK/absent"
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
+  assert_ok $?
+  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 3
+  assert_ok $?
+  unset TMPDIR
+  assert_eq "$(series_field frieren-1 '.episodes["2"].position')" "30"
+  assert_eq "$(wc -l <"$OMANI_STATE_DIR/players")" "1"
+}
+
+t_a_write_leaves_no_temporary_file_behind() {
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
+  local leftovers
+  leftovers=$(find "$(dirname "$OMANI_HIST_FILE")" -name "$(basename "$OMANI_HIST_FILE").??????" | wc -l)
+  assert_eq "$leftovers" "0"
+}
+
 t_history_clear_empties_and_backs_up() {
   OMANI_DRY_RUN='' "$OMANI" history-clear
   assert_ok $?
@@ -695,6 +716,8 @@ check "stopping with no players is not an error" t_stop_without_any_player_is_no
 check "forget drops one series and leaves the rest" t_forget_drops_one_series
 check "forget refuses a series not in history" t_forget_refuses_a_series_not_in_history
 check "forget needs an id" t_forget_needs_an_id
+check "a write does not depend on TMPDIR being usable" t_writes_do_not_depend_on_tmpdir
+check "a write leaves no temporary file behind" t_a_write_leaves_no_temporary_file_behind
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
 check "history-clear on an absent history is not an error" t_history_clear_on_an_absent_history_is_not_an_error
 check "an unknown subcommand fails loudly" t_unknown_subcommand_fails_loudly
