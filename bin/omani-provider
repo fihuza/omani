@@ -144,10 +144,25 @@ pick_quality() {
   cut -d '>' -f 2 <<<"$chosen"
 }
 
+urlencode() {
+  local out="" byte i
+  for ((i = 0; i < ${#1}; i++)); do
+    byte=${1:i:1}
+    case $byte in
+    [a-zA-Z0-9.~_-]) out+=$byte ;;
+    *)
+      printf -v byte '%%%02X' "'$byte"
+      out+=$byte
+      ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
 cmd_search() {
   [[ -n ${1:-} ]] || die "usage: omani-provider search <query>"
   local page
-  page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')") || exit 1
+  page=$(fetch "$BASE_API/search?keyword=$(urlencode "$1")") || exit 1
   parse_search <<<"$page"
 }
 

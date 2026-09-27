@@ -37,6 +37,20 @@ assert_contains() {
   fail "$current" "expected output to contain '$2', got: $1"
 }
 
+url_spy() {
+  local spy
+  spy=$(mktemp "$WORK/spy.XXXXXX")
+  cat >"$spy" <<SPY
+#!/bin/sh
+for arg; do
+  case \$arg in http*) printf '%s' "\$arg" >"$1" ;; esac
+done
+printf ' 200'
+SPY
+  chmod +x "$spy"
+  printf '%s' "$spy"
+}
+
 assert_missing() {
   [[ ! -e $1 ]] && return 0
   fail "$current" "did not expect the file: $1"
@@ -307,6 +321,18 @@ t_a_server_is_found_whatever_order_its_attributes_are_in() {
   assert_contains "$out" "url	"
 }
 
+t_a_query_carrying_url_syntax_is_encoded() {
+  local asked="$WORK/asked"
+  OMANI_CURL=$(url_spy "$asked") "$PROVIDER" search "tom & jerry #1" >/dev/null 2>&1
+  assert_contains "$(cat "$asked" 2>/dev/null)" "keyword=tom%20%26%20jerry%20%231"
+}
+
+t_a_query_in_another_script_is_encoded_as_utf8() {
+  local asked="$WORK/asked-utf8"
+  OMANI_CURL=$(url_spy "$asked") "$PROVIDER" search "君の名は" >/dev/null 2>&1
+  assert_contains "$(cat "$asked" 2>/dev/null)" "keyword=%E5%90%9B%E3%81%AE%E5%90%8D%E3%81%AF"
+}
+
 t_stream_refuses_an_embed_that_is_not_a_web_address() {
   local out
   if out=$(FAKE_SERVERS="$FIXTURES/servers-local-file.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
@@ -371,6 +397,8 @@ check "stream falls back when the quality is absent" t_stream_falls_back_when_th
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked
 check "stream refuses an episode that is not listed" t_stream_refuses_an_episode_that_is_not_listed
 check "a server is found whatever order its attributes are in" t_a_server_is_found_whatever_order_its_attributes_are_in
+check "a query carrying url syntax is encoded" t_a_query_carrying_url_syntax_is_encoded
+check "a query in another script is encoded as utf8" t_a_query_in_another_script_is_encoded_as_utf8
 check "stream refuses an embed that is not a web address" t_stream_refuses_an_embed_that_is_not_a_web_address
 check "the fetcher speaks only http" t_the_fetcher_speaks_only_http
 check "stream refuses a source that is not a web address" t_stream_refuses_a_source_that_is_not_a_web_address
