@@ -103,7 +103,9 @@ pick_quality() {
 cmd_search() {
   [[ -n ${1:-} ]] || die "usage: omani-provider search <query>"
   local page
-  page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')")
+  # A die inside a command substitution ends only that subshell, so without this
+  # a failed fetch would leave an empty page and still report success.
+  page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')") || exit 1
   if grep -qi "<title>Just a moment" <<<"$page"; then
     [[ $CURL == curl ]] && die "blocked by cloudflare; install curl-impersonate"
     die "blocked by cloudflare"

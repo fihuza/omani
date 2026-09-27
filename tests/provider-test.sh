@@ -138,13 +138,17 @@ t_search_reports_a_cloudflare_block() {
 
 t_search_reports_a_transport_failure() {
   local out
-  out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1)
+  if out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
   assert_contains "$out" "could not fetch"
 }
 
 t_search_reports_a_bad_status() {
   local out
-  out=$(FAKE_CODE=503 "$PROVIDER" search frieren 2>&1)
+  if out=$(FAKE_CODE=503 "$PROVIDER" search frieren 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
   assert_contains "$out" "503"
 }
 

@@ -35,7 +35,7 @@ Item {
     property bool busy: false
     property bool launching: false
     property var launchPids: []
-    signal launchFailed(string message)
+    signal failed(string message)
 
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
@@ -298,8 +298,6 @@ Item {
         onTriggered: root.reportProgress()
     }
 
-    // A detached launch reports no exit status, so a launch that never produces
-    // a player would otherwise hold every later one out for good.
     Process {
         id: launchProcess
         running: false
@@ -312,7 +310,7 @@ Item {
             if (exitCode === 0)
                 return;
             root.launching = false;
-            root.launchFailed(Model.firstLine(String(launchErr.text || "the player could not be started")));
+            root.failed(Model.firstLine(String(launchErr.text || "the player could not be started")));
         }
     }
 
@@ -340,10 +338,16 @@ Item {
             id: searchOut
             waitForEnd: true
         }
+        stderr: StdioCollector {
+            id: searchErr
+            waitForEnd: true
+        }
         onExited: function (exitCode) {
             root.busy = false;
             if (exitCode === 0)
                 root.results = Model.seriesRows(String(searchOut.text || ""));
+            else
+                root.failed(Model.firstLine(String(searchErr.text || "the search failed")));
         }
     }
 
@@ -355,10 +359,16 @@ Item {
             id: episodesOut
             waitForEnd: true
         }
+        stderr: StdioCollector {
+            id: episodesErr
+            waitForEnd: true
+        }
         onExited: function (exitCode) {
             root.busy = false;
             if (exitCode === 0)
                 root.episodes = Model.episodeRows(String(episodesOut.text || ""), Model.progressOf(historyFile.text(), root.selectedId), root.watchedFraction);
+            else
+                root.failed(Model.firstLine(String(episodesErr.text || "the episode list could not be read")));
         }
     }
 

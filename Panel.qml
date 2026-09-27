@@ -27,11 +27,15 @@ Panel {
 
     Connections {
         target: root.service
-        function onLaunchFailed(message) {
+        function onFailed(message) {
             root.notice = message;
         }
         function onLaunchingChanged() {
             if (root.service.launching)
+                root.notice = "";
+        }
+        function onBusyChanged() {
+            if (root.service.busy)
                 root.notice = "";
         }
     }
@@ -299,6 +303,7 @@ Panel {
     onOpenedChanged: {
         if (!opened) {
             searchField.text = "";
+            notice = "";
             if (service)
                 service.results = [];
             setView("history");
