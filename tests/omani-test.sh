@@ -388,6 +388,34 @@ t_next_leaves_the_progress_of_the_episode_it_leaves() {
   assert_eq "$(series_field frieren-1 .episode)" "3"
 }
 
+t_next_steps_from_the_episode_actually_playing() {
+  # Crossing ninety percent moves the series on while the episode is still
+  # running, and next must not step from where the series will be next.
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
+  local pid
+  pid=$(live_player "Frieren Episode 2" frieren-1 2)
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
+  assert_eq "$(series_field frieren-1 .episode)" "3"
+  assert_contains "$("$OMANI" next frieren-1)" "Frieren Episode 3"
+  assert_contains "$("$OMANI" previous frieren-1)" "Frieren Episode 1"
+  printf '%s\n' "$pid" >>"$WORK/spawned"
+}
+
+t_a_history_that_carries_trailing_garbage_reads_as_empty() {
+  printf '{"version":1,"series":{"a":{"title":"A","episode":"1","episodes":{}}}}\nnot json\n' >"$OMANI_HIST_FILE"
+  assert_eq "$("$OMANI" history | jq -s 'length')" "1"
+  assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
+}
+
+t_a_history_that_does_not_parse_is_never_written_over() {
+  printf 'not json at all\n' >"$OMANI_HIST_FILE"
+  local out
+  out=$(OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 3 2>&1)
+  assert_fails $?
+  assert_contains "$out" "not valid json"
+  assert_eq "$(cat "$OMANI_HIST_FILE")" "not json at all"
+}
+
 t_next_refuses_at_the_last_episode() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "episodes": {}}}'
   local out
@@ -746,6 +774,9 @@ check "resume refuses when nothing follows" t_resume_refuses_when_nothing_follow
 check "next plays the episode after the one watched" t_next_plays_the_episode_after_the_one_watched
 check "next moves on from an episode barely started" t_next_moves_on_from_an_episode_barely_started
 check "next leaves the progress of the episode it leaves" t_next_leaves_the_progress_of_the_episode_it_leaves
+check "a history that does not parse is never written over" t_a_history_that_does_not_parse_is_never_written_over
+check "next steps from the episode actually playing" t_next_steps_from_the_episode_actually_playing
+check "a history carrying trailing garbage reads as empty" t_a_history_that_carries_trailing_garbage_reads_as_empty
 check "next refuses at the last episode" t_next_refuses_at_the_last_episode
 check "next refuses a series not in history" t_next_refuses_an_unknown_series
 check "previous plays the episode before the one watched" t_previous_plays_the_episode_before_the_one_watched

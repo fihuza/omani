@@ -64,14 +64,29 @@ USAGE
 
 EMPTY_HISTORY='{"version":1,"series":{}}'
 
+history_parses() {
+  [[ -f $HIST_FILE ]] && jq -e . "$HIST_FILE" >/dev/null 2>&1
+}
+
+# jq prints whatever it parsed before meeting something it cannot, so the file
+# is checked whole before any of it is used: half a document followed by the
+# fallback is two, and a write built on that leaves a history nothing can read.
 read_history() {
-  [[ -f $HIST_FILE ]] && jq -e . "$HIST_FILE" 2>/dev/null || printf '%s\n' "$EMPTY_HISTORY"
+  if history_parses; then
+    jq -e . "$HIST_FILE"
+  else
+    printf '%s\n' "$EMPTY_HISTORY"
+  fi
 }
 
 # Two players report progress every few seconds, and a read-modify-write of the
 # whole file loses one of them if they interleave.
 update_history() {
   local tmp
+  # A history that does not parse is left where it is: overwriting it would put
+  # the only copy of what was watched beyond reach.
+  [[ -f $HIST_FILE ]] && ! history_parses &&
+    die "refusing to write over a history that is not valid json: $HIST_FILE"
   mkdir -p "$(dirname "$HIST_FILE")"
   # Beside the history rather than in TMPDIR: mv only renames within one
   # filesystem, and everything that reads the history takes no lock -- it relies
@@ -138,6 +153,10 @@ record_player() {
     tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
   printf '%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" >>"$tmp"
   mv "$tmp" "$PLAYERS_FILE"
+}
+
+playing_episode() {
+  cmd_players | awk -F'\t' -v id="$1" '$3 == id { print $4; exit }'
 }
 
 cmd_players() {
@@ -281,7 +300,10 @@ cmd_step() {
   entry=$(entry_for "$id") || die "'$id' is not in history"
 
   local current title episodes target
-  current=$(jq -r '.episode' <<<"$entry")
+  # The episode playing, not the one the series is on: crossing the watched
+  # threshold moves the series on while its player is still running.
+  current=$(playing_episode "$id")
+  [[ -n $current ]] || current=$(jq -r '.episode' <<<"$entry")
   title=$(jq -r '.title' <<<"$entry")
   episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
   target=$(neighbour_episode "$current" "$side" "$episodes")
