@@ -323,17 +323,15 @@ Panel {
             bar.shell.updateEntryInline(root.moduleName, entry);
     }
 
+    // Reset on the way in, not on the way out: the card stays on screen while it
+    // fades, so clearing the view as it closes is a change the eye catches.
     onOpenedChanged: {
-        if (!opened) {
-            searchField.text = "";
-            notice = "";
-            if (service)
-                service.results = [];
-            setView("history");
+        if (!opened || !service)
             return;
-        }
-        if (!service)
-            return;
+        searchField.text = "";
+        notice = "";
+        service.results = [];
+        setView("history");
         service.refresh();
         var adopt = Model.adoptable(service.players, service.playingId);
         if (adopt)
