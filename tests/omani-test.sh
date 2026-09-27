@@ -479,6 +479,24 @@ t_a_history_that_carries_trailing_garbage_reads_as_empty() {
   assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
 }
 
+t_a_player_record_leaves_no_temporary_file_behind() {
+  OMANI_DRY_RUN='' "$OMANI" play frieren-1 "Frieren" 4 >/dev/null 2>&1
+  OMANI_DRY_RUN='' "$OMANI" stop frieren-1 >/dev/null 2>&1
+  local leftovers
+  leftovers=$(find "$OMANI_STATE_DIR" -name "players.??????" | wc -l)
+  assert_eq "$leftovers" "0"
+}
+
+t_a_player_list_that_cannot_be_written_is_said_so() {
+  printf 'not a directory\n' >"$WORK/blocked-state"
+  local out
+  out=$(OMANI_STATE_DIR="$WORK/blocked-state/omani" OMANI_DRY_RUN='' "$OMANI" play frieren-1 "Frieren" 4 2>&1)
+  local code=$?
+  ((code != 0)) || fail "$current" "reported success while recording nothing"
+  assert_contains "$out" "player"
+  assert_lacks "$out" "mktemp"
+}
+
 t_a_history_that_cannot_be_written_is_said_so() {
   # A file where the directory should be: root ignores permissions, but nobody
   # gets to write inside a regular file.
@@ -1153,6 +1171,8 @@ check "forget refuses a series not in history" t_forget_refuses_a_series_not_in_
 check "forget needs an id" t_forget_needs_an_id
 check "a write does not depend on TMPDIR being usable" t_writes_do_not_depend_on_tmpdir
 check "a write leaves no temporary file behind" t_a_write_leaves_no_temporary_file_behind
+check "a player record leaves no temporary file behind" t_a_player_record_leaves_no_temporary_file_behind
+check "a player list that cannot be written is said so" t_a_player_list_that_cannot_be_written_is_said_so
 check "next refuses when the episode is no longer listed" t_next_refuses_when_the_episode_is_no_longer_listed
 check "resume after forgetting the series fails cleanly" t_resume_after_forgetting_the_series_fails_cleanly
 check "an episode number carrying a backslash still steps" t_an_episode_number_carrying_a_backslash_still_steps

@@ -133,15 +133,23 @@ record_progress() {
     '
 }
 
+players_tmp() {
+  mkdir -p "$STATE_DIR" 2>/dev/null
+  [[ -d $STATE_DIR ]] || return 1
+  [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE" 2>/dev/null
+  mktemp "$PLAYERS_FILE.XXXXXX" 2>/dev/null
+}
+
 record_player() {
   local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" started="${6:-}" tmp
-  mkdir -p "$STATE_DIR"
-  [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
-  tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
-  title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
-    tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" "$started" >>"$tmp"
-  mv "$tmp" "$PLAYERS_FILE"
+  tmp=$(players_tmp) || die "cannot write the player list in $STATE_DIR"
+  (
+    trap 'rm -f "$tmp"' EXIT
+    title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
+      tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" "$started" >>"$tmp"
+    mv "$tmp" "$PLAYERS_FILE"
+  )
 }
 
 playing_episode() {
@@ -205,12 +213,15 @@ cmd_stop() {
   for pid in $pids; do
     [[ $pid =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
   done
-  tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
-  list="$pids" awk -F'\t' '
-    BEGIN { n = split(ENVIRON["list"], k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
-    !dead[$1]
-  ' "$PLAYERS_FILE" >"$tmp"
-  mv "$tmp" "$PLAYERS_FILE"
+  tmp=$(players_tmp) || die "cannot write the player list in $STATE_DIR"
+  (
+    trap 'rm -f "$tmp"' EXIT
+    list="$pids" awk -F'\t' '
+      BEGIN { n = split(ENVIRON["list"], k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
+      !dead[$1]
+    ' "$PLAYERS_FILE" >"$tmp"
+    mv "$tmp" "$PLAYERS_FILE"
+  )
 }
 
 cmd_play() {

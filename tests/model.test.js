@@ -460,9 +460,9 @@ test("a stale position with the row already in view is pulled back into range", 
   assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
 })
 
-test("a margin wider than the viewport still yields a position", () => {
+test("a margin wider than the viewport lands on the end rather than past it", () => {
   const at = Model.scrollTarget({ current: 0, viewport: 40, content: 400, rowTop: 200, rowHeight: 30, index: 5, lastIndex: 9, margin: 200 })
-  assert.ok(Number.isFinite(at) && at >= 0 && at <= 360, "got " + at)
+  assert.equal(at, 360, "the furthest the list can scroll, not beyond it")
 })
 
 test("scrolling never goes past the end to reach a row", () => {
@@ -851,6 +851,30 @@ test("normalizes nothing to an empty string", () => {
 const ctx = { rowCount: 10, pageSize: 4 }
 const start = () => Model.initialKeyState()
 
+test("every setting the panel cycles offers exactly what the manifest declares", () => {
+  const manifest = require("../manifest.json")
+  const declared = {}
+  for (const entry of manifest.barWidget.schema) {
+    if (entry.type === "enum") declared[entry.key] = entry.options
+  }
+
+  for (const [key, options] of Object.entries(declared)) {
+    const seen = []
+    let value = options[0]
+    do {
+      seen.push(value)
+      value = Model.nextSetting(key, value)
+    } while (value !== options[0] && seen.length <= options.length)
+    assert.deepEqual(seen, options, key + " cycles through the declared options, in order")
+  }
+
+  assert.deepEqual(
+    Object.keys(declared).sort(),
+    ["mode", "quality", "watched"],
+    "a new enum setting in the manifest needs a ring in Model.js"
+  )
+})
+
 test("a row still reads before any progress has been reported", () => {
   const row = { kind: "playing", title: "A Episode 3", episode: "3", label: "" }
   assert.equal(Model.rowLabel(row, null), "ep 3")
@@ -870,7 +894,9 @@ test("one series is reported once however many records name it", () => {
     { pid: "2", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }
   ]
   const players = [{ title: "A Episode 1", position: 600, duration: 1400 }]
-  assert.equal(Model.progressReports(records, players).length, 1)
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "a", episode: "1", position: 600, duration: 1400 }
+  ])
 })
 
 test("a row takes the first position reported for its title", () => {

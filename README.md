@@ -43,7 +43,7 @@ moving under the same keys.
 | `Ctrl-d` / `Ctrl-u` | Half a page down / up |
 | `/` or `i` | Focus the search field |
 | `Enter` | Open or play the row under the cursor |
-| `s` | Settings — quality and subbed/dubbed |
+| `s` | Settings — quality, audio, watched threshold, clear history |
 | `?` | Keyboard shortcuts |
 | `d` or `x` | Forget the series under the cursor |
 | `c` | Clear the whole watch history (asks first) |
@@ -148,7 +148,11 @@ so rather than leaving you to guess.
 What the provider answers is checked before it reaches the player: a stream or
 a subtitle that is not an http address is refused rather than passed on, and
 the player is told where its arguments end, so nothing the site returns can
-become an option or a local path.
+become an option or a local path. The same holds for what the provider makes
+Omani *fetch*: the embed address it hands back is checked the same way, and
+`curl` is confined to http and https on the request and on any redirect, so a
+compromised provider cannot point it at a local file. What you type is
+percent-encoded, so a title carrying `&` or `#` is searched for as written.
 
 No privileged commands, no services, no installers. Omani writes only its own
 watch history under `$XDG_STATE_HOME/omani` (with a `.bak` and a lock file
@@ -174,7 +178,7 @@ git config core.hooksPath scripts   # after cloning
 
 `scripts/pre-commit` is the whole quality gate: `qmlformat` and `qmllint` for
 the QML, `shellcheck` and `shfmt` for the shell, `omarchy plugin validate` for
-the manifest, and the three test suites with a 90% coverage floor on `Model.js`.
+the manifest, and the four test suites with a 90% coverage floor on `Model.js`.
 
 The layers are kept apart on purpose:
 
@@ -186,8 +190,9 @@ The layers are kept apart on purpose:
 | `bin/omani-provider` | the provider; fetching and parsing split so parsers test offline |
 
 The tests reach no network and start no real player, so they pass on a machine
-with no `mpv`, no `curl` and no Omarchy installed. CI runs `./scripts/pre-commit`
-itself, so the hook and the pipeline cannot drift apart.
+with no `mpv`, no `curl` and no Omarchy installed. CI runs the gates from
+`./scripts/pre-commit` itself, and a test holds the two to each other, so a gate
+cannot be renamed, dropped or mistyped into a pipeline step that checks nothing.
 
 ## License
 
