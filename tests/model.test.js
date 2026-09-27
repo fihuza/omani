@@ -477,20 +477,6 @@ test("a content taller than the last row still ends at the content", () => {
   assert.equal(at, 5600, "trailing space below the last row is still scrolled to")
 })
 
-test("a wheel notch moves further than a nudge", () => {
-  assert.equal(Model.wheelTarget(1000, -120, 5000, 400), 1120)
-  assert.equal(Model.wheelTarget(1000, 120, 5000, 400), 880)
-})
-
-test("the wheel stops at both ends of the list", () => {
-  assert.equal(Model.wheelTarget(50, 600, 5000, 400), 0)
-  assert.equal(Model.wheelTarget(4500, -600, 5000, 400), 4600)
-})
-
-test("a list that fits does not move under the wheel", () => {
-  assert.equal(Model.wheelTarget(0, -600, 300, 400), 0)
-})
-
 test("the last row goes to the very bottom", () => {
   assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
 })

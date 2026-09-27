@@ -204,8 +204,6 @@ Panel {
             }
         })
 
-    readonly property int wheelRows: 5
-
     property var viewStack: ["history"]
 
     function setView(next) {
@@ -557,15 +555,6 @@ Panel {
                     onContentHeightChanged: root.applyScroll()
                     ScrollBar.vertical: ScrollBar {
                         policy: ScrollBar.AsNeeded
-                    }
-
-                    WheelHandler {
-                        onWheel: function (event) {
-                            if (event.angleDelta.y === 0)
-                                return;
-                            panelFlick.contentY = Model.wheelTarget(panelFlick.contentY, event.angleDelta.y * root.wheelRows, panelFlick.contentHeight, panelFlick.height);
-                            event.accepted = true;
-                        }
                     }
 
                     Column {

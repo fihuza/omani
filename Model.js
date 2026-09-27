@@ -272,11 +272,6 @@ function historyRows(raw, limit) {
   })
 }
 
-function wheelTarget(current, delta, content, viewport) {
-  var limit = Math.max(0, content - viewport)
-  return Math.max(0, Math.min(limit, current - delta))
-}
-
 function scrollTarget(list) {
   var limit = Math.max(0, list.content - list.viewport)
   if (list.index <= 0) return 0
@@ -666,7 +661,6 @@ if (typeof module !== "undefined") {
     historyEntry: historyEntry,
     historyRows: historyRows,
     scrollTarget: scrollTarget,
-    wheelTarget: wheelTarget,
     shortcuts: shortcuts,
     withSetting: withSetting,
     nextSetting: nextSetting,
