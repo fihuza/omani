@@ -39,16 +39,50 @@ fetch() {
   printf '%s' "$body"
 }
 
+# Attributes are read one at a time, by name: the markup can carry them in any
+# order, with anything else beside them.
+AWK_ATTR='
+function attr(line, key,   m) {
+  if (!match(line, key "=\"[^\"]*\"")) return ""
+  m = substr(line, RSTART, RLENGTH)
+  return substr(m, length(key) + 3, length(m) - length(key) - 3)
+}
+function clean(value) {
+  gsub(/\t/, " ", value)
+  return value
+}
+'
+
 parse_search() {
   sed '/id="main-sidebar"/,$d' | tr '\n' ' ' |
     sed 's|<div class="film-detail">|\n<div class="film-detail">|g' |
-    sed -nE 's|.*<h3 class="film-name">[[:space:]]*<a href="[^"]*/([^"/]*)"[[:space:]]*title="([^"]*)".*|\1\t\2|p' |
+    awk "$AWK_ATTR"'
+      {
+        at = index($0, "film-name")
+        if (!at) next
+        rest = substr($0, at)
+        href = attr(rest, "href")
+        title = attr(rest, "title")
+        if (href == "" || title == "") next
+        sub(/.*\//, "", href)
+        if (href == "") next
+        print clean(href) "\t" clean(title)
+      }
+    ' |
     sed -e "s|&#039;|'|g" -e 's|&quot;|"|g' -e "s|&amp;|\&|g"
 }
 
 parse_episodes() {
   sed 's|\\||g; s|ep-item|\nep-item|g' |
-    sed -nE "s|.*data-number=\"([^\"]*)\".*data-id=\"([0-9]+)\".*/watch/${1}[?]ep=.*|\2\t\1|p"
+    series="$1" awk "$AWK_ATTR"'
+      {
+        if (index($0, "/watch/" ENVIRON["series"] "?ep=") == 0) next
+        number = attr($0, "data-number")
+        id = attr($0, "data-id")
+        if (number == "" || id !~ /^[0-9]+$/) next
+        print id "\t" clean(number)
+      }
+    '
 }
 
 b64_decode() {
