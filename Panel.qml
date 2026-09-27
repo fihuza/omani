@@ -443,11 +443,11 @@ Panel {
                     Item {
                         width: parent.width
                         visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
-                        implicitHeight: searchField.implicitHeight + Style.space(8)
+                        implicitHeight: searchField.implicitHeight + Style.space(4)
 
                         TextField {
                             id: searchField
-                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.bottom: parent.bottom
                             width: parent.width
                             placeholderText: "Search anime\u2026   (/ to focus)"
                             foreground: root.foreground
