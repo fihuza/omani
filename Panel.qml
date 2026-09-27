@@ -240,7 +240,8 @@ Panel {
             return;
         var result = Model.reduceKey(keyState, key, {
             rowCount: rows.length,
-            pageSize: pageSize
+            pageSize: pageSize,
+            searchable: Model.searchable(view)
         });
         keyState = result.state;
         if (!result.command)
@@ -445,7 +446,7 @@ Panel {
 
                     Item {
                         width: parent.width
-                        visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
+                        visible: root.ready && Model.searchable(root.view)
                         implicitHeight: searchField.implicitHeight + Style.space(4)
 
                         TextField {

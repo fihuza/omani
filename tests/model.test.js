@@ -1035,7 +1035,7 @@ test("normalizes nothing to an empty string", () => {
   assert.equal(Model.normalizeKey(undefined), "")
 })
 
-const ctx = { rowCount: 10, pageSize: 4 }
+const ctx = { rowCount: 10, pageSize: 4, searchable: true }
 const start = () => Model.initialKeyState()
 
 test("changing one setting keeps the rest and the module id", () => {
@@ -1249,6 +1249,29 @@ test("question mark toggles the shortcut list", () => {
 test("slash and i open the search field", () => {
   assert.deepEqual(press("/").command, { type: "focusSearch" })
   assert.deepEqual(press("i").command, { type: "focusSearch" })
+})
+
+test("slash does nothing where there is no search field to focus", () => {
+  const noSearch = { rowCount: 10, pageSize: 4, searchable: false }
+  assert.equal(press("/", noSearch).command, null,
+    "focusing a field that is not there swallows every key after it")
+  assert.equal(press("i", noSearch).command, null)
+})
+
+test("slash still moves nothing, so the cursor is where it was", () => {
+  const noSearch = { rowCount: 10, pageSize: 4, searchable: false }
+  const after = press(["3", "j", "/"], noSearch)
+  assert.equal(after.state.index, 3)
+})
+
+test("the views with a search field are the ones that list something to search", () => {
+  assert.equal(Model.searchable("history"), true)
+  assert.equal(Model.searchable("results"), true)
+  assert.equal(Model.searchable("episodes"), true)
+  assert.equal(Model.searchable("player"), false)
+  assert.equal(Model.searchable("settings"), false)
+  assert.equal(Model.searchable("shortcuts"), false)
+  assert.equal(Model.searchable("quality"), false)
 })
 
 test("d forgets the selected row", () => {

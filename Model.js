@@ -57,6 +57,10 @@ var REMEMBERS_ORIGIN = { episodes: true, settings: true, shortcuts: true, qualit
 
 var OVERLAY = { settings: true, shortcuts: true, quality: true }
 
+function searchable(view) {
+  return !OVERLAY[view] && view !== "player"
+}
+
 function originFor(view, next, openedFrom) {
   if (OVERLAY[view] && OVERLAY[next]) return openedFrom
   return view
@@ -619,7 +623,7 @@ function reduceKey(state, key, ctx) {
 
   if (key === "s") return done({ type: "toggleSettings" })
   if (key === "?") return done({ type: "toggleShortcuts" })
-  if (key === "/" || key === "i") return done({ type: "focusSearch" })
+  if (key === "/" || key === "i") return done(ctx && ctx.searchable ? { type: "focusSearch" } : null)
   if (key === "d") return done(rowCount > 0 ? { type: "forget", index: next.index } : null)
   if (key === "c") return done({ type: "clearHistory" })
   if (key === "r") return done({ type: "refresh" })
@@ -640,6 +644,7 @@ if (typeof module !== "undefined") {
     progressLabel: progressLabel,
     backFrom: backFrom,
     originFor: originFor,
+    searchable: searchable,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     progressReports: progressReports,
