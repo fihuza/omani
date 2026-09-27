@@ -63,7 +63,7 @@ Panel {
     readonly property int pageSize: 6
     readonly property real listGap: Style.space(16)
     readonly property var viewRows: ({
-            "history": service ? Model.historyView(service.rows, service.players, service.progress) : [],
+            "history": service ? Model.historyView(service.rows, service.players) : [],
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, service.version) : [],
@@ -682,7 +682,7 @@ Panel {
                                             horizontalAlignment: Text.AlignRight
                                             elide: Text.ElideRight
                                             textFormat: Text.PlainText
-                                            text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
+                                            text: Model.rowLabel(rowItem.modelData, root.service ? root.service.progress : [])
                                             color: root.dim
                                             font.family: root.fontFamily
                                             font.pixelSize: Style.font.caption

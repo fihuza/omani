@@ -85,18 +85,48 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
+test("a launch with nothing to watch for is over when the script exits", () => {
+  // Without mpv-mpris nothing ever reaches the bus, so waiting for a player to
+  // appear waits for good and every later play is refused.
+  assert.equal(Model.launchDone({ tracking: false, players: [], launchPids: [] }), true)
+  assert.equal(Model.launchDone({ tracking: true, players: [], launchPids: [] }), false)
+  assert.equal(Model.launchDone({ tracking: true }), false)
+  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "2" }], launchPids: ["1"] }), true)
+  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "1" }], launchPids: ["1"] }), false)
+})
+
+test("the row under the bar icon is one that is not already playing", () => {
+  const rows = [{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }]
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.equal(Model.resumeTarget(rows, players).animeId, "b")
+  assert.equal(Model.resumeTarget(rows, []).animeId, "a")
+  assert.equal(Model.resumeTarget([], players), null)
+  assert.equal(Model.resumeTarget(rows, [{ pid: "1", animeId: "b" }]).animeId, "a")
+  assert.equal(Model.resumeTarget(rows, [{ pid: "1", animeId: "a" }, { pid: "2", animeId: "b" }]), null)
+})
+
+test("a row's label reads the progress of the player it belongs to", () => {
+  // The label is read per row rather than baked into the list, so a percentage
+  // that moves every second does not rebuild every row with it.
+  const progress = [{ animeId: "a", title: "A Episode 3", fraction: 0.45 }]
+  assert.equal(Model.rowLabel({ kind: "playing", title: "A Episode 3", episode: "3", label: "" }, progress), "ep 3 \u00b7 45%")
+  assert.equal(Model.rowLabel({ kind: "playing", title: "B Episode 1", episode: "1", label: "" }, progress), "ep 1")
+  assert.equal(Model.rowLabel({ kind: "series", label: "ep 9 \u00b7 12%" }, progress), "ep 9 \u00b7 12%")
+  assert.equal(Model.rowLabel({ title: "x" }, progress), "")
+  assert.equal(Model.rowLabel(null, progress), "")
+})
+
 test("a launch is done when a player appears that was not there before", () => {
-  const before = ["100"]
-  assert.equal(Model.launchedPlayer([{ pid: "100" }, { pid: "200" }], before), true)
+  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "100" }, { pid: "200" }], launchPids: ["100"] }), true)
 })
 
 test("the player being replaced does not end its own replacement", () => {
   const before = ["100"]
-  assert.equal(Model.launchedPlayer([{ pid: "100" }], before), false)
+  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "100" }], launchPids: before }), false)
 })
 
 test("no players at all is not a finished launch", () => {
-  assert.equal(Model.launchedPlayer([], ["100"]), false)
+  assert.equal(Model.launchDone({ tracking: true, players: [], launchPids: ["100"] }), false)
 })
 
 test("a record with no anime id is never mistaken for the one playing", () => {
@@ -188,15 +218,16 @@ test("two episodes of one series both lead the list, and it is not repeated", ()
 test("a playing row says which episode and how far in", () => {
   const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
   const progress = Model.progressRows(players, [{ title: "A Episode 3", position: 450, duration: 1000, playing: true }])
-  const view = Model.historyView([], players, progress)
-  assert.equal(view[0].label, "ep 3 \u00b7 45%")
+  const row = Model.historyView([], players)[0]
+  assert.equal(Model.rowLabel(row, progress), "ep 3 \u00b7 45%")
 })
 
 test("a playing row with nothing reported yet says only the episode", () => {
   const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
-  assert.equal(Model.historyView([], players, Model.progressRows(players, []))[0].label, "ep 3")
-  assert.equal(Model.historyView([], players, [])[0].label, "ep 3")
-  assert.equal(Model.historyView([], players)[0].label, "ep 3")
+  const row = Model.historyView([], players)[0]
+  assert.equal(Model.rowLabel(row, Model.progressRows(players, [])), "ep 3")
+  assert.equal(Model.rowLabel(row, []), "ep 3")
+  assert.equal(Model.rowLabel(row, undefined), "ep 3")
 })
 
 test("a playing row carries what the player menu needs to act", () => {

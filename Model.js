@@ -110,11 +110,40 @@ function livePlayers(records, liveTitles) {
   return live
 }
 
-function launchedPlayer(players, before) {
+// A step replaces a player of the same series, so the series cannot say whether
+// the new one has arrived; a pid that was not there when the launch started can.
+// With nothing tracking players there is no arrival to wait for, and waiting
+// anyway would refuse every later play.
+function launchDone(state) {
+  if (!state.tracking) return true
+  var players = state.players || []
+  var before = state.launchPids || []
   for (var i = 0; i < players.length; i++) {
     if (before.indexOf(players[i].pid) === -1) return true
   }
   return false
+}
+
+// What the bar icon resumes: the first series in the history that has no player
+// of its own, since resuming one that is playing would close it and start the
+// same episode again a few seconds behind.
+function resumeTarget(rows, players) {
+  for (var i = 0; i < rows.length; i++) {
+    var live = false
+    for (var p = 0; p < players.length; p++) {
+      if (players[p].animeId === rows[i].animeId) live = true
+    }
+    if (!live) return rows[i]
+  }
+  return null
+}
+
+// Read per row rather than baked into the list: a percentage that moves every
+// second would otherwise rebuild every row with it, and the delegates with them.
+function rowLabel(row, progress) {
+  if (!row) return ""
+  if (row.kind !== "playing") return row.label !== undefined ? row.label : ""
+  return playingLabel(row.episode, progressOfPlayer(progress, row.title))
 }
 
 function remembered(fallback) {
@@ -193,18 +222,17 @@ function playingLabel(episode, fraction) {
   return "ep " + episode + " \u00b7 " + percent + "%"
 }
 
-function historyView(rows, players, progress) {
+function historyView(rows, players) {
   var view = []
   var live = {}
   for (var p = 0; p < players.length; p++) {
     live[players[p].animeId] = true
-    var reported = progressOfPlayer(progress, players[p].title)
     view.push({
       kind: "playing",
       section: p === 0 ? "PLAYING" : "",
       icon: "\u{f040a}",
       title: players[p].title,
-      label: playingLabel(players[p].episode, reported),
+      label: "",
       animeId: players[p].animeId,
       episode: players[p].episode,
       pid: players[p].pid
@@ -592,7 +620,9 @@ if (typeof module !== "undefined") {
     livePlayers: livePlayers,
     progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
-    launchedPlayer: launchedPlayer,
+    launchDone: launchDone,
+    resumeTarget: resumeTarget,
+    rowLabel: rowLabel,
     adoptable: adoptable,
     qualitiesOf: qualitiesOf,
     seriesTitle: seriesTitle,

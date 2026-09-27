@@ -154,13 +154,15 @@ Item {
     function cancelLaunch() {
         if (!launching)
             return;
-        cancelled = true;
+        // Only a process still running will report an exit to swallow; one that
+        // has already finished would leave the flag set for the next launch.
+        cancelled = launchProcess.running;
         launchProcess.running = false;
         launching = false;
     }
 
     function syncPlayingFromHistory() {
-        if (playingId === "")
+        if (playingId === "" || Model.isPlayingSeries(players, playingId))
             return;
         var entry = Model.historyEntry(historyFile.text(), playingId);
         if (!entry)
@@ -272,13 +274,16 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
-    // A step replaces a player of the same series, so the series cannot say
-    // whether the new one has arrived. A pid that was not there when the launch
-    // started can.
     onPlayersChanged: {
-        if (Model.launchedPlayer(players, launchPids))
+        if (Model.launchDone(launchState))
             launching = false;
     }
+
+    readonly property var launchState: ({
+            tracking: root.tracking,
+            players: root.players,
+            launchPids: root.launchPids
+        })
 
     // The script exits once the player is spawned, so its status is the answer
     // to whether the launch worked. Nothing else can say: the player itself is
@@ -289,6 +294,7 @@ Item {
     }
 
     function beginLaunch() {
+        cancelled = false;
         launchPids = players.map(function (p) {
             return p.pid;
         });
@@ -320,8 +326,11 @@ Item {
                 root.cancelled = false;
                 return;
             }
-            if (exitCode === 0)
+            if (exitCode === 0) {
+                if (Model.launchDone(root.launchState))
+                    root.launching = false;
                 return;
+            }
             root.launching = false;
             root.failed(Model.firstLine(String(launchErr.text || "the player could not be started")));
         }
