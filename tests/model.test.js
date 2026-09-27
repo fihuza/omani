@@ -117,6 +117,34 @@ test("the snapshot of what was running is taken from the players themselves", ()
   assert.deepEqual(Model.launchPids(null), [])
 })
 
+test("a failure that arrived while the panel was shut is still shown when it opens", () => {
+  assert.equal(Model.noticeOnOpen("the player could not be started", true), "the player could not be started")
+})
+
+test("a failure the panel already showed is cleared when it opens again", () => {
+  assert.equal(Model.noticeOnOpen("the player could not be started", false), "")
+})
+
+test("opening with nothing to report says nothing", () => {
+  assert.equal(Model.noticeOnOpen("", true), "")
+  assert.equal(Model.noticeOnOpen("", false), "")
+})
+
+test("a launch stops waiting once it has waited too long", () => {
+  const before = ["1"]
+  const unchanged = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.equal(Model.launchDone(true, unchanged, before, false), false,
+    "still waiting for the player to appear")
+  assert.equal(Model.launchDone(true, unchanged, before, true), true,
+    "a player that never appears must not block every later launch")
+})
+
+test("waiting too long is not needed once a player has appeared", () => {
+  const before = ["1"]
+  const appeared = [{ pid: "2", title: "B Episode 1", animeId: "b", episode: "1" }]
+  assert.equal(Model.launchDone(true, appeared, before, false), true)
+})
+
 test("a launch with nothing to watch for is over when the script exits", () => {
   assert.equal(Model.launchDone(false, [], []), true)
   assert.equal(Model.launchDone(true, [], []), false)

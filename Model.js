@@ -114,8 +114,12 @@ function launchPids(players) {
   })
 }
 
-function launchDone(tracking, players, before) {
-  if (!tracking) return true
+function noticeOnOpen(notice, unseen) {
+  return unseen ? String(notice || "") : ""
+}
+
+function launchDone(tracking, players, before, waitedTooLong) {
+  if (!tracking || waitedTooLong) return true
   var running = players || []
   var started = before || []
   for (var i = 0; i < running.length; i++) {
@@ -614,6 +618,7 @@ if (typeof module !== "undefined") {
     progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
     launchPids: launchPids,
+    noticeOnOpen: noticeOnOpen,
     launchDone: launchDone,
     resumeTarget: resumeTarget,
     rowLabel: rowLabel,

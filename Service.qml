@@ -174,6 +174,7 @@ Item {
     function cancelLaunch() {
         if (!launching)
             return;
+        launchWait.stop();
         // Only a process still running will report an exit to swallow; one that
         // has already finished would leave the flag set for the next launch.
         cancelled = launchProcess.running;
@@ -302,14 +303,30 @@ Item {
     onHistoryLimitChanged: reloadHistory()
     onPlayersChanged: settleLaunch()
 
+    property bool waitedTooLong: false
+
     function settleLaunch() {
-        if (launching && Model.launchDone(tracking, players, launchPids))
+        if (launching && Model.launchDone(tracking, players, launchPids, waitedTooLong)) {
             launching = false;
+            launchWait.stop();
+        }
     }
 
     function abandonLaunch(message) {
         launching = false;
+        launchWait.stop();
         failed(message);
+    }
+
+    // A player that dies before it reaches the bus never arrives, and the flag
+    // it would clear is what every later play waits on.
+    Timer {
+        id: launchWait
+        interval: 10000
+        onTriggered: {
+            root.waitedTooLong = true;
+            root.settleLaunch();
+        }
     }
 
     function launch(argv, qualityOverride) {
@@ -320,6 +337,8 @@ Item {
 
     function beginLaunch() {
         cancelled = false;
+        waitedTooLong = false;
+        launchWait.stop();
         launchPids = Model.launchPids(players);
         launching = true;
     }
@@ -348,6 +367,7 @@ Item {
                 return;
             }
             if (exitCode === 0) {
+                launchWait.restart();
                 root.settleLaunch();
                 return;
             }
