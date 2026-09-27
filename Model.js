@@ -346,8 +346,8 @@ function settingRows(quality, mode, watched, version, repo) {
     { key: "quality", value: quality, title: "Quality", label: quality, link: "" },
     { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed", link: "" },
     { key: "watched", value: watched, title: "Counts as watched", label: watched + "%", link: "" },
-    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" },
-    { key: "version", value: version, title: "Version", label: version, link: repo || "" }
+    { key: "version", value: version, title: "Version", label: version, link: repo || "" },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" }
   ]
 }
 
