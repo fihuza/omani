@@ -213,10 +213,16 @@ test("a playing row carries what the player menu needs to act", () => {
   assert.equal(view[0].pid, "7")
 })
 
-test("a playing row reads as the current one, a history row does not", () => {
+test("the cursor starts below whatever is playing", () => {
   const view = Model.historyView([{ animeId: "b", title: "B" }], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
-  assert.equal(view[0].current, true)
-  assert.equal(view[1].current, undefined)
+  assert.equal(Model.startIndex(view), 1)
+  assert.equal(Model.startIndex(Model.historyView([{ animeId: "b", title: "B" }], [])), 0)
+})
+
+test("with nothing but players the cursor starts at the top", () => {
+  assert.equal(Model.startIndex(Model.historyView([], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])), 0)
+  assert.equal(Model.startIndex([]), 0)
+  assert.equal(Model.startIndex(null), 0)
 })
 
 test("nothing playing leaves only the watch history", () => {

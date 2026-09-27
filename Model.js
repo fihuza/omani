@@ -184,6 +184,16 @@ function isPlayingSeries(players, animeId) {
   return false
 }
 
+// Where the cursor lands when it first appears. What is playing sits at the top
+// with its own controls; the list someone walks is the one below it.
+function startIndex(rows) {
+  if (!rows) return 0
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].kind !== "playing") return i
+  }
+  return 0
+}
+
 function historyView(rows, players) {
   var view = []
   var live = {}
@@ -192,7 +202,6 @@ function historyView(rows, players) {
     view.push({
       kind: "playing",
       section: p === 0 ? "PLAYING" : "",
-      current: true,
       icon: "\u{f040a}",
       title: players[p].title,
       label: "",
@@ -559,6 +568,7 @@ if (typeof module !== "undefined") {
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,
+    startIndex: startIndex,
     historyEntry: historyEntry,
     historyRows: historyRows,
     scrollTarget: scrollTarget,

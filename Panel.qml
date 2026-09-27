@@ -275,6 +275,15 @@ Panel {
         });
     }
 
+    // The first press of a motion key reveals the cursor rather than moving it,
+    // as it does in every panel; where it appears is this panel's own answer.
+    function activateCursor() {
+        cursorActive = true;
+        keyState = Object.assign({}, keyState, {
+            index: Model.startIndex(rows)
+        });
+    }
+
     function selectRow(index) {
         cursorActive = true;
         keyState = Object.assign({}, keyState, {
@@ -348,7 +357,7 @@ Panel {
 
             onMoveRequested: function (dx, dy) {
                 if (!root.cursorActive) {
-                    root.cursorActive = true;
+                    root.activateCursor();
                     return;
                 }
                 root.dispatch(dy > 0 ? "j" : dy < 0 ? "k" : "");
@@ -510,6 +519,13 @@ Panel {
                                 width: column.width
                                 spacing: Style.space(10)
 
+                                PanelSeparator {
+                                    visible: rowItem.index > 0 && rowItem.section !== ""
+                                    height: visible ? implicitHeight : 0
+                                    width: parent.width
+                                    foreground: root.foreground
+                                }
+
                                 SectionLabel {
                                     visible: rowItem.section !== ""
                                     height: visible ? implicitHeight : 0
@@ -520,7 +536,6 @@ Panel {
                                     width: parent.width
                                     implicitHeight: rowContent.implicitHeight + Style.spacing.rowPaddingX
                                     hasCursor: rowItem.selected
-                                    current: rowItem.modelData.current === true
                                     foreground: root.foreground
 
                                     MouseArea {
@@ -538,7 +553,7 @@ Panel {
                                         anchors.leftMargin: Style.space(10)
                                         anchors.rightMargin: Style.space(10)
                                         anchors.verticalCenter: parent.verticalCenter
-                                        implicitHeight: Math.max(rowTitle.implicitHeight, rowMeta.implicitHeight, rowForget.implicitHeight)
+                                        implicitHeight: Math.max(titleBox.implicitHeight, rowMeta.implicitHeight, rowForget.implicitHeight)
 
                                         Text {
                                             id: rowIcon
@@ -548,24 +563,65 @@ Panel {
                                             anchors.left: parent.left
                                             textFormat: Text.PlainText
                                             text: rowItem.modelData.icon !== undefined ? rowItem.modelData.icon : ""
-                                            color: rowItem.modelData.current === true ? root.foreground : root.dim
+                                            color: root.dim
                                             font.family: root.fontFamily
                                             font.pixelSize: Style.font.heading
                                         }
 
-                                        Text {
-                                            id: rowTitle
+                                        Item {
+                                            id: titleBox
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: rowIcon.right
                                             anchors.leftMargin: rowIcon.visible ? Style.space(10) : 0
                                             anchors.right: rowMeta.left
                                             anchors.rightMargin: Style.space(8)
-                                            textFormat: Text.PlainText
-                                            text: rowItem.modelData.title
-                                            color: root.foreground
-                                            elide: Text.ElideRight
-                                            font.family: root.fontFamily
-                                            font.pixelSize: Style.font.body
+                                            implicitHeight: rowTitle.implicitHeight
+                                            clip: true
+
+                                            // A name too long to fit reads to its end while the row is
+                                            // under the cursor, then returns.
+                                            readonly property real overflow: Math.max(0, rowTitle.implicitWidth - width)
+                                            readonly property bool scrolling: rowItem.selected && overflow > 0
+
+                                            Text {
+                                                id: rowTitle
+                                                width: titleBox.scrolling ? implicitWidth : titleBox.width
+                                                textFormat: Text.PlainText
+                                                text: rowItem.modelData.title
+                                                color: root.foreground
+                                                elide: titleBox.scrolling ? Text.ElideNone : Text.ElideRight
+                                                font.family: root.fontFamily
+                                                font.pixelSize: Style.font.body
+                                            }
+
+                                            SequentialAnimation {
+                                                running: titleBox.scrolling
+                                                loops: Animation.Infinite
+                                                onRunningChanged: if (!running)
+                                                    rowTitle.x = 0
+
+                                                PauseAnimation {
+                                                    duration: 1200
+                                                }
+                                                NumberAnimation {
+                                                    target: rowTitle
+                                                    property: "x"
+                                                    to: -titleBox.overflow
+                                                    duration: Math.max(500, titleBox.overflow * 22)
+                                                }
+                                                PauseAnimation {
+                                                    duration: 1600
+                                                }
+                                                NumberAnimation {
+                                                    target: rowTitle
+                                                    property: "x"
+                                                    to: 0
+                                                    duration: 350
+                                                }
+                                                PauseAnimation {
+                                                    duration: 400
+                                                }
+                                            }
                                         }
 
                                         Text {
