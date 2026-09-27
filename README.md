@@ -145,6 +145,11 @@ so rather than leaving you to guess.
 `curl-impersonate` is used when present, which gets past Cloudflare where plain
 `curl` is blocked.
 
+What the provider answers is checked before it reaches the player: a stream or
+a subtitle that is not an http address is refused rather than passed on, and
+the player is told where its arguments end, so nothing the site returns can
+become an option or a local path.
+
 No privileged commands, no services, no installers. Omani writes only its own
 watch history under `$XDG_STATE_HOME/omani` (with a `.bak` and a lock file
 beside it) and a record of the players it started, under `$XDG_RUNTIME_DIR`. A player is only

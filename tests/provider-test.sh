@@ -300,6 +300,14 @@ t_a_server_is_found_whatever_order_its_attributes_are_in() {
   assert_contains "$out" "url	"
 }
 
+t_stream_refuses_a_source_that_is_not_a_web_address() {
+  local out
+  if out=$(FAKE_EMBED="$FIXTURES/embed-blob-local-file.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "not a playable"
+}
+
 t_stream_refuses_a_mode_with_no_source() {
   local out
   out=$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 dub best 2>&1)
@@ -338,6 +346,7 @@ check "stream falls back when the quality is absent" t_stream_falls_back_when_th
 check "stream takes the worst when asked" t_stream_takes_the_worst_when_asked
 check "stream refuses an episode that is not listed" t_stream_refuses_an_episode_that_is_not_listed
 check "a server is found whatever order its attributes are in" t_a_server_is_found_whatever_order_its_attributes_are_in
+check "stream refuses a source that is not a web address" t_stream_refuses_a_source_that_is_not_a_web_address
 check "stream refuses a mode with no source" t_stream_refuses_a_mode_with_no_source
 check "stream reports a server list with no usable player" t_stream_reports_a_server_list_without_a_usable_player
 check "stream needs an id and an episode" t_stream_needs_an_id_and_an_episode

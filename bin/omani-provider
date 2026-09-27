@@ -189,8 +189,10 @@ cmd_stream() {
   json=$(deobfuscate "$blob")
   master=$(jq -r '.src // empty' <<<"$json" 2>/dev/null)
   [[ -n $master ]] || die "no m3u8 in the payload"
+  [[ $master == https://* || $master == http://* ]] || die "not a playable source: $master"
   # shellcheck disable=SC2016 # the filter is jq's, not the shell's
   subs=$(jq -r 'first(.subtitles[]? | select(.default == true) | .src) // empty' <<<"$json" 2>/dev/null)
+  [[ $subs == https://* || $subs == http://* ]] || subs=""
   links=$(fetch "$master" -e "$referrer" | parse_qualities "$master")
   [[ -n $links ]] || die "no playable qualities"
   url=$(pick_quality "$quality" "$links")

@@ -248,6 +248,27 @@ t_play_needs_all_three_arguments() {
   assert_fails $?
 }
 
+t_play_refuses_a_url_the_provider_should_not_have_sent() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n' ;;
+stream) printf 'url\t%s\nreferrer\thttps://e/\n' "${FAKE_URL:--v}" ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  local url out
+  for url in -v --version file:///etc/passwd /etc/shadow; do
+    out=$(FAKE_URL="$url" "$OMANI" play frieren-1 "Frieren" 1 2>&1)
+    assert_fails $?
+    assert_contains "$out" "not a playable"
+  done
+}
+
+t_the_player_is_told_where_its_arguments_end() {
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 3)" " -- http"
+}
+
 t_play_fails_when_no_source_resolves() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
@@ -1011,6 +1032,8 @@ check "no requested quality asks the provider for best" t_play_without_a_quality
 check "play passes subtitles when the provider offers them" t_play_passes_subtitles_when_offered
 check "play omits the subtitle flag when there are none" t_play_omits_subtitles_when_absent
 check "play needs an id, a title and an episode" t_play_needs_all_three_arguments
+check "play refuses a url the provider should not have sent" t_play_refuses_a_url_the_provider_should_not_have_sent
+check "the player is told where its arguments end" t_the_player_is_told_where_its_arguments_end
 check "play fails when no source resolves" t_play_fails_when_no_source_resolves
 check "play records a series not seen before" t_play_records_a_new_series
 check "play advances a series already in history" t_play_advances_a_series_already_watched
