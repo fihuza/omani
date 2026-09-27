@@ -23,11 +23,13 @@ Panel {
     readonly property bool busy: service ? service.busy : false
     readonly property bool launching: service ? service.launching : false
     property string notice: ""
+    property bool noticeUnseen: false
 
     Connections {
         target: root.service
         function onFailed(message) {
             root.notice = message;
+            root.noticeUnseen = !root.opened;
         }
         function onLaunchingChanged() {
             if (root.service.launching)
@@ -323,7 +325,8 @@ Panel {
         if (!opened || !service)
             return;
         searchField.text = "";
-        notice = "";
+        notice = Model.noticeOnOpen(notice, noticeUnseen);
+        noticeUnseen = false;
         service.results = [];
         setView("history");
         service.refresh();
