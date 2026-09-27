@@ -462,6 +462,24 @@ t_next_leaves_the_progress_of_the_episode_it_leaves() {
   assert_eq "$(series_field frieren-1 .episode)" "3"
 }
 
+t_next_steps_from_the_newest_player_of_a_series() {
+  seed_history '{"naruto-1": {"title": "Naruto", "episode": "1", "episodes": {}}}'
+  mkdir -p "$OMANI_STATE_DIR"
+  local older newer
+  sleep 60 >/dev/null 2>&1 &
+  older=$!
+  printf '%s\n' "$older" >>"$WORK/spawned"
+  sleep 60 >/dev/null 2>&1 &
+  newer=$!
+  printf '%s\n' "$newer" >>"$WORK/spawned"
+  printf '%s\tNaruto Episode 1\tnaruto-1\t1\t1080\t%s\n' "$older" "$(awk '{print $22}' "/proc/$older/stat")" >>"$OMANI_STATE_DIR/players"
+  printf '%s\tNaruto Episode 2\tnaruto-1\t2\t1080\t%s\n' "$newer" "$(awk '{print $22}' "/proc/$newer/stat")" >>"$OMANI_STATE_DIR/players"
+
+  # Stepping from the older record would land on episode 2, the one already
+  # playing, which is what closing and reopening the same episode looked like.
+  assert_contains "$("$OMANI" next naruto-1 2>&1)" "Episode 3"
+}
+
 t_next_steps_from_the_episode_actually_playing() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
   local pid
@@ -1178,6 +1196,7 @@ check "next moves on from an episode barely started" t_next_moves_on_from_an_epi
 check "next leaves the progress of the episode it leaves" t_next_leaves_the_progress_of_the_episode_it_leaves
 check "a history that cannot be written is said so" t_a_history_that_cannot_be_written_is_said_so
 check "a history that does not parse is never written over" t_a_history_that_does_not_parse_is_never_written_over
+check "next steps from the newest player of a series" t_next_steps_from_the_newest_player_of_a_series
 check "next steps from the episode actually playing" t_next_steps_from_the_episode_actually_playing
 check "a history carrying trailing garbage reads as empty" t_a_history_that_carries_trailing_garbage_reads_as_empty
 check "next refuses at the last episode" t_next_refuses_at_the_last_episode
