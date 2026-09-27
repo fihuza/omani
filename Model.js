@@ -192,6 +192,8 @@ function historyView(rows, players) {
     view.push({
       kind: "playing",
       section: p === 0 ? "PLAYING" : "",
+      current: true,
+      icon: "\u{f040a}",
       title: players[p].title,
       label: "",
       animeId: players[p].animeId,
@@ -207,6 +209,7 @@ function historyView(rows, players) {
     var row = {}
     for (var field in rows[i]) row[field] = rows[i][field]
     row.kind = "series"
+    row.icon = "\u{f02da}"
     row.section = kept === 0 ? "CONTINUE WATCHING" : ""
     kept++
     view.push(row)

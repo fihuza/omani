@@ -213,6 +213,12 @@ test("a playing row carries what the player menu needs to act", () => {
   assert.equal(view[0].pid, "7")
 })
 
+test("a playing row reads as the current one, a history row does not", () => {
+  const view = Model.historyView([{ animeId: "b", title: "B" }], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
+  assert.equal(view[0].current, true)
+  assert.equal(view[1].current, undefined)
+})
+
 test("nothing playing leaves only the watch history", () => {
   const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 3" }], [])
   assert.deepEqual(view.map((r) => r.kind), ["series"])

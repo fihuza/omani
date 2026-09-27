@@ -392,29 +392,38 @@ Panel {
                         trailingControl: Component {
                             Row {
                                 visible: root.ready
-                                spacing: Style.space(6)
+                                spacing: Style.space(4)
 
-                                PanelActionButton {
+                                Button {
                                     iconText: "󰒓"
                                     tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
+                                    iconSize: Style.font.subtitle * 1.5
+                                    horizontalPadding: Style.space(5)
+                                    verticalPadding: Style.space(2)
                                     onClicked: root.setView(root.view === "settings" ? "history" : "settings")
                                 }
 
-                                PanelActionButton {
+                                Button {
                                     iconText: "󰌌"
                                     tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
+                                    iconSize: Style.font.subtitle * 1.5
+                                    horizontalPadding: Style.space(5)
+                                    verticalPadding: Style.space(2)
                                     onClicked: root.setView(root.view === "shortcuts" ? "history" : "shortcuts")
                                 }
 
-                                PanelActionButton {
+                                Button {
                                     iconText: "󰃢"
                                     tooltipText: "Clear history (c)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
+                                    iconSize: Style.font.subtitle * 1.5
+                                    horizontalPadding: Style.space(5)
+                                    verticalPadding: Style.space(2)
                                     onClicked: confirmClear.opened = true
                                 }
                             }
@@ -500,48 +509,30 @@ Panel {
                                     root.scrollIntoView(rowItem, index)
 
                                 width: column.width
-                                spacing: Style.space(4)
+                                spacing: Style.space(10)
+
+                                PanelSeparator {
+                                    visible: rowItem.index > 0 && rowItem.section !== ""
+                                    height: visible ? implicitHeight : 0
+                                    width: parent.width
+                                    foreground: root.foreground
+                                }
 
                                 PanelSectionHeader {
                                     visible: rowItem.section !== ""
+                                    height: visible ? implicitHeight : 0
                                     width: parent.width
                                     text: rowItem.section
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                 }
 
-                                Rectangle {
+                                CursorSurface {
                                     width: parent.width
-                                    implicitHeight: rowTitle.implicitHeight + Style.space(10)
-                                    radius: Style.cornerRadius
-                                    color: rowItem.selected ? Util.alpha(root.foreground, 0.1) : "transparent"
-
-                                    Text {
-                                        id: rowTitle
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: Style.space(8)
-                                        anchors.right: rowMeta.left
-                                        anchors.rightMargin: Style.space(8)
-                                        textFormat: Text.PlainText
-                                        text: rowItem.modelData.title
-                                        color: root.foreground
-                                        elide: Text.ElideRight
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.body
-                                    }
-
-                                    Text {
-                                        id: rowMeta
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.right: rowForget.visible ? rowForget.left : parent.right
-                                        anchors.rightMargin: Style.space(8)
-                                        textFormat: Text.PlainText
-                                        text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
-                                        color: root.dim
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.caption
-                                    }
+                                    implicitHeight: rowContent.implicitHeight + Style.spacing.rowPaddingX
+                                    hasCursor: rowItem.selected
+                                    current: rowItem.modelData.current === true
+                                    foreground: root.foreground
 
                                     MouseArea {
                                         anchors.fill: parent
@@ -551,17 +542,67 @@ Panel {
                                         onClicked: root.activateRow(rowItem.index)
                                     }
 
-                                    PanelActionButton {
-                                        id: rowForget
-                                        anchors.verticalCenter: parent.verticalCenter
+                                    Item {
+                                        id: rowContent
+                                        anchors.left: parent.left
                                         anchors.right: parent.right
-                                        anchors.rightMargin: Style.space(4)
-                                        visible: rowItem.selected && Model.forgettable(root.view, rowItem.modelData)
-                                        iconText: "󰅖"
-                                        tooltipText: "Forget this series (d)"
-                                        foreground: root.dim
-                                        fontFamily: root.fontFamily
-                                        onClicked: root.service.forget(rowItem.modelData.animeId)
+                                        anchors.leftMargin: Style.space(10)
+                                        anchors.rightMargin: Style.space(10)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        implicitHeight: Math.max(rowTitle.implicitHeight, rowMeta.implicitHeight, rowForget.implicitHeight)
+
+                                        Text {
+                                            id: rowIcon
+                                            visible: text !== ""
+                                            width: visible ? implicitWidth : 0
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: parent.left
+                                            textFormat: Text.PlainText
+                                            text: rowItem.modelData.icon !== undefined ? rowItem.modelData.icon : ""
+                                            color: rowItem.modelData.current === true ? root.foreground : root.dim
+                                            font.family: root.fontFamily
+                                            font.pixelSize: Style.font.heading
+                                        }
+
+                                        Text {
+                                            id: rowTitle
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: rowIcon.right
+                                            anchors.leftMargin: rowIcon.visible ? Style.space(10) : 0
+                                            anchors.right: rowMeta.left
+                                            anchors.rightMargin: Style.space(8)
+                                            textFormat: Text.PlainText
+                                            text: rowItem.modelData.title
+                                            color: root.foreground
+                                            elide: Text.ElideRight
+                                            font.family: root.fontFamily
+                                            font.pixelSize: Style.font.body
+                                        }
+
+                                        Text {
+                                            id: rowMeta
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.right: rowForget.visible ? rowForget.left : parent.right
+                                            anchors.rightMargin: rowForget.visible ? Style.space(8) : 0
+                                            textFormat: Text.PlainText
+                                            text: rowItem.modelData.label !== undefined ? rowItem.modelData.label : ""
+                                            color: root.dim
+                                            font.family: root.fontFamily
+                                            font.pixelSize: Style.font.caption
+                                        }
+
+                                        PanelActionButton {
+                                            id: rowForget
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.right: parent.right
+                                            visible: rowItem.selected && Model.forgettable(root.view, rowItem.modelData)
+                                            iconText: "󰅙"
+                                            tooltipText: "Forget this series (d)"
+                                            foreground: root.foreground
+                                            hoverColor: root.urgent
+                                            fontFamily: root.fontFamily
+                                            onClicked: root.service.forget(rowItem.modelData.animeId)
+                                        }
                                     }
                                 }
                             }
