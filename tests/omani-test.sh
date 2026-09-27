@@ -374,8 +374,6 @@ t_next_plays_the_episode_after_the_one_watched() {
 }
 
 t_next_moves_on_from_an_episode_barely_started() {
-  # Asking for the next episode is the answer: how much of this one is left is
-  # not a question any more.
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
   local out
   out=$("$OMANI" next frieren-1)
@@ -542,8 +540,6 @@ t_stop_targets_one_player_by_title() {
 }
 
 t_stop_targets_a_series_by_its_id() {
-  # The pane knows the series id even while an episode is being replaced, when
-  # the title of the player it is about is not settled yet.
   local pid
   pid=$(live_player "Naruto Episode 9" naruto-2 9)
   assert_eq "$("$OMANI" stop naruto-2)" "stop $pid"
@@ -619,7 +615,6 @@ t_a_write_leaves_no_temporary_file_behind() {
 }
 
 t_next_refuses_when_the_episode_is_no_longer_listed() {
-  # The provider dropped or renumbered the episode the series was on.
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "99", "episodes": {}}}'
   local out
   out=$("$OMANI" next frieren-1 2>&1)
@@ -657,8 +652,6 @@ FAKE
 }
 
 t_progress_reports_arriving_together_are_not_lost() {
-  # Two players report every few seconds; a read-modify-write of the whole file
-  # loses one of them if they interleave.
   local i
   for i in 1 2 3 4 5 6 7 8; do
     OMANI_DRY_RUN='' "$OMANI" progress frieren-1 "$i" $((i * 10)) 1400 &

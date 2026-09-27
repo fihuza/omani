@@ -365,8 +365,6 @@ test("the last row goes to the very bottom", () => {
 })
 
 test("the last row of a list that fits does not scroll", () => {
-  // The panel is sized to its content; anything else leaves the last row
-  // dragging the list a few pixels on the way to it.
   assert.equal(Model.scrollTarget({ current: 0, viewport: 400, content: 400, rowTop: 360, rowHeight: 30, index: 9, lastIndex: 9, margin: 6 }), 0)
   assert.equal(Model.scrollTarget({ current: 0, viewport: 400, content: 380, rowTop: 340, rowHeight: 30, index: 9, lastIndex: 9, margin: 6 }), 0)
 })
@@ -641,7 +639,6 @@ test("a player the bus has not reported yet reads as no progress", () => {
   assert.equal(rows[0].fraction, 0)
   assert.equal(rows[0].clock, "")
 
-  // On the bus, but before it has answered with a position or a length.
   const opened = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [{ title: "A Episode 1", playing: true }])
   assert.equal(opened[0].fraction, 0)
   assert.equal(opened[0].clock, "")
@@ -653,8 +650,6 @@ test("a position past the end never overfills the bar", () => {
 })
 
 test("a stop names something the script can match, even mid-step", () => {
-  // Stepping to the next episode clears the title while the new player is
-  // resolving, and the pane's stop button went out with nothing to match.
   assert.equal(Model.stopTarget({ pid: "42", title: "A Episode 1", animeId: "a" }), "42")
   assert.equal(Model.stopTarget({ pid: "", title: "A Episode 1", animeId: "a" }), "A Episode 1")
   assert.equal(Model.stopTarget({ pid: "", title: "", animeId: "a" }), "a")
@@ -908,7 +903,6 @@ test("a missing context is treated as an empty list rather than crashing", () =>
 })
 
 test("an index left beyond a shrunken list is pulled back into range", () => {
-  // The history file can change under the panel while it is open.
   const stale = { index: 8, pendingCount: "", pendingG: false }
   assert.equal(Model.reduceKey(stale, "j", { rowCount: 3, pageSize: 4 }).state.index, 2)
 })

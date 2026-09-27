@@ -67,10 +67,11 @@ dimmed while it is paused.
 left of the episode you are on: the one you leave keeps the progress it had
 rather than counting as watched.
 
-Those choices **replace** the episode they were opened for, so following a
-series never leaves a trail of players behind. Starting something from the
-watch history is what adds one, so two series can run side by side — each
-listed under **Playing**, each with its own menu.
+**One player per series.** Starting any episode of a series closes whatever
+else of that series is running, however you got there — the menu, the episode
+list, or the bar icon — so following a series never leaves a trail of players
+behind. A different series adds a second player, so two can run side by side,
+each listed under **Playing** with its own menu.
 
 **Change quality** applies to the episode playing, not to the setting, and is
 offered only when the provider has more than one variant of it. The next
