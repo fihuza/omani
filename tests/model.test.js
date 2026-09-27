@@ -20,6 +20,25 @@ test("going back from a view lands where it came from", () => {
   assert.equal(Model.backFrom("player"), "history")
 })
 
+test("leaving the episode list returns to the view it was opened from", () => {
+  assert.equal(Model.backFrom("episodes", "player"), "player",
+    "opened from the player menu by Select episode")
+  assert.equal(Model.backFrom("episodes", "results"), "results",
+    "opened by choosing a series from a search")
+  assert.equal(Model.backFrom("episodes", "history"), "history")
+})
+
+test("an episode list with no remembered origin falls back to the search results", () => {
+  assert.equal(Model.backFrom("episodes"), "results")
+  assert.equal(Model.backFrom("episodes", ""), "results")
+})
+
+test("every other view goes back where it always did", () => {
+  assert.equal(Model.backFrom("results", "history"), "history")
+  assert.equal(Model.backFrom("settings", "player"), "history")
+  assert.equal(Model.backFrom("quality", "history"), "player")
+})
+
 test("going back from the history closes the panel", () => {
   assert.equal(Model.backFrom("history"), "close")
   assert.equal(Model.backFrom("nonsense"), "close")

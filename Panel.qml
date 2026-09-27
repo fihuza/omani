@@ -155,9 +155,7 @@ Panel {
             },
             "select": function () {
                 root.service.openSeries(root.service.playingId, root.service.playingSeries);
-                root.view = "episodes";
-                root.keyState = Model.initialKeyState();
-                root.cursorActive = false;
+                root.setView("episodes");
             },
             "quality": function () {
                 root.setView("quality");
@@ -203,7 +201,10 @@ Panel {
             }
         })
 
+    property string openedFrom: ""
+
     function setView(next) {
+        openedFrom = view;
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;
@@ -216,7 +217,7 @@ Panel {
         })
 
     function goBack() {
-        var next = Model.backFrom(view);
+        var next = Model.backFrom(view, openedFrom);
         var action = backActions[next];
         if (action)
             action();
