@@ -644,6 +644,14 @@ test("a position past the end never overfills the bar", () => {
   assert.equal(rows[0].fraction, 1)
 })
 
+test("the pane takes the progress of the episode it controls", () => {
+  const rows = Model.progressRows([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [{ title: "B", position: 30, duration: 60, playing: true }])
+  assert.equal(Model.progressFor(rows, "b").fraction, 0.5)
+  assert.equal(Model.progressFor(rows, "gone"), null)
+  assert.equal(Model.progressFor(rows, ""), null)
+  assert.equal(Model.progressFor(null, "a"), null)
+})
+
 test("the icon says whether that player is paused", () => {
   const paused = Model.progressRows([{ animeId: "a", title: "A" }], [{ title: "A", position: 1, duration: 2, playing: false }])
   const running = Model.progressRows([{ animeId: "a", title: "A" }], [{ title: "A", position: 1, duration: 2, playing: true }])

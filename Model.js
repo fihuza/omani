@@ -413,6 +413,14 @@ function playerFor(players, title) {
   return null
 }
 
+function progressFor(rows, animeId) {
+  if (!animeId || !rows) return null
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].animeId === animeId) return rows[i]
+  }
+  return null
+}
+
 function heroMeta(state) {
   if (state.notice) return state.notice
   if (!state.ready) return "missing: " + state.missing
@@ -606,6 +614,7 @@ if (typeof module !== "undefined") {
     heading: heading,
     heroMeta: heroMeta,
     progressRows: progressRows,
+    progressFor: progressFor,
     clock: clock,
     elapsed: elapsed,
     playerFor: playerFor,

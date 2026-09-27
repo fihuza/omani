@@ -39,6 +39,7 @@ Panel {
                 root.notice = "";
         }
     }
+    readonly property var playerProgress: service ? Model.progressFor(service.progress, service.playingId) : null
     readonly property var heroState: ({
             ready: root.ready,
             tracking: service ? service.tracking : true,
@@ -443,106 +444,69 @@ Panel {
                         foreground: root.foreground
                     }
 
-                    // One bar per player: which episode, how far in, and
-                    // whether it is paused.
-                    Column {
-                        width: parent.width
-                        spacing: Style.space(8)
-                        visible: root.ready && playing.count > 0
-
-                        Repeater {
-                            id: playing
-                            model: root.service ? root.service.progress : []
-
-                            delegate: Column {
-                                id: playingRow
-
-                                required property var modelData
-
-                                width: parent.width
-                                spacing: Style.space(4)
-
-                                Item {
-                                    width: parent.width
-                                    implicitHeight: playingTitle.implicitHeight
-
-                                    Text {
-                                        id: playingIcon
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: parent.left
-                                        textFormat: Text.PlainText
-                                        text: playingRow.modelData.icon
-                                        color: root.dim
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.caption
-                                    }
-
-                                    Text {
-                                        id: playingTitle
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: playingIcon.right
-                                        anchors.leftMargin: Style.space(6)
-                                        anchors.right: playingClock.left
-                                        anchors.rightMargin: Style.space(8)
-                                        textFormat: Text.PlainText
-                                        text: playingRow.modelData.title
-                                        color: root.foreground
-                                        elide: Text.ElideRight
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.caption
-                                    }
-
-                                    Text {
-                                        id: playingClock
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.right: parent.right
-                                        textFormat: Text.PlainText
-                                        text: playingRow.modelData.clock
-                                        color: root.dim
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.caption
-                                    }
-                                }
-
-                                Rectangle {
-                                    id: track
-                                    width: parent.width
-                                    height: Math.max(3, Math.round(Style.spacing.controlHeight * 0.08))
-                                    radius: height / 2
-                                    color: Style.selectedFillFor(root.foreground, Color.accent)
-
-                                    Rectangle {
-                                        width: track.width * playingRow.modelData.fraction
-                                        height: track.height
-                                        radius: track.radius
-                                        color: root.foreground
-                                        opacity: playingRow.modelData.paused ? 0.45 : 1.0
-
-                                        Behavior on width {
-                                            NumberAnimation {
-                                                duration: 220
-                                                easing.type: Easing.OutCubic
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     TextField {
                         id: searchField
                         visible: root.ready && root.view !== "settings" && root.view !== "shortcuts" && root.view !== "player"
                         width: parent.width
-                        placeholderText: "Search anime…   (/ to focus)"
+                        placeholderText: "Search anime\u2026   (/ to focus)"
                         foreground: root.foreground
                         onAccepted: root.submitSearch()
                         Keys.onEscapePressed: keyCatcher.forceActiveFocus()
                     }
 
-                    SectionLabel {
-                        visible: root.ready && root.view !== "history" && text !== ""
-                        text: Model.heading(root.headings, root.view, root.busy, root.launching)
+                    Item {
+                        width: parent.width
+                        visible: root.ready && root.view !== "history" && headingLabel.text !== ""
+                        implicitHeight: headingLabel.implicitHeight
+
+                        SectionLabel {
+                            id: headingLabel
+                            anchors.left: parent.left
+                            anchors.right: headingClock.visible ? headingClock.left : parent.right
+                            anchors.rightMargin: headingClock.visible ? Style.space(8) : 0
+                            text: Model.heading(root.headings, root.view, root.busy, root.launching)
+                        }
+
+                        Text {
+                            id: headingClock
+                            visible: root.view === "player" && root.playerProgress !== null
+                            anchors.right: parent.right
+                            anchors.verticalCenter: headingLabel.verticalCenter
+                            textFormat: Text.PlainText
+                            text: root.playerProgress ? root.playerProgress.clock : ""
+                            color: root.dim
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                        }
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(4)
+                        visible: root.view === "player" && root.playerProgress !== null
+
+                        Rectangle {
+                            id: playerTrack
+                            width: parent.width
+                            height: Math.max(3, Math.round(Style.spacing.controlHeight * 0.08))
+                            radius: height / 2
+                            color: Style.selectedFillFor(root.foreground, Color.accent)
+
+                            Rectangle {
+                                width: playerTrack.width * (root.playerProgress ? root.playerProgress.fraction : 0)
+                                height: playerTrack.height
+                                radius: playerTrack.radius
+                                color: root.foreground
+                                opacity: root.playerProgress && root.playerProgress.paused ? 0.45 : 1.0
+
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 220
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -552,7 +516,7 @@ Panel {
                     anchors.right: parent.right
                     anchors.top: headerBox.bottom
                     anchors.bottom: parent.bottom
-                    anchors.topMargin: Style.space(10)
+                    anchors.topMargin: Style.space(16)
                     contentWidth: width
                     contentHeight: column.implicitHeight
                     clip: true
@@ -613,6 +577,7 @@ Panel {
                                 SectionLabel {
                                     visible: rowItem.section !== ""
                                     height: visible ? implicitHeight : 0
+                                    width: parent.width
                                     text: rowItem.section
                                 }
 
@@ -816,7 +781,6 @@ Panel {
     }
 
     component SectionLabel: PanelSectionHeader {
-        width: parent ? parent.width : 0
         elide: Text.ElideRight
         topPadding: Style.space(4)
         bottomPadding: Style.space(4)
