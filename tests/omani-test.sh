@@ -280,10 +280,18 @@ t_history_timestamps_are_finer_than_a_second() {
 }
 
 t_a_record_carries_when_its_player_started() {
-  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 3
+  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 3
+  cut -f1 "$OMANI_STATE_DIR/players" >>"$WORK/spawned"
   local started
   started=$(awk -F'\t' '$3 == "frieren-1" { print $6 }' "$OMANI_STATE_DIR/players")
   [[ $started =~ ^[0-9]+$ ]] || fail "$current" "start time is '$started'"
+}
+
+t_a_player_that_exits_at_once_leaves_a_record_and_no_noise() {
+  local noise
+  noise=$(OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 4 2>&1 >/dev/null)
+  assert_eq "$noise" ""
+  assert_contains "$(cat "$OMANI_STATE_DIR/players")" "Frieren Episode 4"
 }
 
 t_a_player_pid_taken_over_by_something_else_is_not_listed() {
@@ -447,14 +455,12 @@ t_a_history_that_carries_trailing_garbage_reads_as_empty() {
 }
 
 t_a_history_that_cannot_be_written_is_said_so() {
-  local dir="$WORK/readonly"
-  mkdir -p "$dir"
-  cp "$OMANI_HIST_FILE" "$dir/history.json"
-  chmod 500 "$dir"
+  # A file where the directory should be: root ignores permissions, but nobody
+  # gets to write inside a regular file.
+  printf 'not a directory\n' >"$WORK/blocked"
   local out
-  out=$(OMANI_HIST_FILE="$dir/history.json" OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400 2>&1)
+  out=$(OMANI_HIST_FILE="$WORK/blocked/history.json" OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400 2>&1)
   local code=$?
-  chmod 700 "$dir"
   ((code != 0)) || fail "$current" "reported success while writing nothing"
   assert_contains "$out" "history"
   assert_lacks "$out" "mktemp"
@@ -1010,6 +1016,7 @@ check "play records a series not seen before" t_play_records_a_new_series
 check "play advances a series already in history" t_play_advances_a_series_already_watched
 check "history timestamps are finer than a second" t_history_timestamps_are_finer_than_a_second
 check "a record carries when its player started" t_a_record_carries_when_its_player_started
+check "a player that exits at once leaves a record and no noise" t_a_player_that_exits_at_once_leaves_a_record_and_no_noise
 check "a player pid taken over by something else is not listed" t_a_player_pid_taken_over_by_something_else_is_not_listed
 check "play leaves other series alone" t_play_leaves_other_series_alone
 check "history survives a title with punctuation" t_history_survives_a_title_with_punctuation
