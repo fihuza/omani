@@ -1,6 +1,4 @@
 #!/bin/bash
-#
-# The parsers are driven from saved pages, so nothing here reaches the network.
 
 set -uo pipefail
 
@@ -60,7 +58,6 @@ t_search_decodes_html_entities() {
 }
 
 t_search_stops_at_the_sidebar() {
-  # The sidebar repeats the result markup and would double every row.
   local out
   out=$(printf '<div class="film-detail"><h3 class="film-name"><a href="/watch/a-1" title="A"></h3>\n<div id="main-sidebar"><div class="film-detail"><h3 class="film-name"><a href="/watch/a-1" title="A"></h3></div>\n' |
     "$PROVIDER" parse-search)
@@ -75,7 +72,6 @@ t_episode_rows() {
 }
 
 t_episodes_ignore_another_series() {
-  # Provider ids share a shape, so the slug in the watch link is what disambiguates.
   local out
   out=$("$PROVIDER" parse-episodes 'some-other-show-99' <"$FIXTURES/episodes.json")
   assert_eq "$out" ""
@@ -138,13 +134,17 @@ t_search_reports_a_cloudflare_block() {
 
 t_search_reports_a_transport_failure() {
   local out
-  out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1)
+  if out=$(FAKE_CURL_FAIL=1 "$PROVIDER" search frieren 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
   assert_contains "$out" "could not fetch"
 }
 
 t_search_reports_a_bad_status() {
   local out
-  out=$(FAKE_CODE=503 "$PROVIDER" search frieren 2>&1)
+  if out=$(FAKE_CODE=503 "$PROVIDER" search frieren 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
   assert_contains "$out" "503"
 }
 

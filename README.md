@@ -22,8 +22,10 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Resume the top series | **Right-click** the icon — no panel needed |
 | Search | Type in the field, or press `/` |
 | Play a series | Click its row, or select it and press Enter |
-| Control what is playing | Pick it under **Playing** |
+| Control what is playing | Pick it under **Playing** — pause, follow the series, change quality, stop |
+| Forget a series | Hover its row and click ✕, or select it and press `d` or `x` |
 | Settings | The gear button in the header, or press `s` |
+| Open this repository | Press Enter on **Version** in the settings |
 
 ### Keyboard
 
@@ -42,8 +44,9 @@ moving under the same keys.
 | `Enter` | Open or play the row under the cursor |
 | `s` | Settings — quality and subbed/dubbed |
 | `?` | Keyboard shortcuts |
+| `d` or `x` | Forget the series under the cursor |
+| `c` | Clear the whole watch history (asks first) |
 | `r` | Re-read status and history |
-| `x` | Clear watch history (asks first) |
 | `Esc` | Back, then close |
 | `q` | Close the panel |
 
@@ -53,14 +56,27 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 
 ## Playing
 
-Choosing a series from **Continue watching** starts a player and opens its menu:
+Choosing a series from **Continue watching** starts the episode you are on, at
+the second you stopped, and opens its menu:
 
 ![The player menu: next episode, replay, previous episode, select episode, change quality and stop](controls.png)
 
-Those choices **replace** the episode they were opened for, so following a
-series never leaves a trail of players behind. Starting something from the
-watch history is what adds one, so two series can run side by side — each
-listed under **Playing**, each with its own menu.
+The menu carries a bar for the episode it controls: how far in it is, and
+dimmed while it is paused.
+
+**Next episode** and **Previous episode** move through the series whatever is
+left of the episode you are on: the one you leave keeps the progress it had
+rather than counting as watched.
+
+**One player per series.** Starting any episode of a series closes whatever
+else of that series is running, however you got there — the menu, the episode
+list, or the bar icon — so following a series never leaves a trail of players
+behind. A different series adds a second player, so two can run side by side,
+each listed under **Playing** with its own menu.
+
+**Change quality** applies to the episode playing, not to the setting, and is
+offered only when the provider has more than one variant of it. The next
+episode starts at the `quality` setting again.
 
 A player counts as live only while Omani started it *and* it is still on the
 bus, so a video you started yourself is never listed and never stopped.
@@ -75,7 +91,6 @@ editable from the panel. All of them hot-reload.
 | `historyLimit` | `8` | How many series to list (1–20) |
 | `quality` | `best` | `best`, `1080`, `720`, `480`, `360`, `worst` |
 | `mode` | `sub` | `sub` or `dub` |
-| `showNowPlaying` | `true` | Show the playing title beside the bar icon |
 
 ## How it works
 
@@ -88,9 +103,17 @@ and no terminal window is ever involved.
 are separate subcommands, so the parsers are driven from saved pages in tests
 and reach no network.
 
-Resuming asks the provider which episode follows the one in your history rather
-than adding one, so numbering that skips or carries decimals is handled by the
-real list.
+Omani keeps its own watch history: which episode of a series you are on, how
+far into it you are, how long it runs, and every episode you have finished. It
+samples the player's position every few seconds while it runs, so continuing a
+series picks the episode up where you stopped rather than at the beginning. Only an episode
+watched past ninety percent counts as finished; continuing then moves to the
+next one, which the provider's episode list decides — so numbering that skips
+or carries decimals is handled by the real list rather than by adding one.
+
+A series you are done with is dropped with `d` or `x`, the key every Omarchy
+panel uses to remove the row under the cursor. `c` clears the history entirely,
+and asks first.
 
 ## Dependencies
 
@@ -103,6 +126,8 @@ external command it can invoke is listed here.
 | `jq` | status and manifest reading | Omarchy's base packages |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
 | `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
+| `flock` | serialising writes to the watch history | `util-linux`, required by `base` |
+| `omarchy-launch-browser` | opening this repository from the settings | Omarchy |
 
 **On Omarchy there is nothing to install.** Every one of these is already
 there, and `mpv-mpris` is too. That last one is not a command Omani runs — it
@@ -114,9 +139,9 @@ so rather than leaving you to guess.
 `curl-impersonate` is used when present, which gets past Cloudflare where plain
 `curl` is blocked.
 
-No privileged commands, no services, no installers. Omani writes only to
-ani-cli's history file format (and a `.omani.bak` beside it) and a record of the
-players it started.
+No privileged commands, no services, no installers. Omani writes only its own
+watch history under `$XDG_STATE_HOME/omani` (with a `.bak` and a lock file
+beside it) and a record of the players it started, under `$XDG_RUNTIME_DIR`.
 
 ## Remove
 

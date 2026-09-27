@@ -5,41 +5,11 @@ const assert = require("node:assert/strict")
 
 const Model = require("../Model.js")
 
-test("parses a history file into rows in file order", () => {
-  const raw = "12\tre-zero-123\tRe:Zero\n4\tdandadan-9\tDandadan\n"
-  assert.deepEqual(Model.parseHistory(raw), [
-    { episode: "12", animeId: "re-zero-123", title: "Re:Zero" },
-    { episode: "4", animeId: "dandadan-9", title: "Dandadan" },
-  ])
-})
-
 test("treats an empty or absent history as no rows", () => {
   assert.deepEqual(Model.parseHistory(""), [])
   assert.deepEqual(Model.parseHistory(null), [])
   assert.deepEqual(Model.parseHistory(undefined), [])
   assert.deepEqual(Model.parseHistory("\n\n  \n"), [])
-})
-
-test("skips malformed lines rather than rendering blank rows", () => {
-  const raw = "12\tid-1\tGood\nnot-a-row\n\t\t\n7\tid-2\tAlso good\n"
-  assert.deepEqual(Model.parseHistory(raw).map((r) => r.title), ["Good", "Also good"])
-})
-
-test("keeps tabs out of the title by taking only the first three fields", () => {
-  // ani-cli writes exactly three tab-separated fields; a title containing a tab
-  // would corrupt its own file, so extra fields are dropped, not joined.
-  const rows = Model.parseHistory("3\tid-3\tTitle\tstray\n")
-  assert.equal(rows.length, 1)
-  assert.equal(rows[0].title, "Title")
-})
-
-test("tolerates a missing trailing newline", () => {
-  assert.equal(Model.parseHistory("1\tid\tOnly").length, 1)
-})
-
-test("tolerates carriage returns", () => {
-  const rows = Model.parseHistory("1\tid\tTitle\r\n")
-  assert.equal(rows[0].title, "Title")
 })
 
 test("going back from a view lands where it came from", () => {
@@ -55,21 +25,6 @@ test("going back from the history closes the panel", () => {
   assert.equal(Model.backFrom("nonsense"), "close")
 })
 
-test("following a series replaces the episode on screen", () => {
-  assert.equal(Model.replaces("player", "A Episode 1"), "A Episode 1")
-  assert.equal(Model.replaces("episodes", "A Episode 1"), "A Episode 1")
-})
-
-test("starting from the watch history adds a player instead", () => {
-  assert.equal(Model.replaces("history", "A Episode 1"), "")
-  assert.equal(Model.replaces("results", "A Episode 1"), "")
-})
-
-test("with nothing playing there is nothing to replace", () => {
-  assert.equal(Model.replaces("player", ""), "")
-  assert.equal(Model.replaces("episodes", undefined), "")
-})
-
 test("player records are read back with every field", () => {
   const [record] = Model.playerRecords("4242\tNaruto Episode 79\tnaruto-1335\t79\t1080 720\n")
   assert.deepEqual(record, { pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79", qualities: "1080 720" })
@@ -79,6 +34,44 @@ test("incomplete records are skipped", () => {
   assert.deepEqual(Model.playerRecords("4242\tonly-two\n\t\t\t\n"), [])
   assert.deepEqual(Model.playerRecords(""), [])
   assert.deepEqual(Model.playerRecords(null), [])
+})
+
+test("a playing episode is reported against the series it belongs to", () => {
+  const records = [{ pid: "1", title: "Naruto Episode 4", animeId: "naruto-1335", episode: "4", qualities: "" }]
+  const players = [{ title: "Naruto Episode 4", position: 600, duration: 1400 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "naruto-1335", episode: "4", position: 600, duration: 1400 }
+  ])
+})
+
+test("the right record is found among several", () => {
+  const records = [
+    { title: "Other Episode 9", animeId: "other", episode: "9" },
+    { title: "Naruto Episode 4", animeId: "naruto-1335", episode: "4" }
+  ]
+  const players = [{ title: "Naruto Episode 4", position: 10, duration: 100 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "naruto-1335", episode: "4", position: 10, duration: 100 }
+  ])
+})
+
+test("a player omani did not start is reported for nothing", () => {
+  const players = [{ title: "Holiday Video", position: 10, duration: 100 }]
+  assert.deepEqual(Model.progressReports([], players), [])
+})
+
+test("a player with nothing worth reporting yet is skipped", () => {
+  const records = [{ title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.deepEqual(Model.progressReports(records, [{ title: "A Episode 1", position: 0, duration: 1400 }]), [])
+  assert.deepEqual(Model.progressReports(records, [{ title: "A Episode 1", position: 5, duration: 0 }]), [])
+  assert.deepEqual(Model.progressReports(records, [{ title: "", position: 5, duration: 10 }]), [])
+})
+
+test("fractional seconds are not reported", () => {
+  const records = [{ title: "A Episode 1", animeId: "a", episode: "1" }]
+  const [report] = Model.progressReports(records, [{ title: "A Episode 1", position: 600.9, duration: 1400.4 }])
+  assert.equal(report.position, 600)
+  assert.equal(report.duration, 1400)
 })
 
 test("only records with a player still on the bus count as live", () => {
@@ -92,18 +85,59 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
+test("a launch is over once a player appears that was not running when it began", () => {
+  const before = Model.launchPids([{ pid: "1" }])
+  assert.deepEqual(before, ["1"])
+  assert.equal(Model.launchDone(true, [{ pid: "1" }], before), false)
+  assert.equal(Model.launchDone(true, [], before), false)
+  assert.equal(Model.launchDone(true, [{ pid: "2" }], before), true)
+  assert.equal(Model.launchDone(true, [{ pid: "1" }, { pid: "2" }], before), true)
+})
+
+test("the snapshot of what was running is taken from the players themselves", () => {
+  assert.deepEqual(Model.launchPids([{ pid: "7", title: "A" }, { pid: "9" }]), ["7", "9"])
+  assert.deepEqual(Model.launchPids([]), [])
+  assert.deepEqual(Model.launchPids(null), [])
+})
+
+test("a launch with nothing to watch for is over when the script exits", () => {
+  assert.equal(Model.launchDone(false, [], []), true)
+  assert.equal(Model.launchDone(true, [], []), false)
+  assert.equal(Model.launchDone(true), false)
+  assert.equal(Model.launchDone(true, [{ pid: "2" }], ["1"]), true)
+  assert.equal(Model.launchDone(true, [{ pid: "1" }], ["1"]), false)
+})
+
+test("the row under the bar icon is one that is not already playing", () => {
+  const rows = [{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }]
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.equal(Model.resumeTarget(rows, players).animeId, "b")
+  assert.equal(Model.resumeTarget(rows, []).animeId, "a")
+  assert.equal(Model.resumeTarget([], players), null)
+  assert.equal(Model.resumeTarget(rows, [{ pid: "1", animeId: "b" }]).animeId, "a")
+  assert.equal(Model.resumeTarget(rows, [{ pid: "1", animeId: "a" }, { pid: "2", animeId: "b" }]), null)
+})
+
+test("a row's label reads the progress of the player it belongs to", () => {
+  const progress = [{ animeId: "a", title: "A Episode 3", fraction: 0.45 }]
+  assert.equal(Model.rowLabel({ kind: "playing", title: "A Episode 3", episode: "3", label: "" }, progress), "ep 3 \u00b7 45%")
+  assert.equal(Model.rowLabel({ kind: "playing", title: "B Episode 1", episode: "1", label: "" }, progress), "ep 1")
+  assert.equal(Model.rowLabel({ kind: "series", label: "ep 9 \u00b7 12%" }, progress), "ep 9 \u00b7 12%")
+  assert.equal(Model.rowLabel({ title: "x" }, progress), "")
+  assert.equal(Model.rowLabel(null, progress), "")
+})
+
 test("a launch is done when a player appears that was not there before", () => {
-  const before = ["100"]
-  assert.equal(Model.launchedPlayer([{ pid: "100" }, { pid: "200" }], before), true)
+  assert.equal(Model.launchDone(true, [{ pid: "100" }, { pid: "200" }], ["100"]), true)
 })
 
 test("the player being replaced does not end its own replacement", () => {
   const before = ["100"]
-  assert.equal(Model.launchedPlayer([{ pid: "100" }], before), false)
+  assert.equal(Model.launchDone(true, [{ pid: "100" }], before), false)
 })
 
 test("no players at all is not a finished launch", () => {
-  assert.equal(Model.launchedPlayer([], ["100"]), false)
+  assert.equal(Model.launchDone(true, [], ["100"]), false)
 })
 
 test("a record with no anime id is never mistaken for the one playing", () => {
@@ -118,6 +152,12 @@ test("the series name comes from the player that is actually running", () => {
   const players = [{ pid: "1", title: "Naruto Episode 34", animeId: "naruto-1335", episode: "34" }]
   assert.equal(Model.seriesOf(players, "naruto-1335", ""), "Naruto")
   assert.equal(Model.episodeOf(players, "naruto-1335", ""), "34")
+})
+
+test("the series is the title without the episode suffix", () => {
+  assert.equal(Model.seriesTitle("Naruto Episode 79"), "Naruto")
+  assert.equal(Model.seriesTitle("Re:ZERO -Starting Life- Episode 2"), "Re:ZERO -Starting Life-")
+  assert.equal(Model.seriesTitle("Naruto"), "Naruto")
 })
 
 test("a title with no episode suffix is left whole", () => {
@@ -167,11 +207,64 @@ test("every playing episode leads the history, under one section", () => {
   assert.deepEqual(view.map((r) => r.section), ["PLAYING", "", "CONTINUE WATCHING"])
 })
 
+test("a series with a player of its own is not repeated below it", () => {
+  const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 2" }, { animeId: "b", title: "B", label: "ep 9" }], [{ pid: "1", title: "A Episode 2", animeId: "a", episode: "2" }])
+  assert.deepEqual(view.map(r => r.kind), ["playing", "series"])
+  assert.deepEqual(view.map(r => r.animeId), ["a", "b"])
+})
+
+test("the continue watching header lands on the first row that is kept", () => {
+  const view = Model.historyView([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [{ pid: "1", title: "A Episode 2", animeId: "a", episode: "2" }])
+  assert.equal(view[1].section, "CONTINUE WATCHING")
+})
+
+test("two episodes of one series both lead the list, and it is not repeated", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }, { pid: "2", title: "A Episode 2", animeId: "a", episode: "2" }]
+  const view = Model.historyView([{ animeId: "a", title: "A", label: "ep 2" }, { animeId: "b", title: "B", label: "ep 1" }], players)
+  assert.deepEqual(view.map(r => r.kind), ["playing", "playing", "series"])
+  assert.deepEqual(view.map(r => r.animeId), ["a", "a", "b"])
+  assert.equal(view[2].section, "CONTINUE WATCHING")
+})
+
+test("a playing row says which episode and how far in", () => {
+  const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
+  const progress = Model.progressRows(players, [{ title: "A Episode 3", position: 450, duration: 1000, playing: true }])
+  const row = Model.historyView([], players)[0]
+  assert.equal(Model.rowLabel(row, progress), "ep 3 \u00b7 45%")
+})
+
+test("a playing row with nothing reported yet says only the episode", () => {
+  const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
+  const row = Model.historyView([], players)[0]
+  assert.equal(Model.rowLabel(row, Model.progressRows(players, [])), "ep 3")
+  assert.equal(Model.rowLabel(row, []), "ep 3")
+  assert.equal(Model.rowLabel(row, undefined), "ep 3")
+})
+
+test("a player whose series was forgotten still leads the list", () => {
+  const players = [{ pid: "7", title: "A Episode 3", animeId: "a", episode: "3" }]
+  const view = Model.historyView([{ animeId: "b", title: "B", label: "ep 1" }], players)
+  assert.deepEqual(view.map(r => r.kind), ["playing", "series"])
+  assert.equal(view[0].animeId, "a")
+})
+
 test("a playing row carries what the player menu needs to act", () => {
   const view = Model.historyView([], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
   assert.equal(view[0].animeId, "a")
   assert.equal(view[0].episode, "1")
   assert.equal(view[0].pid, "7")
+})
+
+test("the cursor starts below whatever is playing", () => {
+  const view = Model.historyView([{ animeId: "b", title: "B" }], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])
+  assert.equal(Model.startIndex(view), 1)
+  assert.equal(Model.startIndex(Model.historyView([{ animeId: "b", title: "B" }], [])), 0)
+})
+
+test("with nothing but players the cursor starts at the top", () => {
+  assert.equal(Model.startIndex(Model.historyView([], [{ pid: "7", title: "A Episode 1", animeId: "a", episode: "1" }])), 0)
+  assert.equal(Model.startIndex([]), 0)
+  assert.equal(Model.startIndex(null), 0)
 })
 
 test("nothing playing leaves only the watch history", () => {
@@ -191,10 +284,104 @@ test("sectioning does not mutate the rows it was given", () => {
   assert.equal(rows[0].kind, undefined)
 })
 
+const HISTORY = JSON.stringify({
+  version: 1,
+  series: {
+    "naruto-1335": {
+      title: "Naruto", episode: "4", updated: 200,
+      episodes: {
+        "1": { position: 1400, duration: 1400 },
+        "3": { position: 700, duration: 1400 },
+        "4": { position: 600, duration: 1400 }
+      }
+    },
+    "frieren-1": { title: "Frieren", episode: "2", updated: 300, episodes: {} }
+  }
+})
+
+test("the most recently watched series comes first", () => {
+  assert.deepEqual(Model.parseHistory(HISTORY).map(r => r.animeId), ["frieren-1", "naruto-1335"])
+})
+
+test("a history that is not json is no history rather than a crash", () => {
+  assert.deepEqual(Model.parseHistory("4\tnaruto\tNaruto"), [])
+  assert.deepEqual(Model.parseHistory("{}"), [])
+  assert.deepEqual(Model.parseHistory(""), [])
+})
+
+test("an entry missing its optional fields still reads", () => {
+  const raw = JSON.stringify({ series: { a: { title: "A", episode: "1" } } })
+  const [row] = Model.parseHistory(raw)
+  assert.deepEqual(row.episodes, {})
+  assert.equal(row.updated, 0)
+  assert.equal(row.position, 0)
+  assert.equal(row.duration, 0)
+})
+
+test("an episode number carrying a decimal is kept as written", () => {
+  const raw = JSON.stringify({ version: 1, series: { a: { title: "A", episode: "7.5", updated: 2, episodes: { "7.5": { position: 60, duration: 1200 } } } } })
+  const rows = Model.parseHistory(raw)
+  assert.equal(rows[0].episode, "7.5")
+  assert.equal(rows[0].position, 60)
+  assert.equal(Model.progressLabel(rows[0]), "ep 7.5 \u00b7 5%")
+})
+
+test("an entry whose episodes are not an object is still readable", () => {
+  const raw = JSON.stringify({ version: 1, series: { a: { title: "A", episode: "2", updated: 1, episodes: "nonsense" } } })
+  const rows = Model.parseHistory(raw)
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].position, 0)
+  assert.equal(rows[0].duration, 0)
+})
+
+test("an entry with no title or episode is skipped", () => {
+  const raw = JSON.stringify({ series: { a: { title: "", episode: "1" }, b: { title: "B" } } })
+  assert.deepEqual(Model.parseHistory(raw), [])
+})
+
+test("how far through an episode is a whole percent", () => {
+  assert.equal(Model.watchedFraction({ position: 600, duration: 1400 }), 43)
+  assert.equal(Model.watchedFraction({ position: 0, duration: 1400 }), 0)
+  assert.equal(Model.watchedFraction({ position: 2000, duration: 1400 }), 100)
+  assert.equal(Model.watchedFraction({ position: 10, duration: 0 }), 0)
+  assert.equal(Model.watchedFraction(null), 0)
+})
+
+test("a row part way through says so, one at the start does not", () => {
+  assert.equal(Model.progressLabel({ episode: "4", position: 600, duration: 1400 }), "ep 4 \u00b7 43%")
+  assert.equal(Model.progressLabel({ episode: "4", position: 0, duration: 1400 }), "ep 4")
+})
+
+test("each episode carries its own progress", () => {
+  const rows = Model.episodeRows("9\t1\n8\t2\n7\t3\n", {
+    "1": { position: 1400, duration: 1400 },
+    "3": { position: 700, duration: 1400 }
+  }, 90)
+  assert.deepEqual(rows.map(r => r.label), ["watched", "", "50%"])
+})
+
+test("an episode near its end reads as watched rather than a number", () => {
+  assert.equal(Model.episodeLabel({ position: 1260, duration: 1400 }, 90), "watched")
+  assert.equal(Model.episodeLabel({ position: 1252, duration: 1400 }, 90), "89%")
+  assert.equal(Model.episodeLabel({ position: 1120, duration: 1400 }, 80), "watched")
+})
+
+test("an episode with nothing recorded says nothing", () => {
+  assert.equal(Model.episodeLabel(undefined, 90), "")
+  assert.equal(Model.episodeLabel({ position: 10, duration: 0 }, 90), "")
+  assert.deepEqual(Model.episodeRows("9\t1\n", {}, 90).map(r => r.label), [""])
+  assert.deepEqual(Model.episodeRows("9\t1\n").map(r => r.label), [""])
+})
+
+test("the per-episode progress comes from the series in history", () => {
+  assert.equal(Model.progressOf(HISTORY, "naruto-1335")["3"].position, 700)
+  assert.deepEqual(Model.progressOf(HISTORY, "nothing"), {})
+})
+
 test("finds the history entry for a series", () => {
-  const entry = Model.historyEntry("12\tre-zero-123\tRe:Zero\n4\tdandadan-9\tDandadan", "dandadan-9")
+  const entry = Model.historyEntry(HISTORY, "naruto-1335")
   assert.equal(entry.episode, "4")
-  assert.equal(entry.title, "Dandadan")
+  assert.equal(entry.title, "Naruto")
 })
 
 test("reports nothing for a series not in history", () => {
@@ -202,21 +389,23 @@ test("reports nothing for a series not in history", () => {
   assert.equal(Model.historyEntry("", "re-zero-123"), null)
 })
 
-test("limits displayed rows and keeps file order stable", () => {
-  const raw = ["1\ta\tA", "2\tb\tB", "3\tc\tC"].join("\n")
-  assert.deepEqual(Model.historyRows(raw, 2).map((r) => r.title), ["A", "B"])
+test("the limit keeps the most recently watched", () => {
+  const raw = JSON.stringify({version: 1, series: {"a": {title: "A", episode: "1", position: 0, duration: 0, watched: [], updated: 1}, "b": {title: "B", episode: "2", position: 0, duration: 0, watched: [], updated: 2}, "c": {title: "C", episode: "3", position: 0, duration: 0, watched: [], updated: 3}}})
+  assert.deepEqual(Model.historyRows(raw, 2).map((r) => r.title), ["C", "B"])
 })
 
 test("a non-positive or missing limit falls back to showing everything", () => {
-  const raw = ["1\ta\tA", "2\tb\tB"].join("\n")
+  const raw = JSON.stringify({version: 1, series: {"a": {title: "A", episode: "1", position: 0, duration: 0, watched: [], updated: 1}, "b": {title: "B", episode: "2", position: 0, duration: 0, watched: [], updated: 2}}})
   assert.equal(Model.historyRows(raw, 0).length, 2)
   assert.equal(Model.historyRows(raw, -5).length, 2)
   assert.equal(Model.historyRows(raw).length, 2)
 })
 
-test("labels a row with the episode last watched", () => {
-  const [row] = Model.historyRows("12\tid\tRe:Zero", 1)
-  assert.equal(row.label, "ep 12")
+test("a row says which episode, and how far in when that is known", () => {
+  const [row] = Model.historyRows(HISTORY, 1)
+  assert.equal(row.label, "ep 2")
+  const [naruto] = Model.historyRows(HISTORY, 2).slice(1)
+  assert.equal(naruto.label, "ep 4 \u00b7 43%")
 })
 
 function list(over) {
@@ -230,6 +419,11 @@ test("the first row shows the header above it rather than just itself", () => {
 
 test("the last row goes to the very bottom", () => {
   assert.equal(Model.scrollTarget(list({ index: 20, lastIndex: 20 })), 700)
+})
+
+test("the last row of a list that fits does not scroll", () => {
+  assert.equal(Model.scrollTarget({ current: 0, viewport: 400, content: 400, rowTop: 360, rowHeight: 30, index: 9, lastIndex: 9, margin: 6 }), 0)
+  assert.equal(Model.scrollTarget({ current: 0, viewport: 400, content: 380, rowTop: 340, rowHeight: 30, index: 9, lastIndex: 9, margin: 6 }), 0)
 })
 
 test("a list shorter than the viewport never scrolls", () => {
@@ -256,6 +450,11 @@ test("a stale position with the row already in view is pulled back into range", 
   assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
 })
 
+test("a margin wider than the viewport still yields a position", () => {
+  const at = Model.scrollTarget({ current: 0, viewport: 40, content: 400, rowTop: 200, rowHeight: 30, index: 5, lastIndex: 9, margin: 200 })
+  assert.ok(Number.isFinite(at) && at >= 0 && at <= 360, "got " + at)
+})
+
 test("scrolling never goes past the end to reach a row", () => {
   assert.equal(Model.scrollTarget(list({ current: 0, rowTop: 990, content: 1000 })), 700)
 })
@@ -267,6 +466,26 @@ test("the shortcut list is non-empty and fully labelled", () => {
     assert.ok(row.keys.length > 0)
     assert.ok(row.action.length > 0)
   }
+})
+
+test("a panel that has nothing selected takes the player that is running", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }, { pid: "2", title: "B Episode 2", animeId: "b", episode: "2" }]
+  assert.equal(Model.adoptable(players, "").animeId, "a")
+})
+
+test("a selection that is still playing is left alone", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }, { pid: "2", title: "B Episode 2", animeId: "b", episode: "2" }]
+  assert.equal(Model.adoptable(players, "b"), null)
+})
+
+test("a selection whose player has gone is replaced by one that is live", () => {
+  const players = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.equal(Model.adoptable(players, "gone").animeId, "a")
+})
+
+test("with nothing playing there is nothing to adopt", () => {
+  assert.equal(Model.adoptable([], ""), null)
+  assert.equal(Model.adoptable(null, ""), null)
 })
 
 test("the variants come from the player that is running", () => {
@@ -307,21 +526,32 @@ test("leaving the quality list returns to the player it was opened from", () => 
   assert.equal(Model.backFrom("quality"), "player")
 })
 
-test("the player menu offers the same choices as before, as rows", () => {
-  const rows = Model.playerRows("Naruto", "79")
-  assert.deepEqual(rows.map((r) => r.key), ["next", "replay", "previous", "select", "quality", "stop"])
+test("the player menu leads with the control for what is playing", () => {
+  assert.deepEqual(Model.playerRows("Naruto", "5", false, "best").map(r => r.key),
+    ["pause", "next", "replay", "previous", "select", "quality", "stop"])
+})
+
+test("the control says what pressing it does", () => {
+  assert.equal(Model.playerRows("A", "1", false, "")[0].title, "Pause")
+  assert.equal(Model.playerRows("A", "1", true, "")[0].title, "Resume")
+})
+
+test("the quality row says which one is playing", () => {
+  const row = Model.playerRows("A", "1", false, "720").find(r => r.key === "quality")
+  assert.equal(row.label, "720")
+  assert.equal(Model.playerRows("A", "1", false, "").find(r => r.key === "quality").label, "")
 })
 
 test("replay names the episode it would repeat", () => {
-  assert.equal(Model.playerRows("Naruto", "79")[1].label, "episode 79")
+  assert.equal(Model.playerRows("Naruto", "79").find(r => r.key === "replay").label, "episode 79")
 })
 
 test("replay says nothing when no episode is known", () => {
-  assert.equal(Model.playerRows("Naruto", "")[1].label, "")
+  assert.equal(Model.playerRows("Naruto", "").find(r => r.key === "replay").label, "")
 })
 
 test("select names the series it would list", () => {
-  assert.equal(Model.playerRows("Naruto", "79")[3].label, "Naruto")
+  assert.equal(Model.playerRows("Naruto", "79").find(r => r.key === "select").label, "Naruto")
 })
 
 test("quality cycles through the offered values and wraps", () => {
@@ -353,6 +583,26 @@ test("settings are rows like every other view, so the same keys drive them", () 
   assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Version"])
   assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "1.0.0"])
   assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "version"])
+})
+
+test("the version row points at the repository", () => {
+  const rows = Model.settingRows("best", "sub", "1.0.4", "https://github.com/fihuza/omani")
+  const version = rows.find(r => r.key === "version")
+  assert.equal(version.link, "https://github.com/fihuza/omani")
+  assert.deepEqual(Model.settingAction(version), { type: "open", url: "https://github.com/fihuza/omani" })
+})
+
+test("a version row with nowhere to point does nothing when chosen", () => {
+  const version = Model.settingRows("best", "sub", "1.0.4", "").find(r => r.key === "version")
+  assert.equal(version.link, "")
+  assert.equal(Model.settingAction(version), null)
+})
+
+test("choosing any other row moves its value on", () => {
+  const rows = Model.settingRows("720", "sub", "1.0.4", "https://example.test")
+  assert.deepEqual(Model.settingAction(rows[0]), { type: "set", key: "quality", value: "480" })
+  assert.deepEqual(Model.settingAction(rows[1]), { type: "set", key: "mode", value: "dub" })
+  assert.equal(Model.settingAction(null), null)
 })
 
 test("choosing a cycling row yields the next value", () => {
@@ -390,8 +640,8 @@ test("turns provider search output into series rows", () => {
 })
 
 test("turns provider episode output into numbered rows", () => {
-  assert.deepEqual(Model.episodeRows("9001\t1\n"), [
-    { episodeId: "9001", number: "1", title: "Episode 1" },
+  assert.deepEqual(Model.episodeRows("9001\t1\n", {}, 90), [
+    { episodeId: "9001", number: "1", title: "Episode 1", label: "" },
   ])
 })
 
@@ -430,16 +680,100 @@ function hero(over) {
   return Object.assign(base, over)
 }
 
+test("seconds read as a clock", () => {
+  assert.equal(Model.clock(0), "0:00")
+  assert.equal(Model.clock(9), "0:09")
+  assert.equal(Model.clock(252), "4:12")
+  assert.equal(Model.clock(1402), "23:22")
+  assert.equal(Model.clock(3725), "1:02:05")
+  assert.equal(Model.clock(4500), "1:15:00")
+  assert.equal(Model.clock(-5), "0:00")
+  assert.equal(Model.clock(null), "0:00")
+})
+
+test("elapsed is empty until the length is known", () => {
+  assert.equal(Model.elapsed(252, 1402), "4:12 / 23:22")
+  assert.equal(Model.elapsed(252, 0), "")
+  assert.equal(Model.elapsed(0, 0), "")
+})
+
+test("the player on the bus is found by the title it reports", () => {
+  const players = [{}, { trackTitle: "Other" }, { trackTitle: "Naruto Episode 5" }]
+  assert.equal(Model.playerFor(players, "Naruto Episode 5").trackTitle, "Naruto Episode 5")
+  assert.equal(Model.playerFor(players, "Nothing"), null)
+  assert.equal(Model.playerFor(players, ""), null)
+})
+
+test("every player gets a line of its own, with how far in it is", () => {
+  const records = [{ animeId: "a", title: "A Episode 1" }, { animeId: "b", title: "B Episode 2" }]
+  const positions = [{ title: "B Episode 2", position: 300, duration: 1200, playing: true }, { title: "A Episode 1", position: 600, duration: 1200, playing: false }]
+  const rows = Model.progressRows(records, positions)
+  assert.deepEqual(rows.map(r => r.animeId), ["a", "b"])
+  assert.equal(rows[0].fraction, 0.5)
+  assert.equal(rows[0].clock, "10:00 / 20:00")
+  assert.equal(rows[0].paused, true)
+  assert.equal(rows[1].fraction, 0.25)
+  assert.equal(rows[1].paused, false)
+})
+
+test("two episodes of one series are told apart by title", () => {
+  const records = [{ animeId: "a", title: "A Episode 1" }, { animeId: "a", title: "A Episode 2" }]
+  const rows = Model.progressRows(records, [{ title: "A Episode 2", position: 60, duration: 120, playing: true }, { title: "A Episode 1", position: 30, duration: 120, playing: false }])
+  assert.equal(rows[0].fraction, 0.25)
+  assert.equal(rows[1].fraction, 0.5)
+  assert.equal(Model.rowLabel({ kind: "playing", title: "A Episode 2", episode: "2" }, rows), "ep 2 \u00b7 50%")
+})
+
+test("a player the bus has not reported yet reads as no progress", () => {
+  const rows = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [])
+  assert.equal(rows[0].fraction, 0)
+  assert.equal(rows[0].clock, "")
+
+  const opened = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [{ title: "A Episode 1", playing: true }])
+  assert.equal(opened[0].fraction, 0)
+  assert.equal(opened[0].clock, "")
+})
+
+test("a position past the end never overfills the bar", () => {
+  const rows = Model.progressRows([{ animeId: "a", title: "A Episode 1" }], [{ title: "A Episode 1", position: 1300, duration: 1200, playing: true }])
+  assert.equal(rows[0].fraction, 1)
+})
+
+test("a stop names something the script can match, even mid-step", () => {
+  assert.equal(Model.stopTarget({ pid: "42", title: "A Episode 1", animeId: "a" }), "42")
+  assert.equal(Model.stopTarget({ pid: "", title: "A Episode 1", animeId: "a" }), "A Episode 1")
+  assert.equal(Model.stopTarget({ pid: "", title: "", animeId: "a" }), "a")
+  assert.equal(Model.stopTarget({ pid: "", title: "", animeId: "" }), "")
+  assert.equal(Model.stopTarget(null), "")
+})
+
+test("the pane takes the progress of the episode it controls", () => {
+  const rows = Model.progressRows([{ animeId: "a", title: "A" }, { animeId: "b", title: "B" }], [{ title: "B", position: 30, duration: 60, playing: true }])
+  assert.equal(Model.progressFor(rows, "b").fraction, 0.5)
+  assert.equal(Model.progressFor(rows, "gone"), null)
+  assert.equal(Model.progressFor(rows, ""), null)
+  assert.equal(Model.progressFor(null, "a"), null)
+})
+
+test("only the first line of a failure is shown", () => {
+  assert.equal(Model.firstLine("omani: no episode after 12\nstack\ntrace"), "no episode after 12")
+  assert.equal(Model.firstLine("omani-provider: episode 9999 not found"), "episode 9999 not found")
+  assert.equal(Model.firstLine("no prefix here"), "no prefix here")
+  assert.equal(Model.firstLine(""), "")
+  assert.equal(Model.firstLine(null), "")
+})
+
+test("a failure outranks everything else the hero could say", () => {
+  const state = { ready: true, tracking: true, missing: "", playing: true, nowPlaying: "X", elapsed: "1:00 / 2:00", quality: "best", mode: "sub", notice: "no playable source" }
+  assert.equal(Model.heroMeta(state), "no playable source")
+})
+
 test("a missing dependency is what the hero says", () => {
   assert.equal(Model.heroMeta(hero({ ready: false, missing: "mpv" })), "missing: mpv")
 })
 
 test("losing player tracking is said without claiming the plugin is broken", () => {
   assert.equal(Model.heroMeta(hero({ tracking: false })), "mpv-mpris missing \u00b7 players are not tracked")
-})
-
-test("what is playing outranks the settings summary", () => {
-  assert.equal(Model.heroMeta(hero({ playing: true, nowPlaying: "Naruto Episode 3" })), "Naruto Episode 3")
 })
 
 test("with nothing playing the hero summarises the settings", () => {
@@ -599,8 +933,23 @@ test("slash and i open the search field", () => {
   assert.deepEqual(press("i").command, { type: "focusSearch" })
 })
 
-test("x clears history and r refreshes", () => {
-  assert.deepEqual(press("x").command, { type: "clearHistory" })
+test("d forgets the selected row", () => {
+  assert.deepEqual(press(["2", "j", "d"]).command, { type: "forget", index: 2 })
+})
+
+test("d on an empty list forgets nothing", () => {
+  assert.equal(press("d", { rowCount: 0, pageSize: 4 }).command, null)
+})
+
+test("only a series in the watch history can be forgotten", () => {
+  assert.equal(Model.forgettable("history", { kind: "series" }), true)
+  assert.equal(Model.forgettable("history", { kind: "playing" }), false)
+  assert.equal(Model.forgettable("episodes", { kind: "series" }), false)
+  assert.equal(Model.forgettable("history", undefined), false)
+})
+
+test("c clears the history and r refreshes", () => {
+  assert.deepEqual(press("c").command, { type: "clearHistory" })
   assert.deepEqual(press("r").command, { type: "refresh" })
 })
 
@@ -644,7 +993,6 @@ test("a missing context is treated as an empty list rather than crashing", () =>
 })
 
 test("an index left beyond a shrunken list is pulled back into range", () => {
-  // The history file can change under the panel while it is open.
   const stale = { index: 8, pendingCount: "", pendingG: false }
   assert.equal(Model.reduceKey(stale, "j", { rowCount: 3, pageSize: 4 }).state.index, 2)
 })

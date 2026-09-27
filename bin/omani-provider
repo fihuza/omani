@@ -1,10 +1,6 @@
 #!/bin/bash
 #
 # Derived from ani-cli (GPL-3.0-or-later) -- see NOTICE.
-#
-# Talks to the provider and prints tab-separated rows. Fetching and parsing are
-# separate subcommands so the parsers can be driven from saved pages in tests
-# without touching the network.
 
 set -uo pipefail
 
@@ -59,10 +55,9 @@ parse_episodes() {
 }
 
 b64_decode() {
-  base64 -d 2>/dev/null <<<"$1" || base64 -D 2>/dev/null <<<"$1" || openssl base64 -d -A 2>/dev/null <<<"$1"
+  base64 -d 2>/dev/null <<<"$1"
 }
 
-# The embed ships its config as base64(json XOR "otaku-embed-v1").
 deobfuscate() (
   local bytes
   bytes=$(b64_decode "$1" | od -v -An -tu1)
@@ -77,7 +72,6 @@ deobfuscate() (
   printf '%b' "$out"
 )
 
-# stdin: the master playlist. stdout: `<height>><url>`, best first.
 parse_qualities() {
   local master="$1"
   sed 's|^#EXT-X-STREAM.*x||g; s|,.*|p|g; /^#/d; $!N; s|\n| >|;/EXT-X-I-FRAME/d' |
@@ -103,7 +97,9 @@ pick_quality() {
 cmd_search() {
   [[ -n ${1:-} ]] || die "usage: omani-provider search <query>"
   local page
-  page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')")
+  # A die inside a command substitution ends only that subshell, so without this
+  # a failed fetch would leave an empty page and still report success.
+  page=$(fetch "$BASE_API/search?keyword=$(printf '%s' "$1" | sed 's| |+|g')") || exit 1
   if grep -qi "<title>Just a moment" <<<"$page"; then
     [[ $CURL == curl ]] && die "blocked by cloudflare; install curl-impersonate"
     die "blocked by cloudflare"
@@ -160,6 +156,11 @@ parsers, reading a saved page on stdin:
   parse-episodes <anime-id>
   parse-qualities <master-url>
   deobfuscate <blob>
+
+environment:
+  OMANI_BASE_API   provider origin        (default: https://hianime.at)
+  OMANI_AGENT      user agent sent with every request
+  OMANI_CURL       the curl to use        (default: curl-impersonate, else curl)
 USAGE
 }
 
