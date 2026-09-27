@@ -682,6 +682,16 @@ t_a_player_waiting_to_be_reaped_is_not_playing() {
   kill "$parent" 2>/dev/null
 }
 
+t_players_says_nothing_on_stderr_about_a_pid_that_is_gone() {
+  local pid
+  pid=$(live_player "Frieren Episode 3" frieren-1 3)
+  kill "$pid" 2>/dev/null
+  wait_until_gone "$pid"
+  local noise
+  noise=$("$OMANI" players 2>&1 >/dev/null)
+  assert_eq "$noise" ""
+}
+
 t_players_omits_one_that_exited() {
   live_player "Naruto Episode 9" naruto-2 9 >/dev/null
   printf '999999\tGhost Episode 1\tghost-0\t1\n' >>"$OMANI_STATE_DIR/players"
@@ -1007,6 +1017,7 @@ check "two episodes are tracked at once" t_two_episodes_are_tracked_at_once
 check "the players file does not grow without end" t_the_players_file_does_not_grow_without_end
 check "resume reports a provider that refuses the episode" t_resume_reports_a_provider_that_refuses_the_episode
 check "a player waiting to be reaped is not playing" t_a_player_waiting_to_be_reaped_is_not_playing
+check "players says nothing on stderr about a pid that is gone" t_players_says_nothing_on_stderr_about_a_pid_that_is_gone
 check "players omits one that has exited" t_players_omits_one_that_exited
 check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_record
 check "playing a second episode keeps both records" t_playing_a_second_episode_keeps_both_records

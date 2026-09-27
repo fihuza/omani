@@ -147,7 +147,8 @@ playing_episode() {
 read_started_at() {
   local stat fields
   STARTED_AT=""
-  read -r stat <"/proc/$1/stat" 2>/dev/null || return 0
+  [[ -r /proc/$1/stat ]] || return 0
+  read -r stat <"/proc/$1/stat" || return 0
   stat=${stat#*") "}
   # shellcheck disable=SC2206 # the stat line is split on its own spaces
   fields=($stat)
