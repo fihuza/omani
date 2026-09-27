@@ -62,7 +62,7 @@ Item {
             return;
         var reports = Model.progressReports(Model.playerRecords(playersFile.text()), livePositions());
         for (var i = 0; i < reports.length; i++)
-            Quickshell.execDetached(command(["progress", reports[i].animeId, reports[i].episode, String(reports[i].position), String(reports[i].duration)]));
+            run(["progress", reports[i].animeId, reports[i].episode, String(reports[i].position), String(reports[i].duration)]);
     }
     readonly property bool playing: players.length > 0
 
@@ -103,8 +103,22 @@ Item {
         return Math.max(min, Math.min(max, n));
     }
 
-    function command(args, qualityOverride) {
-        return ["env", "OMANI_QUALITY=" + (qualityOverride || quality), "OMANI_MODE=" + mode, scriptPath].concat(args);
+    function command(args) {
+        return [scriptPath].concat(args);
+    }
+
+    function settingsEnv(qualityOverride) {
+        return {
+            OMANI_QUALITY: qualityOverride || quality,
+            OMANI_MODE: mode
+        };
+    }
+
+    function run(args) {
+        Quickshell.execDetached({
+            command: command(args),
+            environment: settingsEnv("")
+        });
     }
 
     function refresh() {
@@ -140,7 +154,7 @@ Item {
         if (target === "")
             return;
         cancelLaunch();
-        Quickshell.execDetached(command(["stop", target]));
+        run(["stop", target]);
     }
 
     property bool cancelled: false
@@ -239,7 +253,7 @@ Item {
             return;
         beginLaunch();
         playingQuality = String(value);
-        launch(command(["play", playingId, series, episode], playingQuality));
+        launch(command(["play", playingId, series, episode]), playingQuality);
     }
 
     function replayCurrent() {
@@ -255,11 +269,11 @@ Item {
         playingSeries = "";
         playingEpisode = "";
         playingTitle = "";
-        Quickshell.execDetached(command(["stop", "all"]));
+        run(["stop", "all"]);
     }
 
     function forget(animeId) {
-        Quickshell.execDetached(command(["forget", animeId]));
+        run(["forget", animeId]);
     }
 
     function openLink(url) {
@@ -267,7 +281,7 @@ Item {
     }
 
     function clearHistory() {
-        Quickshell.execDetached(command(["history-clear"]));
+        run(["history-clear"]);
     }
 
     onHistoryLimitChanged: reloadHistory()
@@ -276,7 +290,8 @@ Item {
             launching = false;
     }
 
-    function launch(argv) {
+    function launch(argv, qualityOverride) {
+        launchProcess.environment = settingsEnv(qualityOverride);
         launchProcess.command = argv;
         launchProcess.running = true;
     }
@@ -324,6 +339,7 @@ Item {
         id: statusProcess
         running: false
         command: []
+        environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: statusOut
             waitForEnd: true
@@ -340,6 +356,7 @@ Item {
         id: searchProcess
         running: false
         command: []
+        environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: searchOut
             waitForEnd: true
@@ -361,6 +378,7 @@ Item {
         id: episodesProcess
         running: false
         command: []
+        environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: episodesOut
             waitForEnd: true
