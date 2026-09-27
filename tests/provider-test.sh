@@ -366,10 +366,10 @@ t_stream_refuses_a_mode_with_no_source() {
 }
 
 t_stream_reports_a_server_list_without_a_usable_player() {
-  printf '<div class="server-item" data-type="sub" data-server-name="SomeOther" data-hash="x"></div>\n' >"$FIXTURES/other-servers.html"
+  local servers="$WORK/other-servers.html"
+  printf '<div class="server-item" data-type="sub" data-server-name="SomeOther" data-hash="x"></div>\n' >"$servers"
   local out
-  out=$(FAKE_SERVERS="$FIXTURES/other-servers.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
-  rm -f "$FIXTURES/other-servers.html"
+  out=$(FAKE_SERVERS="$servers" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
   assert_contains "$out" "no ZokoAnime source"
 }
 
