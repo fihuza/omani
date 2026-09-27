@@ -159,8 +159,6 @@ read_started_at() {
   STARTED_AT=${fields[19]}
 }
 
-# read splits on IFS, and a tab is IFS whitespace: two in a row count as one, so
-# an empty field disappears and everything after it moves up.
 split_record() {
   local line=$1
   RECORD=()
@@ -232,8 +230,6 @@ cmd_play() {
   local qualities
   qualities=$(awk -F'\t' '$1 == "qualities" { print $2 }' <<<"$stream")
   [[ -n $url ]] || die "no playable source for episode $episode"
-  # Whatever the provider answers ends up in the player's argv, where a leading
-  # dash is an option and a path is a local file.
   [[ $url == https://* || $url == http://* ]] || die "not a playable source: $url"
   [[ -z $subtitles || $subtitles == https://* || $subtitles == http://* ]] || subtitles=""
 

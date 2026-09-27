@@ -614,7 +614,6 @@ if (typeof module !== "undefined") {
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,
-    playingLabel: playingLabel,
     startIndex: startIndex,
     historyEntry: historyEntry,
     historyRows: historyRows,
