@@ -149,7 +149,6 @@ test("a record with no anime id is never mistaken for the one playing", () => {
 })
 
 test("a series whose own name ends in an episode is not cut short", () => {
-  // Stripping the suffix off the media title is a guess; the record carries it.
   const [record] = Model.playerRecords("42\tPtolemaic Episode 0 Episode 3\tp-1\t3\t1080\tPtolemaic Episode 0\n")
   assert.equal(Model.seriesOf([record], "p-1", ""), "Ptolemaic Episode 0")
 })

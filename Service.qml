@@ -202,8 +202,6 @@ Item {
         episodesProcess.running = true;
     }
 
-    // Without a start the script picks the episode up where it was left; Replay
-    // is the one caller that asks for the beginning.
     function play(id, title, episode, start) {
         if (!ready || launching)
             return;

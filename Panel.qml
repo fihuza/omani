@@ -325,8 +325,7 @@ Panel {
             bar.shell.updateEntryInline(root.moduleName, entry);
     }
 
-    // Reset on the way in, not on the way out: the card stays on screen while it
-    // fades, so clearing the view as it closes is a change the eye catches.
+    // On the way in, not on the way out: the card stays on screen while it fades.
     onOpenedChanged: {
         if (!opened || !service)
             return;

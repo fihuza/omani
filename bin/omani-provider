@@ -166,8 +166,6 @@ cmd_stream() {
 
   local servers hash embed
   servers=$(fetch "$BASE_API/api/theme/episode/servers?episodeId=$ep_id" | sed 's|\\"|"|g; s|server-item|\nserver-item|g')
-  # Each attribute is read on its own: requiring them in one order makes the
-  # source vanish the day the markup is written differently.
   hash=$(mode="$mode" awk '
     /server-item/ {
       type = attr($0, "data-type")

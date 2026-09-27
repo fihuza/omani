@@ -276,8 +276,6 @@ t_play_advances_a_series_already_watched() {
 }
 
 t_history_timestamps_are_finer_than_a_second() {
-  # Continue watching is ordered by this, and two series touched in the same
-  # second would otherwise fall back to whatever order they were written in.
   OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 1
   local updated
   updated=$(series_field frieren-1 .updated)
@@ -294,8 +292,6 @@ t_a_record_carries_when_its_player_started() {
 }
 
 t_a_player_pid_taken_over_by_something_else_is_not_listed() {
-  # Pids are reused. A record naming one that now belongs to another program
-  # would have the panel offer to stop it.
   local pid
   pid=$(live_player "Frieren Episode 3" frieren-1 3)
   printf '%s\tImpostor Episode 1\timpostor-1\t1\t\t1\n' "$$" >>"$OMANI_STATE_DIR/players"
@@ -673,6 +669,27 @@ FAKE
   assert_contains "$out" "could not resolve episode 99"
 }
 
+t_a_player_waiting_to_be_reaped_is_not_playing() {
+  # The parent execs, so it never calls wait() and the child it leaves behind
+  # stays a zombie for as long as it runs.
+  bash -c 'sleep 0.1 & exec sleep 5' &
+  local parent=$!
+  printf '%s\n' "$parent" >>"$WORK/spawned"
+  sleep 0.6
+  local zombie candidate stat fields
+  for candidate in $(pgrep -P "$parent" 2>/dev/null); do
+    stat=$(cat "/proc/$candidate/stat" 2>/dev/null) || continue
+    stat=${stat#*") "}
+    read -ra fields <<<"$stat"
+    [[ ${fields[0]} == Z ]] && zombie=$candidate && break
+  done
+  [[ -n ${zombie:-} ]] || fail "$current" "no zombie among the children"
+  mkdir -p "$OMANI_STATE_DIR"
+  printf '%s\tZombie Episode 1\tzombie-1\t1\t\t%s\n' "$zombie" "$(started_at "$zombie")" >>"$OMANI_STATE_DIR/players"
+  assert_lacks "$("$OMANI" players)" "Zombie"
+  kill "$parent" 2>/dev/null
+}
+
 t_players_omits_one_that_exited() {
   live_player "Naruto Episode 9" naruto-2 9 >/dev/null
   printf '999999\tGhost Episode 1\tghost-0\t1\n' >>"$OMANI_STATE_DIR/players"
@@ -724,8 +741,6 @@ t_stop_by_id_leaves_other_series_alone() {
 }
 
 t_stop_leaves_a_pid_that_is_no_longer_its_player() {
-  # players already refuses a record whose pid started at another moment; stop
-  # would still have killed whatever holds it now.
   sleep 60 &
   local victim=$!
   printf '%s\n' "$victim" >>"$WORK/spawned"
@@ -1002,6 +1017,7 @@ check "play records the player it started" t_play_records_the_player_it_started
 check "two episodes are tracked at once" t_two_episodes_are_tracked_at_once
 check "the players file does not grow without end" t_the_players_file_does_not_grow_without_end
 check "resume reports a provider that refuses the episode" t_resume_reports_a_provider_that_refuses_the_episode
+check "a player waiting to be reaped is not playing" t_a_player_waiting_to_be_reaped_is_not_playing
 check "players omits one that has exited" t_players_omits_one_that_exited
 check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_record
 check "playing a second episode keeps both records" t_playing_a_second_episode_keeps_both_records

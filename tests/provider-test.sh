@@ -142,8 +142,6 @@ t_qualities_survive_tags_between_the_variants() {
 }
 
 t_a_variant_without_a_resolution_is_left_out() {
-  # Audio-only renditions carry no RESOLUTION, and pairing each tag with the
-  # line under it put the next variant's url against the wrong height.
   local out
   out=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000\naudio/i.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=5300000,RESOLUTION=1920x1080\n1080/i.m3u8\n' |
     "$PROVIDER" parse-qualities "https://host/p/master.m3u8")
