@@ -460,8 +460,6 @@ test("the first row shows the header above it rather than just itself", () => {
 })
 
 test("the last row is reached even while the content height lags behind it", () => {
-  // 220 delegates do not finish laying out at once, so the column reports less
-  // than it ends up holding; trusting it alone stops short of the last rows.
   const at = Model.scrollTarget({
     current: 0, viewport: 400, content: 5000, rowTop: 5200, rowHeight: 50,
     index: 219, lastIndex: 219, margin: 30
