@@ -908,6 +908,23 @@ t_resume_after_forgetting_the_series_fails_cleanly() {
   assert_contains "$out" "not in history"
 }
 
+t_an_episode_number_carrying_a_backslash_still_steps() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n9002\t2\\x\n9003\t3\n' ;;
+stream) printf 'url\thttps://cdn/%s/%s.m3u8\nreferrer\thttps://e/\n' "$2" "$3" ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2\\x", "episodes": {}}}'
+  local out
+  out=$("$OMANI" next frieren-1 2>&1)
+  assert_contains "$out" "Frieren Episode 3"
+  out=$("$OMANI" previous frieren-1 2>&1)
+  assert_contains "$out" "Frieren Episode 1"
+}
+
 t_an_episode_number_carrying_a_decimal_plays() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
@@ -1134,6 +1151,7 @@ check "a write does not depend on TMPDIR being usable" t_writes_do_not_depend_on
 check "a write leaves no temporary file behind" t_a_write_leaves_no_temporary_file_behind
 check "next refuses when the episode is no longer listed" t_next_refuses_when_the_episode_is_no_longer_listed
 check "resume after forgetting the series fails cleanly" t_resume_after_forgetting_the_series_fails_cleanly
+check "an episode number carrying a backslash still steps" t_an_episode_number_carrying_a_backslash_still_steps
 check "an episode number carrying a decimal plays" t_an_episode_number_carrying_a_decimal_plays
 check "progress reports arriving together are not lost" t_progress_reports_arriving_together_are_not_lost
 check "a title holding a line break keeps the record readable" t_a_title_holding_a_line_break_keeps_the_record_readable

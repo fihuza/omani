@@ -158,7 +158,7 @@ cmd_stream() {
   [[ -n $id && -n $episode ]] || die "usage: omani-provider stream <anime-id> <episode> [sub|dub] [quality]"
 
   local ep_id
-  ep_id=$(cmd_episodes "$id" | awk -F'\t' -v n="$episode" '$2 == n { print $1; exit }')
+  ep_id=$(cmd_episodes "$id" | episode="$episode" awk -F'\t' '$2 == ENVIRON["episode"] { print $1; exit }')
   [[ -n $ep_id ]] || die "episode $episode not found"
 
   local servers hash embed
