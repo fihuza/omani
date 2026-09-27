@@ -15,8 +15,6 @@ STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
 
 HIST_FILE="${OMANI_HIST_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omani/history.json}"
-# An episode this far through counts as seen, so resuming moves on rather than
-# landing in the credits.
 WATCHED_FRACTION=90
 
 QUALITY="${OMANI_QUALITY-best}"
@@ -80,12 +78,8 @@ read_history() {
   fi
 }
 
-# Two players report progress every few seconds, and a read-modify-write of the
-# whole file loses one of them if they interleave.
 update_history() {
   local tmp
-  # A history that does not parse is left where it is: overwriting it would put
-  # the only copy of what was watched beyond reach.
   [[ -f $HIST_FILE ]] && ! history_parses &&
     die "refusing to write over a history that is not valid json: $HIST_FILE"
   mkdir -p "$(dirname "$HIST_FILE")"
@@ -95,8 +89,6 @@ update_history() {
   tmp=$(mktemp "$HIST_FILE.XXXXXX")
   (
     trap 'rm -f "$tmp"' EXIT
-    # Bounded, so a writer that wedges fails the next one instead of queueing
-    # players behind it for good.
     flock -w 5 9 || die "could not take the history lock"
     read_history | jq "$@" >"$tmp"
     jq -e . "$tmp" >/dev/null 2>&1 || die "refusing to write a history that is not valid json"
@@ -122,8 +114,6 @@ record_history() {
     '
 }
 
-# Which episode the series is on is not touched here: that belongs to starting
-# one and to finishing one, and a report arriving after either would undo it.
 record_progress() {
   local id="$1" episode="$2" position="$3" duration="$4"
   [[ $position =~ ^[0-9]+$ && $duration =~ ^[0-9]+$ ]] || die "position and duration must be whole seconds"
@@ -177,8 +167,6 @@ cmd_stop() {
   if [[ $target == "all" ]]; then
     pids=$(cut -f1 "$PLAYERS_FILE")
   else
-    # A player is named by its pid, its title or the series it belongs to: only
-    # the last of those is known while an episode is being replaced.
     pids=$(target="$target" awk -F'\t' \
       'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"] || $3 == ENVIRON["target"]) { print $1 }' "$PLAYERS_FILE")
   fi
@@ -206,8 +194,6 @@ cmd_play() {
   [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode> [start-seconds]"
   [[ $start =~ ^[0-9]+$ ]] || die "start must be whole seconds"
 
-  # The player record is tab separated and the title is what matches it to the
-  # player on the bus, so the tab goes before mpv is told what to call itself.
   title=${title//$'\t'/ }
 
   local stream url referrer subtitles
@@ -219,7 +205,6 @@ cmd_play() {
   qualities=$(awk -F'\t' '$1 == "qualities" { print $2 }' <<<"$stream")
   [[ -n $url ]] || die "no playable source for episode $episode"
 
-  # One player per series, whoever asked: only a different series adds a second.
   cmd_stop "$id"
 
   local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
@@ -242,9 +227,6 @@ cmd_play() {
   record_history "$episode" "$id" "$title"
 }
 
-# Episode numbers are not always contiguous -- specials and recaps sit between
-# them -- so what follows or precedes an episode is read from the provider's own
-# list rather than counted.
 neighbour_episode() {
   local current="$1" side="$2" episodes="$3"
   if [[ $side == after ]]; then
@@ -254,9 +236,6 @@ neighbour_episode() {
   fi
 }
 
-# The history holds the episode you are on, so continuing plays that one --
-# where you stopped if that is known. Only an episode watched to the end moves
-# on to the next.
 cmd_resume() {
   local id="${1:-}"
   [[ -n $id ]] || die "usage: omani resume <anime-id>"
@@ -284,9 +263,6 @@ cmd_resume() {
   cmd_play "$id" "$title" "$next"
 }
 
-# Next and previous step from the episode the series is on however much of it
-# was watched: asking for another episode is the answer, so the one being left
-# keeps the progress it had rather than counting as finished.
 cmd_step() {
   local side="$1" id="${2:-}"
   local sub=next
@@ -296,8 +272,6 @@ cmd_step() {
   entry=$(entry_for "$id") || die "'$id' is not in history"
 
   local current title episodes target
-  # The episode playing, not the one the series is on: crossing the watched
-  # threshold moves the series on while its player is still running.
   current=$(playing_episode "$id")
   [[ -n $current ]] || current=$(jq -r '.episode' <<<"$entry")
   title=$(jq -r '.title' <<<"$entry")
@@ -308,9 +282,6 @@ cmd_step() {
   cmd_play "$id" "$title" "$target"
 }
 
-# mpv loads scripts from its script directories and from whatever script= or
-# scripts-append= lines its config carries, so both are consulted rather than
-# assuming the packaged location.
 mpris_present() {
   local dir file dirs conf confs
   IFS=: read -ra dirs <<<"$MPV_SCRIPT_DIRS"
@@ -348,9 +319,6 @@ cmd_status() {
     '{ready: $ready, tracking: $tracking, watchedFraction: $watchedFraction, version: $version, repo: $repo, missing: $missing, historyPath: $historyPath, playersPath: $playersPath}'
 }
 
-# Finishing an episode moves the series on, so what the panel offers to
-# continue is the episode that would actually play. The lookup happens once,
-# when the threshold is crossed, not on every report.
 advance_past() {
   local id="$1" episode="$2" episodes next
   episodes=$("$PROVIDER" episodes "$id" 2>/dev/null) || return 0

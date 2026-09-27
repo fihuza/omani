@@ -1,7 +1,4 @@
 #!/bin/bash
-#
-# Every dependency is injected, so nothing here reaches the network, starts a
-# player, or touches a real watch history.
 
 set -uo pipefail
 
@@ -393,8 +390,6 @@ t_next_leaves_the_progress_of_the_episode_it_leaves() {
 }
 
 t_next_steps_from_the_episode_actually_playing() {
-  # Crossing ninety percent moves the series on while the episode is still
-  # running, and next must not step from where the series will be next.
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
   local pid
   pid=$(live_player "Frieren Episode 2" frieren-1 2)
@@ -475,8 +470,6 @@ t_previous_refuses_an_unknown_series() {
 }
 
 t_the_recorded_pid_is_the_player_itself() {
-  # A wrapper's pid exits at once, leaving a record that can neither be listed
-  # nor stopped.
   OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 3
   local pid
   pid=$(cut -f1 "$OMANI_STATE_DIR/players")

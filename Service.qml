@@ -13,8 +13,6 @@ Item {
 
     property bool ready: false
     property bool tracking: true
-    // Until status answers, nothing has been watched: a guess here would be a
-    // second copy of a threshold bin/omani owns.
     property int watchedFraction: 100
     property string missing: ""
     property string version: ""
@@ -68,8 +66,6 @@ Item {
     }
     readonly property bool playing: players.length > 0
 
-    // The player this panel is controlling, which is not the first one on the
-    // bus: pausing from one episode's menu must not pause another.
     readonly property var currentPlayer: Model.playerFor(playerList, playingTitle)
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
@@ -147,9 +143,6 @@ Item {
         Quickshell.execDetached(command(["stop", target]));
     }
 
-    // A launch that is still resolving its stream would go on to start a player
-    // nobody wants any more. The stop is sent as well, because the player may
-    // have been spawned a moment before this arrived.
     property bool cancelled: false
 
     function cancelLaunch() {
@@ -235,7 +228,6 @@ Item {
         launch(command([action, playingId]));
     }
 
-    // Per play: it goes into the command, never into the stored settings.
     property string playingQuality: ""
 
     function playAtQuality(value) {
@@ -284,9 +276,6 @@ Item {
             launching = false;
     }
 
-    // The script exits once the player is spawned, so its status is the answer
-    // to whether the launch worked. Nothing else can say: the player itself is
-    // detached and outlives this.
     function launch(argv) {
         launchProcess.command = argv;
         launchProcess.running = true;
@@ -300,8 +289,6 @@ Item {
 
     onLiveTitlesChanged: reloadPlayers()
 
-    // Sampled rather than read on exit: a player that has gone is no longer on
-    // the bus to ask, so the last sample is what a resume has to go on.
     Timer {
         id: historySample
         interval: 5000

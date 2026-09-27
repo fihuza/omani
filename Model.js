@@ -76,7 +76,6 @@ function playerRecords(raw) {
   return records
 }
 
-// mpris reports fractional seconds where the history keeps whole ones.
 function progressReports(records, players) {
   var reports = []
   for (var i = 0; i < players.length; i++) {
@@ -114,10 +113,6 @@ function launchPids(players) {
   })
 }
 
-// A step replaces a player of the same series, so the series cannot say whether
-// the new one has arrived; a pid that was not there when the launch began can.
-// Nothing tracking players means no arrival to wait for. Three arguments rather
-// than one object, so no caller can pass a description older than the players.
 function launchDone(tracking, players, before) {
   if (!tracking) return true
   var running = players || []
@@ -128,8 +123,6 @@ function launchDone(tracking, players, before) {
   return false
 }
 
-// Resuming a series that is playing would close its player and start the same
-// episode again, seconds behind where it was.
 function resumeTarget(rows, players) {
   for (var i = 0; i < rows.length; i++) {
     var live = false
@@ -141,8 +134,6 @@ function resumeTarget(rows, players) {
   return null
 }
 
-// Read per row rather than baked into the list: a percentage that moves every
-// second would otherwise rebuild every row with it, and the delegates with them.
 function rowLabel(row, progress) {
   if (!row) return ""
   if (row.kind !== "playing") return row.label !== undefined ? row.label : ""
@@ -153,8 +144,6 @@ function remembered(fallback) {
   return fallback ? String(fallback) : ""
 }
 
-// The selection lives in the panel, so a shell restart leaves a live player with
-// nobody holding it, and a selection whose player has gone names nothing.
 function adoptable(players, playingId) {
   if (!players || players.length === 0) return null
   for (var i = 0; i < players.length; i++) {
@@ -199,8 +188,6 @@ function isPlayingSeries(players, animeId) {
   return false
 }
 
-// Where the cursor lands when it first appears. What is playing sits at the top
-// with its own controls; the list someone walks is the one below it.
 function startIndex(rows) {
   if (!rows) return 0
   for (var i = 0; i < rows.length; i++) {
@@ -239,8 +226,6 @@ function historyView(rows, players) {
       pid: players[p].pid
     })
   }
-  // Playing owns the row for a series that has a player: repeating it below
-  // would offer to continue what is already running.
   var kept = 0
   for (var i = 0; i < rows.length; i++) {
     if (live[rows[i].animeId]) continue
@@ -347,8 +332,6 @@ function playerRows(title, episode, paused, quality) {
   ]
 }
 
-// The version row is shown, not chosen: yielding no change keeps activating it
-// from writing to the stored settings.
 function settingChange(row) {
   var next = nextSetting(row.key, row.value)
   if (next === row.value) return null
@@ -390,8 +373,6 @@ function seriesRows(raw) {
   })
 }
 
-// The fraction is bin/omani's: it decides when a series moves on, and a label
-// saying watched while the series has not moved would be a lie.
 function episodeLabel(progress, fraction) {
   if (!progress || !progress.duration) return ""
   var percent = watchedFraction(progress)
@@ -410,8 +391,6 @@ function episodeRows(raw, progress, fraction) {
   })
 }
 
-// The episode playing is written back by the next progress report, so forgetting
-// it would not stick.
 function forgettable(view, row) {
   return view === "history" && !!row && row.kind === "series"
 }
@@ -448,8 +427,6 @@ function playerFor(players, title) {
   return null
 }
 
-// The series id is the one that survives a step from one episode to the next,
-// when the title of the player being built is not known yet.
 function stopTarget(record) {
   if (!record) return ""
   return String(record.pid || record.title || record.animeId || "")
@@ -470,8 +447,6 @@ function heroMeta(state) {
   return state.quality + " \u00b7 " + state.mode
 }
 
-// How far into its episode each player is. Read fresh every tick, because mpris
-// never announces a position.
 function progressRows(records, positions) {
   var rows = []
   for (var i = 0; i < records.length; i++) {
@@ -501,8 +476,6 @@ function heading(labels, view, busy, launching) {
   return sectionLabel(labels && labels[view] ? labels[view] : "")
 }
 
-// The program name in front of a failure is noise to someone reading a panel,
-// and it costs the width the message needs.
 function firstLine(text) {
   return String(text || "").split("\n")[0].trim().replace(/^[a-z0-9-]+: /, "")
 }

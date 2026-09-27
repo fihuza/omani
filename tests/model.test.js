@@ -86,9 +86,6 @@ test("a player the plugin did not start is not adopted", () => {
 })
 
 test("a launch is over once a player appears that was not running when it began", () => {
-  // Driven the way the service drives it: the snapshot is taken at the start
-  // and handed back on every change, so nothing in between can hold a stale
-  // copy of it.
   const before = Model.launchPids([{ pid: "1" }])
   assert.deepEqual(before, ["1"])
   assert.equal(Model.launchDone(true, [{ pid: "1" }], before), false)
@@ -104,8 +101,6 @@ test("the snapshot of what was running is taken from the players themselves", ()
 })
 
 test("a launch with nothing to watch for is over when the script exits", () => {
-  // Without mpv-mpris nothing ever reaches the bus, so waiting for a player to
-  // appear waits for good and every later play is refused.
   assert.equal(Model.launchDone(false, [], []), true)
   assert.equal(Model.launchDone(true, [], []), false)
   assert.equal(Model.launchDone(true), false)
@@ -124,8 +119,6 @@ test("the row under the bar icon is one that is not already playing", () => {
 })
 
 test("a row's label reads the progress of the player it belongs to", () => {
-  // The label is read per row rather than baked into the list, so a percentage
-  // that moves every second does not rebuild every row with it.
   const progress = [{ animeId: "a", title: "A Episode 3", fraction: 0.45 }]
   assert.equal(Model.rowLabel({ kind: "playing", title: "A Episode 3", episode: "3", label: "" }, progress), "ep 3 \u00b7 45%")
   assert.equal(Model.rowLabel({ kind: "playing", title: "B Episode 1", episode: "1", label: "" }, progress), "ep 1")

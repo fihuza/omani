@@ -1,10 +1,6 @@
 #!/bin/bash
 #
 # Derived from ani-cli (GPL-3.0-or-later) -- see NOTICE.
-#
-# Talks to the provider and prints tab-separated rows. Fetching and parsing are
-# separate subcommands so the parsers can be driven from saved pages in tests
-# without touching the network.
 
 set -uo pipefail
 
@@ -62,7 +58,6 @@ b64_decode() {
   base64 -d 2>/dev/null <<<"$1"
 }
 
-# The embed ships its config as base64(json XOR "otaku-embed-v1").
 deobfuscate() (
   local bytes
   bytes=$(b64_decode "$1" | od -v -An -tu1)
@@ -77,7 +72,6 @@ deobfuscate() (
   printf '%b' "$out"
 )
 
-# stdin: the master playlist. stdout: `<height>><url>`, best first.
 parse_qualities() {
   local master="$1"
   sed 's|^#EXT-X-STREAM.*x||g; s|,.*|p|g; /^#/d; $!N; s|\n| >|;/EXT-X-I-FRAME/d' |

@@ -280,7 +280,6 @@ Panel {
         });
     }
 
-    // Every panel's first motion key reveals the cursor rather than moving it.
     function activateCursor() {
         cursorActive = true;
         keyState = Object.assign({}, keyState, {
