@@ -10,6 +10,14 @@ failed=0
 
 TARGET="${1:-all}"
 
+GATES=(qml-format qml-lint shell-format shell-lint manifest unit shell-tests version)
+
+if [[ $TARGET != all ]] && ! printf '%s\n' "${GATES[@]}" | grep -qx -- "$TARGET"; then
+  printf 'no such gate: %s\n' "$TARGET" >&2
+  printf 'gates: all %s\n' "${GATES[*]}" >&2
+  exit 1
+fi
+
 step() { printf '\n==> %s\n' "$1"; }
 
 wanted() { [[ $TARGET == "all" || $TARGET == "$1" ]]; }
@@ -56,8 +64,6 @@ fi
 if wanted qml-format; then
   step "Format (QML)"
   if [[ -n ${QMLFORMAT:-} ]]; then
-    # Qt 6.11's qmlformat has no --check, so the check is a diff against its own
-    # output.
     for f in "${QML[@]}"; do
       "$QMLFORMAT" "$f" 2>/dev/null | diff -q - "$f" >/dev/null ||
         fail "$f is not qmlformat-clean (run: $QMLFORMAT -i $f)"
@@ -82,8 +88,6 @@ fi
 if wanted qml-lint; then
   step "Lint (QML)"
   if [[ -n ${QMLLINT:-} && -d $OMARCHY_PATH/shell ]]; then
-    # qmllint resolves `qs.*` only from an import root containing a directory of
-    # that name; a plugin folder may not hold symlinks, so it is built elsewhere.
     qsroot=$(mktemp -d)
     ln -sfn "$OMARCHY_PATH/shell" "$qsroot/qs"
 
@@ -129,7 +133,6 @@ fi
 if wanted unit; then
   step "Unit tests + coverage (Model.js), minimum ${COVERAGE_MIN}%"
   if require node nodejs; then
-    # Node 26 rejects a bare directory for --test, so this passes a glob.
     node --test \
       --experimental-test-coverage \
       --test-coverage-lines=$COVERAGE_MIN \
@@ -141,9 +144,10 @@ if wanted unit; then
 fi
 
 if wanted shell-tests; then
-  step "Shell tests (bin/omani)"
+  step "Shell tests (bin/omani, the provider, the gates)"
   ./tests/omani-test.sh || fail "shell tests failed"
   ./tests/provider-test.sh || fail "provider tests failed"
+  ./tests/gates-test.sh || fail "gate tests failed"
 fi
 
 if wanted version; then
