@@ -786,6 +786,37 @@ t_players_says_nothing_on_stderr_about_a_pid_that_is_gone() {
   assert_eq "$noise" ""
 }
 
+t_an_episode_watched_to_exactly_the_threshold_restarts() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "episodes": {"1": {"position": 1260, "duration": 1400}}}}'
+  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 1)" "--start="
+}
+
+t_an_episode_a_second_short_of_the_threshold_resumes() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "episodes": {"1": {"position": 1259, "duration": 1400}}}}'
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--start=1259"
+}
+
+t_a_record_without_qualities_is_kept_and_can_be_stopped() {
+  sleep 60 &
+  local pid=$!
+  printf '%s\n' "$pid" >>"$WORK/spawned"
+  mkdir -p "$OMANI_STATE_DIR"
+  printf '%s\tOldest Episode 1\toldest-1\t1\n' "$pid" >>"$OMANI_STATE_DIR/players"
+  assert_contains "$("$OMANI" players)" "Oldest Episode 1"
+
+  OMANI_DRY_RUN='' "$OMANI" play frieren-1 "Frieren" 4 >/dev/null 2>&1
+  assert_contains "$("$OMANI" players)" "Oldest Episode 1"
+  assert_eq "$("$OMANI" stop oldest-1)" "stop $pid"
+}
+
+t_play_refuses_a_start_that_is_not_whole_seconds() {
+  local out
+  out=$("$OMANI" play frieren-1 "Frieren" 1 half 2>&1)
+  local code=$?
+  ((code != 0)) || fail "$current" "accepted a start that is not seconds"
+  assert_contains "$out" "whole seconds"
+}
+
 t_a_record_from_an_older_version_still_counts_while_alive() {
   sleep 60 &
   local pid=$!
@@ -1162,6 +1193,10 @@ check "the players file does not grow without end" t_the_players_file_does_not_g
 check "resume reports a provider that refuses the episode" t_resume_reports_a_provider_that_refuses_the_episode
 check "a player waiting to be reaped is not playing" t_a_player_waiting_to_be_reaped_is_not_playing
 check "players says nothing on stderr about a pid that is gone" t_players_says_nothing_on_stderr_about_a_pid_that_is_gone
+check "an episode watched to exactly the threshold restarts" t_an_episode_watched_to_exactly_the_threshold_restarts
+check "an episode a second short of the threshold resumes" t_an_episode_a_second_short_of_the_threshold_resumes
+check "a record without qualities is kept and can be stopped" t_a_record_without_qualities_is_kept_and_can_be_stopped
+check "play refuses a start that is not whole seconds" t_play_refuses_a_start_that_is_not_whole_seconds
 check "a record from an older version still counts while alive" t_a_record_from_an_older_version_still_counts_while_alive
 check "players omits one that has exited" t_players_omits_one_that_exited
 check "replaying an episode keeps one record" t_replaying_an_episode_keeps_one_record
