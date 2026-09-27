@@ -85,14 +85,32 @@ test("a player the plugin did not start is not adopted", () => {
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
 })
 
+test("a launch is over once a player appears that was not running when it began", () => {
+  // Driven the way the service drives it: the snapshot is taken at the start
+  // and handed back on every change, so nothing in between can hold a stale
+  // copy of it.
+  const before = Model.launchPids([{ pid: "1" }])
+  assert.deepEqual(before, ["1"])
+  assert.equal(Model.launchDone(true, [{ pid: "1" }], before), false)
+  assert.equal(Model.launchDone(true, [], before), false)
+  assert.equal(Model.launchDone(true, [{ pid: "2" }], before), true)
+  assert.equal(Model.launchDone(true, [{ pid: "1" }, { pid: "2" }], before), true)
+})
+
+test("the snapshot of what was running is taken from the players themselves", () => {
+  assert.deepEqual(Model.launchPids([{ pid: "7", title: "A" }, { pid: "9" }]), ["7", "9"])
+  assert.deepEqual(Model.launchPids([]), [])
+  assert.deepEqual(Model.launchPids(null), [])
+})
+
 test("a launch with nothing to watch for is over when the script exits", () => {
   // Without mpv-mpris nothing ever reaches the bus, so waiting for a player to
   // appear waits for good and every later play is refused.
-  assert.equal(Model.launchDone({ tracking: false, players: [], launchPids: [] }), true)
-  assert.equal(Model.launchDone({ tracking: true, players: [], launchPids: [] }), false)
-  assert.equal(Model.launchDone({ tracking: true }), false)
-  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "2" }], launchPids: ["1"] }), true)
-  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "1" }], launchPids: ["1"] }), false)
+  assert.equal(Model.launchDone(false, [], []), true)
+  assert.equal(Model.launchDone(true, [], []), false)
+  assert.equal(Model.launchDone(true), false)
+  assert.equal(Model.launchDone(true, [{ pid: "2" }], ["1"]), true)
+  assert.equal(Model.launchDone(true, [{ pid: "1" }], ["1"]), false)
 })
 
 test("the row under the bar icon is one that is not already playing", () => {
@@ -117,16 +135,16 @@ test("a row's label reads the progress of the player it belongs to", () => {
 })
 
 test("a launch is done when a player appears that was not there before", () => {
-  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "100" }, { pid: "200" }], launchPids: ["100"] }), true)
+  assert.equal(Model.launchDone(true, [{ pid: "100" }, { pid: "200" }], ["100"]), true)
 })
 
 test("the player being replaced does not end its own replacement", () => {
   const before = ["100"]
-  assert.equal(Model.launchDone({ tracking: true, players: [{ pid: "100" }], launchPids: before }), false)
+  assert.equal(Model.launchDone(true, [{ pid: "100" }], before), false)
 })
 
 test("no players at all is not a finished launch", () => {
-  assert.equal(Model.launchDone({ tracking: true, players: [], launchPids: ["100"] }), false)
+  assert.equal(Model.launchDone(true, [], ["100"]), false)
 })
 
 test("a record with no anime id is never mistaken for the one playing", () => {

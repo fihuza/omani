@@ -110,16 +110,25 @@ function livePlayers(records, liveTitles) {
   return live
 }
 
+function launchPids(players) {
+  if (!players) return []
+  return players.map(function (p) {
+    return p.pid
+  })
+}
+
 // A step replaces a player of the same series, so the series cannot say whether
 // the new one has arrived; a pid that was not there when the launch started can.
 // With nothing tracking players there is no arrival to wait for, and waiting
-// anyway would refuse every later play.
-function launchDone(state) {
-  if (!state.tracking) return true
-  var players = state.players || []
-  var before = state.launchPids || []
-  for (var i = 0; i < players.length; i++) {
-    if (before.indexOf(players[i].pid) === -1) return true
+// anyway would refuse every later play. The three are arguments rather than one
+// object, so a caller cannot hand over a description of the players that is
+// older than the players themselves.
+function launchDone(tracking, players, before) {
+  if (!tracking) return true
+  var running = players || []
+  var started = before || []
+  for (var i = 0; i < running.length; i++) {
+    if (started.indexOf(running[i].pid) === -1) return true
   }
   return false
 }
@@ -628,6 +637,7 @@ if (typeof module !== "undefined") {
     livePlayers: livePlayers,
     progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
+    launchPids: launchPids,
     launchDone: launchDone,
     resumeTarget: resumeTarget,
     rowLabel: rowLabel,

@@ -281,19 +281,8 @@ Item {
     }
 
     onHistoryLimitChanged: reloadHistory()
-    // Built where it is read rather than bound: a bound object refreshes on its
-    // own schedule, and this handler asked it the question before the players it
-    // describes had changed.
-    function launchState() {
-        return {
-            tracking: root.tracking,
-            players: root.players,
-            launchPids: root.launchPids
-        };
-    }
-
     onPlayersChanged: {
-        if (Model.launchDone(launchState()))
+        if (Model.launchDone(tracking, players, launchPids))
             launching = false;
     }
 
@@ -307,9 +296,7 @@ Item {
 
     function beginLaunch() {
         cancelled = false;
-        launchPids = players.map(function (p) {
-            return p.pid;
-        });
+        launchPids = Model.launchPids(players);
         launching = true;
     }
 
@@ -339,7 +326,7 @@ Item {
                 return;
             }
             if (exitCode === 0) {
-                if (Model.launchDone(root.launchState()))
+                if (Model.launchDone(root.tracking, root.players, root.launchPids))
                     root.launching = false;
                 return;
             }
