@@ -152,8 +152,6 @@ record_player() {
   )
 }
 
-# Records are appended as players start, so the last match is the one being
-# watched now; the earlier ones are what a failed stop left behind.
 playing_episode() {
   cmd_players | id="$1" awk -F'\t' '$3 == ENVIRON["id"] { latest = $4 } END { if (latest != "") print latest }'
 }

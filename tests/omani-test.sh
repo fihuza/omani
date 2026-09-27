@@ -475,8 +475,6 @@ t_next_steps_from_the_newest_player_of_a_series() {
   printf '%s\tNaruto Episode 1\tnaruto-1\t1\t1080\t%s\n' "$older" "$(awk '{print $22}' "/proc/$older/stat")" >>"$OMANI_STATE_DIR/players"
   printf '%s\tNaruto Episode 2\tnaruto-1\t2\t1080\t%s\n' "$newer" "$(awk '{print $22}' "/proc/$newer/stat")" >>"$OMANI_STATE_DIR/players"
 
-  # Stepping from the older record would land on episode 2, the one already
-  # playing, which is what closing and reopening the same episode looked like.
   assert_contains "$("$OMANI" next naruto-1 2>&1)" "Episode 3"
 }
 
