@@ -53,8 +53,10 @@ var BACK_FROM = {
   quality: "player"
 }
 
+var REMEMBERS_ORIGIN = { episodes: true, settings: true, shortcuts: true, quality: true }
+
 function backFrom(view, openedFrom) {
-  if (view === "episodes" && openedFrom) return openedFrom
+  if (REMEMBERS_ORIGIN[view] && openedFrom) return openedFrom
   return BACK_FROM[view] || "close"
 }
 
@@ -336,13 +338,24 @@ function qualityRows(available, current) {
   return rows
 }
 
-function playerRows(title, episode, paused, quality) {
+function episodeCaption(episode) {
+  return episode ? "Episode " + episode : ""
+}
+
+function neighbourLabel(episode, step) {
+  if (!/^[0-9]+$/.test(String(episode))) return ""
+  var at = Number(episode) + step
+  return at < 1 ? "" : "episode " + at
+}
+
+function playerRows(title, episode, paused, quality, muted) {
   return [
     { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
-    { key: "next", title: "Next episode", label: "" },
+    { key: "mute", title: muted ? "Unmute" : "Mute", label: "" },
+    { key: "next", title: "Next episode", label: neighbourLabel(episode, 1) },
     { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
-    { key: "previous", title: "Previous episode", label: "" },
-    { key: "select", title: "Select episode", label: title },
+    { key: "previous", title: "Previous episode", label: neighbourLabel(episode, -1) },
+    { key: "select", title: "Select episode", label: "" },
     { key: "quality", title: "Change quality", label: quality || "" },
     { key: "stop", title: "Stop", label: "" }
   ]
@@ -355,13 +368,18 @@ function settingChange(row) {
 }
 
 
+function releaseLink(repo, version) {
+  return repo && version ? repo + "/releases/tag/v" + version : ""
+}
+
 function settingRows(quality, mode, watched, version, repo) {
   return [
     { key: "quality", value: quality, title: "Quality", label: quality, link: "" },
     { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed", link: "" },
     { key: "watched", value: watched, title: "Counts as watched", label: watched + "%", link: "" },
-    { key: "version", value: version, title: "Version", label: version, link: repo || "" },
-    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" }
+    { key: "version", value: version, title: "Version", label: version, link: releaseLink(repo, version) },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" },
+    { key: "about", value: "", title: "About", label: "", link: repo || "" }
   ]
 }
 
@@ -638,6 +656,8 @@ if (typeof module !== "undefined") {
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,
+    neighbourLabel: neighbourLabel,
+    episodeCaption: episodeCaption,
     qualityRows: qualityRows,
     settingRows: settingRows,
     settingAction: settingAction,

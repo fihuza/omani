@@ -75,6 +75,20 @@ Item {
             currentPlayer.togglePlaying();
     }
 
+    property real volumeBeforeMute: 1.0
+    readonly property bool muted: currentPlayer ? currentPlayer.volume <= 0 : false
+
+    function toggleMuted() {
+        if (!currentPlayer)
+            return;
+        if (muted) {
+            currentPlayer.volume = volumeBeforeMute > 0 ? volumeBeforeMute : 1.0;
+            return;
+        }
+        volumeBeforeMute = currentPlayer.volume;
+        currentPlayer.volume = 0;
+    }
+
     // mpris position is not a notifying property: quickshell reads it fresh
     // every time, but nothing tells a binding to look again. The tick is what
     // makes the clock move.
