@@ -580,8 +580,22 @@ test("an unrecognised value lands on the first option rather than nothing", () =
   assert.equal(Model.nextSetting("mode", ""), "sub")
 })
 
+test("the threshold that counts an episode as watched is a setting", () => {
+  const rows = Model.settingRows("best", "sub", "90", "1.1.0", "")
+  const watched = rows.find(r => r.key === "watched")
+  assert.equal(watched.title, "Counts as watched")
+  assert.equal(watched.label, "90%")
+  assert.deepEqual(Model.settingAction(watched), { type: "set", key: "watched", value: "95" })
+})
+
+test("the threshold cycles through the values worth having", () => {
+  assert.equal(Model.nextSetting("watched", "80"), "85")
+  assert.equal(Model.nextSetting("watched", "95"), "80")
+  assert.equal(Model.nextSetting("watched", "nonsense"), "80")
+})
+
 test("a setting row renders sub as subbed", () => {
-  const [, audio] = Model.settingRows("best", "sub", "1.0.0")
+  const [, audio] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(audio.label, "subbed")
 })
 
@@ -590,39 +604,39 @@ test("an unknown setting is left alone rather than guessed at", () => {
 })
 
 test("settings are rows like every other view, so the same keys drive them", () => {
-  const rows = Model.settingRows("720", "dub", "1.0.0")
-  assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Version"])
-  assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "1.0.0"])
-  assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "version"])
+  const rows = Model.settingRows("720", "dub", "90", "1.0.0", "")
+  assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Counts as watched", "Version"])
+  assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "90%", "1.0.0"])
+  assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "watched", "version"])
 })
 
 test("the version row points at the repository", () => {
-  const rows = Model.settingRows("best", "sub", "1.0.4", "https://github.com/fihuza/omani")
+  const rows = Model.settingRows("best", "sub", "90", "1.0.4", "https://github.com/fihuza/omani")
   const version = rows.find(r => r.key === "version")
   assert.equal(version.link, "https://github.com/fihuza/omani")
   assert.deepEqual(Model.settingAction(version), { type: "open", url: "https://github.com/fihuza/omani" })
 })
 
 test("a version row with nowhere to point does nothing when chosen", () => {
-  const version = Model.settingRows("best", "sub", "1.0.4", "").find(r => r.key === "version")
+  const version = Model.settingRows("best", "sub", "90", "1.0.4", "").find(r => r.key === "version")
   assert.equal(version.link, "")
   assert.equal(Model.settingAction(version), null)
 })
 
 test("choosing any other row moves its value on", () => {
-  const rows = Model.settingRows("720", "sub", "1.0.4", "https://example.test")
+  const rows = Model.settingRows("720", "sub", "90", "1.0.4", "https://example.test")
   assert.deepEqual(Model.settingAction(rows[0]), { type: "set", key: "quality", value: "480" })
   assert.deepEqual(Model.settingAction(rows[1]), { type: "set", key: "mode", value: "dub" })
   assert.equal(Model.settingAction(null), null)
 })
 
 test("choosing a cycling row yields the next value", () => {
-  const [quality] = Model.settingRows("best", "sub", "1.0.0")
+  const [quality] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.deepEqual(Model.settingChange(quality), { key: "quality", value: "1080" })
 })
 
 test("choosing the version row writes nothing", () => {
-  const [, , version] = Model.settingRows("best", "sub", "1.0.0")
+  const [, , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(Model.settingChange(version), null)
 })
 
@@ -631,13 +645,13 @@ test("a row whose value cannot move writes nothing", () => {
 })
 
 test("the version row shows what it is and changes nothing when chosen", () => {
-  const [, , version] = Model.settingRows("best", "sub", "1.0.0")
+  const [, , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(version.label, "1.0.0")
   assert.equal(Model.nextSetting(version.key, version.value), "1.0.0")
 })
 
 test("a setting row carries the raw value, not just its label", () => {
-  const [, audio] = Model.settingRows("best", "dub", "1.0.0")
+  const [, audio] = Model.settingRows("best", "dub", "90", "1.0.0", "")
   assert.equal(audio.label, "dubbed")
   assert.equal(audio.value, "dub")
   assert.equal(Model.nextSetting(audio.key, audio.value), "sub")

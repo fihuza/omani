@@ -21,7 +21,8 @@
     "defaults": {
       "historyLimit": 8,
       "quality": "best",
-      "mode": "sub"
+      "mode": "sub",
+      "watched": "90"
     },
     "schema": [
       {
@@ -48,6 +49,19 @@
           "worst"
         ],
         "defaultValue": "best"
+      },
+      {
+        "key": "watched",
+        "type": "enum",
+        "label": "Counts as watched",
+        "description": "How far into an episode counts as finished, so continuing moves on to the next.",
+        "options": [
+          "80",
+          "85",
+          "90",
+          "95"
+        ],
+        "defaultValue": "90"
       },
       {
         "key": "mode",

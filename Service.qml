@@ -40,6 +40,7 @@ Item {
     readonly property int historyLimit: intSetting("historyLimit", 8, 1, 20)
     readonly property string quality: String(setting("quality", "best"))
     readonly property string mode: String(setting("mode", "sub"))
+    readonly property string watched: String(setting("watched", "90"))
 
     readonly property var playerList: Mpris.players ? Mpris.players.values : []
     readonly property var liveTitles: playerList.map(function (p) {
@@ -110,7 +111,8 @@ Item {
     function settingsEnv(qualityOverride) {
         return {
             OMANI_QUALITY: qualityOverride || quality,
-            OMANI_MODE: mode
+            OMANI_MODE: mode,
+            OMANI_WATCHED_FRACTION: watched
         };
     }
 

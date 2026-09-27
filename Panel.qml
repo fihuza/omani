@@ -54,6 +54,7 @@ Panel {
     readonly property string seriesTitle: service ? service.selectedTitle : ""
     readonly property string quality: service ? service.quality : "best"
     readonly property string mode: service ? service.mode : "sub"
+    readonly property string watched: service ? service.watched : "90"
 
     readonly property color foreground: bar ? bar.foreground : Color.foreground
     readonly property color dim: Qt.darker(foreground, 1.55)
@@ -66,7 +67,7 @@ Panel {
             "history": service ? Model.historyView(service.rows, service.players) : [],
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
-            "settings": service ? Model.settingRows(root.quality, root.mode, service.version, service.repo) : [],
+            "settings": service ? Model.settingRows(root.quality, root.mode, root.watched, service.version, service.repo) : [],
             "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []

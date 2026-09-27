@@ -15,7 +15,8 @@ STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
 
 HIST_FILE="${OMANI_HIST_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omani/history.json}"
-WATCHED_FRACTION=90
+WATCHED_FRACTION="${OMANI_WATCHED_FRACTION:-90}"
+[[ $WATCHED_FRACTION =~ ^([1-9][0-9]?|100)$ ]] || WATCHED_FRACTION=90
 
 QUALITY="${OMANI_QUALITY-best}"
 MODE="${OMANI_MODE:-sub}"
@@ -49,6 +50,8 @@ environment:
   OMANI_PLAYER       media player               (default: mpv)
   OMANI_QUALITY      best | worst | 1080 | ...  (empty means best)
   OMANI_MODE         sub | dub
+  OMANI_WATCHED_FRACTION
+                     percent of an episode that counts as watched (default: 90)
   OMANI_HIST_FILE    watch history (json)
   OMANI_DRY_RUN      non-empty: print what would run instead of running it
   OMANI_PROVIDER     the provider script                (default: bin/omani-provider)

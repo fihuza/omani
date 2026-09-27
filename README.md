@@ -95,6 +95,7 @@ editable from the panel. All of them hot-reload.
 | `historyLimit` | `8` | How many series to list (1–20) |
 | `quality` | `best` | `best`, `1080`, `720`, `480`, `360`, `worst` |
 | `mode` | `sub` | `sub` or `dub` |
+| `watched` | `90` | how far into an episode counts as finished (percent) |
 
 ## How it works
 
@@ -111,8 +112,8 @@ Omani keeps its own watch history: which episode of a series you are on, how
 far into it you are, how long it runs, and every episode you have finished. It
 samples the player's position every few seconds while it runs, so continuing a
 series picks the episode up where you stopped rather than at the beginning. Only an episode
-watched past ninety percent counts as finished; continuing then moves to the
-next one, which the provider's episode list decides — so numbering that skips
+watched past the `watched` percentage counts as finished; continuing then moves
+to the next one, which the provider's episode list decides — so numbering that skips
 or carries decimals is handled by the real list rather than by adding one.
 
 A series you are done with is dropped with `d` or `x`, the key every Omarchy

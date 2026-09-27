@@ -327,6 +327,17 @@ t_finishing_an_episode_moves_the_series_on() {
   assert_eq "$(series_field frieren-1 .episode)" "3"
 }
 
+t_the_threshold_that_finishes_an_episode_can_be_set() {
+  OMANI_WATCHED_FRACTION=50 OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 700 1400
+  assert_eq "$(series_field frieren-1 .episode)" "3"
+}
+
+t_a_threshold_that_is_not_a_percentage_falls_back() {
+  OMANI_WATCHED_FRACTION=nonsense OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 700 1400
+  assert_eq "$(series_field frieren-1 .episode)" "2"
+  assert_eq "$(OMANI_WATCHED_FRACTION=nonsense "$OMANI" status | jq -r .watchedFraction)" "90"
+}
+
 t_finishing_looks_up_the_next_episode_once() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1390 1400
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1395 1400
@@ -892,6 +903,8 @@ check "play leaves other series alone" t_play_leaves_other_series_alone
 check "history survives a title with punctuation" t_history_survives_a_title_with_punctuation
 check "progress records how far into an episode you are" t_progress_records_how_far_in_you_are
 check "finishing an episode moves the series on" t_finishing_an_episode_moves_the_series_on
+check "the threshold that finishes an episode can be set" t_the_threshold_that_finishes_an_episode_can_be_set
+check "a threshold that is not a percentage falls back" t_a_threshold_that_is_not_a_percentage_falls_back
 check "the next episode is looked up once, not on every report" t_finishing_looks_up_the_next_episode_once
 check "part way through leaves the series where it is" t_part_way_through_leaves_the_series_where_it_is
 check "each episode keeps its own position" t_progress_keeps_each_episode_apart
