@@ -88,8 +88,14 @@ bus, so a video you started yourself is never listed and never stopped.
 
 ## Configure
 
-Settings live in the widget's entry in `~/.config/omarchy/shell.json` and are
-editable from the panel. All of them hot-reload.
+Settings live in the widget's entry in `~/.config/omarchy/shell.json`. Press
+`s`, or the gear in the header, to change them without leaving the panel. All
+of them hot-reload.
+
+![The settings view: quality, audio, counts as watched, the version, and clear watch history](settings.png)
+
+Everything but `historyLimit` is editable from the panel; that one is set in
+`shell.json`.
 
 | Setting | Default | Meaning |
 |---|---|---|
