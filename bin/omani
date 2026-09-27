@@ -239,9 +239,11 @@ neighbour_episode() {
   fi
 }
 
+# An episode nobody has watched, a history written by an older version, or one
+# edited by hand all read as zero rather than as an error.
 episode_field() {
-  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
-  jq -r --arg ep "$2" ".episodes[\$ep].$3 // 0" <<<"$1"
+  # shellcheck disable=SC2016 # $ep and $f are jq variables, bound by --arg
+  jq -r --arg ep "$2" --arg f "$3" '((.episodes? // {})[$ep]?[$f]? | numbers) // 0' <<<"$1"
 }
 
 episode_watched() {

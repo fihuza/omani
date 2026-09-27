@@ -70,10 +70,27 @@ deobfuscate() (
 )
 
 parse_qualities() {
-  local master="$1"
-  sed 's|^#EXT-X-STREAM.*x||g; s|,.*|p|g; /^#/d; $!N; s|\n| >|;/EXT-X-I-FRAME/d' |
-    sed "\|>https*://|!s|>|>${master%/*}/|" |
-    sort -g -r -s
+  # A variant is its RESOLUTION attribute and the first line under it that is
+  # not a tag: an audio-only rendition carries no resolution, an i-frame entry
+  # carries its url as an attribute, and either one desynchronises a parse that
+  # pairs each line with the next.
+  base="${1%/*}" awk '
+    /^#EXT-X-I-FRAME-STREAM-INF/ { next }
+    /^#EXT-X-STREAM-INF/ {
+      height = ""
+      if (match($0, /RESOLUTION=[0-9]+x[0-9]+/))
+        height = substr($0, RSTART + 11, RLENGTH - 11)
+      sub(/^[0-9]+x/, "", height)
+      next
+    }
+    /^#/ { next }
+    height != "" && NF {
+      url = $0
+      if (url !~ /^https?:\/\//) url = ENVIRON["base"] "/" url
+      print height "p >" url
+      height = ""
+    }
+  ' | sort -g -r -s
 }
 
 heights_of() {

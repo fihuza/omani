@@ -95,6 +95,30 @@ t_qualities_sorted_best_first() {
   assert_eq "$(head -1 <<<"$out")" "1080p >https://host/path/1080/index.m3u8"
 }
 
+t_qualities_survive_tags_between_the_variants() {
+  local out
+  out=$(printf '#EXTM3U\n#EXT-X-INDEPENDENT-SEGMENTS\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",URI="audio/eng.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=5300000,RESOLUTION=1920x1080,AUDIO="aud"\n1080/i.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,AUDIO="aud"\n360/i.m3u8\n' |
+    "$PROVIDER" parse-qualities "https://host/p/master.m3u8")
+  assert_eq "$(wc -l <<<"$out")" "2"
+  assert_eq "$(head -1 <<<"$out")" "1080p >https://host/p/1080/i.m3u8"
+}
+
+t_a_variant_without_a_resolution_is_left_out() {
+  # Audio-only renditions carry no RESOLUTION, and pairing each tag with the
+  # line under it put the next variant's url against the wrong height.
+  local out
+  out=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000\naudio/i.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=5300000,RESOLUTION=1920x1080\n1080/i.m3u8\n' |
+    "$PROVIDER" parse-qualities "https://host/p/master.m3u8")
+  assert_eq "$out" "1080p >https://host/p/1080/i.m3u8"
+}
+
+t_codecs_carrying_an_x_do_not_swallow_the_height() {
+  local out
+  out=$(printf '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=5300000,RESOLUTION=1920x1080,CODECS="avc1.64002x,mp4a.40.2"\n1080/i.m3u8\n' |
+    "$PROVIDER" parse-qualities "https://host/p/master.m3u8")
+  assert_eq "$out" "1080p >https://host/p/1080/i.m3u8"
+}
+
 t_qualities_keep_absolute_urls() {
   local out
   out=$(printf '#EXT-X-STREAM-INF:RESOLUTION=1280x720,FRAME-RATE=24.000\nhttps://cdn/720.m3u8\n' |
@@ -268,6 +292,9 @@ check "episode rows come back as id and number" t_episode_rows
 check "episodes belonging to another series are ignored" t_episodes_ignore_another_series
 check "the embed payload round-trips through deobfuscation" t_deobfuscate_round_trip
 check "qualities are sorted best first and made absolute" t_qualities_sorted_best_first
+check "qualities survive tags between the variants" t_qualities_survive_tags_between_the_variants
+check "a variant without a resolution is left out" t_a_variant_without_a_resolution_is_left_out
+check "codecs carrying an x do not swallow the height" t_codecs_carrying_an_x_do_not_swallow_the_height
 check "an already absolute variant url is left alone" t_qualities_keep_absolute_urls
 check "i-frame variants are not offered as qualities" t_qualities_drop_iframe_variants
 check "no subcommand prints usage and fails" t_usage_without_a_subcommand
