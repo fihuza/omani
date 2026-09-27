@@ -63,6 +63,7 @@ Panel {
     readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
     readonly property int pageSize: 6
+    readonly property real listGap: Style.space(16)
     readonly property var viewRows: ({
             "history": service ? Model.historyView(service.rows, service.players) : [],
             "results": service ? service.results : [],
@@ -346,7 +347,7 @@ Panel {
         open: root.opened
         focusTarget: keyCatcher
         contentWidth: panel.fittedContentWidth(Style.space(380))
-        contentHeight: panel.fittedContentHeight(headerBox.implicitHeight + Style.space(10) + column.implicitHeight, Style.space(560))
+        contentHeight: panel.fittedContentHeight(headerBox.implicitHeight + root.listGap + column.implicitHeight, Style.space(560))
 
         PanelKeyCatcher {
             id: keyCatcher
@@ -516,7 +517,7 @@ Panel {
                     anchors.right: parent.right
                     anchors.top: headerBox.bottom
                     anchors.bottom: parent.bottom
-                    anchors.topMargin: Style.space(16)
+                    anchors.topMargin: root.listGap
                     contentWidth: width
                     contentHeight: column.implicitHeight
                     clip: true
