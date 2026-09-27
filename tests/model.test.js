@@ -20,6 +20,25 @@ test("going back from a view lands where it came from", () => {
   assert.equal(Model.backFrom("player"), "history")
 })
 
+test("leaving the episode list returns to the view it was opened from", () => {
+  assert.equal(Model.backFrom("episodes", "player"), "player",
+    "opened from the player menu by Select episode")
+  assert.equal(Model.backFrom("episodes", "results"), "results",
+    "opened by choosing a series from a search")
+  assert.equal(Model.backFrom("episodes", "history"), "history")
+})
+
+test("an episode list with no remembered origin falls back to the search results", () => {
+  assert.equal(Model.backFrom("episodes"), "results")
+  assert.equal(Model.backFrom("episodes", ""), "results")
+})
+
+test("every other view goes back where it always did", () => {
+  assert.equal(Model.backFrom("results", "history"), "history")
+  assert.equal(Model.backFrom("settings", "player"), "history")
+  assert.equal(Model.backFrom("quality", "history"), "player")
+})
+
 test("going back from the history closes the panel", () => {
   assert.equal(Model.backFrom("history"), "close")
   assert.equal(Model.backFrom("nonsense"), "close")
@@ -80,6 +99,23 @@ test("only records with a player still on the bus count as live", () => {
   assert.deepEqual(live.map((r) => r.title), ["B Episode 2"])
 })
 
+test("a record whose process is gone is not live, however the bus still names it", () => {
+  const records = Model.playerRecords("220332\tNaruto Episode 4\tnaruto-1335\t4\t800\n")
+  assert.deepEqual(Model.livePlayers(records, ["Naruto Episode 4"], ["2906198"]), [],
+    "an orphan player keeps the title on the bus; the dead record must not ride on it")
+})
+
+test("a record is live when the script still reports its pid", () => {
+  const records = Model.playerRecords("2906198\tNaruto Episode 4\tnaruto-1335\t4\t800\n")
+  const live = Model.livePlayers(records, ["Naruto Episode 4"], ["2906198"])
+  assert.deepEqual(live.map((r) => r.pid), ["2906198"])
+})
+
+test("with no pid list the bus alone decides, as it did before", () => {
+  const records = Model.playerRecords("1\tA Episode 1\ta\t1\n")
+  assert.deepEqual(Model.livePlayers(records, ["A Episode 1"]).map((r) => r.pid), ["1"])
+})
+
 test("a player the plugin did not start is not adopted", () => {
   const records = Model.playerRecords("1\tA Episode 1\ta\t1\n")
   assert.deepEqual(Model.livePlayers(records, ["Holiday Video"]), [])
@@ -98,6 +134,34 @@ test("the snapshot of what was running is taken from the players themselves", ()
   assert.deepEqual(Model.launchPids([{ pid: "7", title: "A" }, { pid: "9" }]), ["7", "9"])
   assert.deepEqual(Model.launchPids([]), [])
   assert.deepEqual(Model.launchPids(null), [])
+})
+
+test("a failure that arrived while the panel was shut is still shown when it opens", () => {
+  assert.equal(Model.noticeOnOpen("the player could not be started", true), "the player could not be started")
+})
+
+test("a failure the panel already showed is cleared when it opens again", () => {
+  assert.equal(Model.noticeOnOpen("the player could not be started", false), "")
+})
+
+test("opening with nothing to report says nothing", () => {
+  assert.equal(Model.noticeOnOpen("", true), "")
+  assert.equal(Model.noticeOnOpen("", false), "")
+})
+
+test("a launch stops waiting once it has waited too long", () => {
+  const before = ["1"]
+  const unchanged = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1" }]
+  assert.equal(Model.launchDone(true, unchanged, before, false), false,
+    "still waiting for the player to appear")
+  assert.equal(Model.launchDone(true, unchanged, before, true), true,
+    "a player that never appears must not block every later launch")
+})
+
+test("waiting too long is not needed once a player has appeared", () => {
+  const before = ["1"]
+  const appeared = [{ pid: "2", title: "B Episode 1", animeId: "b", episode: "1" }]
+  assert.equal(Model.launchDone(true, appeared, before, false), true)
 })
 
 test("a launch with nothing to watch for is over when the script exits", () => {
@@ -146,6 +210,16 @@ test("a record with no anime id is never mistaken for the one playing", () => {
   assert.equal(Model.episodeOf(players, "", "7"), "7")
   assert.equal(Model.seriesOf(players, "", ""), "")
   assert.equal(Model.episodeOf(players, "", null), "")
+})
+
+test("a series whose own name ends in an episode is not cut short", () => {
+  const [record] = Model.playerRecords("42\tPtolemaic Episode 0 Episode 3\tp-1\t3\t1080\tPtolemaic Episode 0\n")
+  assert.equal(Model.seriesOf([record], "p-1", ""), "Ptolemaic Episode 0")
+})
+
+test("a record with no qualities still names its series", () => {
+  const [record] = Model.playerRecords("42\tNaruto Episode 79\tnaruto-1335\t79\n")
+  assert.equal(Model.seriesOf([record], "naruto-1335", ""), "Naruto")
 })
 
 test("the series name comes from the player that is actually running", () => {
@@ -450,9 +524,9 @@ test("a stale position with the row already in view is pulled back into range", 
   assert.equal(Model.scrollTarget(list({ current: 5000, rowTop: 5100, content: 1000 })), 700)
 })
 
-test("a margin wider than the viewport still yields a position", () => {
+test("a margin wider than the viewport lands on the end rather than past it", () => {
   const at = Model.scrollTarget({ current: 0, viewport: 40, content: 400, rowTop: 200, rowHeight: 30, index: 5, lastIndex: 9, margin: 200 })
-  assert.ok(Number.isFinite(at) && at >= 0 && at <= 360, "got " + at)
+  assert.equal(at, 360, "the furthest the list can scroll, not beyond it")
 })
 
 test("scrolling never goes past the end to reach a row", () => {
@@ -569,8 +643,22 @@ test("an unrecognised value lands on the first option rather than nothing", () =
   assert.equal(Model.nextSetting("mode", ""), "sub")
 })
 
+test("the threshold that counts an episode as watched is a setting", () => {
+  const rows = Model.settingRows("best", "sub", "90", "1.1.0", "")
+  const watched = rows.find(r => r.key === "watched")
+  assert.equal(watched.title, "Counts as watched")
+  assert.equal(watched.label, "90%")
+  assert.deepEqual(Model.settingAction(watched), { type: "set", key: "watched", value: "95" })
+})
+
+test("the threshold cycles through the values worth having", () => {
+  assert.equal(Model.nextSetting("watched", "80"), "85")
+  assert.equal(Model.nextSetting("watched", "95"), "80")
+  assert.equal(Model.nextSetting("watched", "nonsense"), "80")
+})
+
 test("a setting row renders sub as subbed", () => {
-  const [, audio] = Model.settingRows("best", "sub", "1.0.0")
+  const [, audio] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(audio.label, "subbed")
 })
 
@@ -579,39 +667,46 @@ test("an unknown setting is left alone rather than guessed at", () => {
 })
 
 test("settings are rows like every other view, so the same keys drive them", () => {
-  const rows = Model.settingRows("720", "dub", "1.0.0")
-  assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Version"])
-  assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "1.0.0"])
-  assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "version"])
+  const rows = Model.settingRows("720", "dub", "90", "1.0.0", "")
+  assert.deepEqual(rows.map((r) => r.title), ["Quality", "Audio", "Counts as watched", "Version", "Clear watch history"])
+  assert.deepEqual(rows.map((r) => r.label), ["720", "dubbed", "90%", "1.0.0", ""])
+  assert.deepEqual(rows.map((r) => r.key), ["quality", "mode", "watched", "version", "clear"])
+})
+
+test("clearing the history is a settings row, not a button in the header", () => {
+  const rows = Model.settingRows("best", "sub", "90", "1.1.0", "")
+  const clear = rows.find(r => r.key === "clear")
+  assert.equal(clear.title, "Clear watch history")
+  assert.deepEqual(Model.settingAction(clear), { type: "clear" })
 })
 
 test("the version row points at the repository", () => {
-  const rows = Model.settingRows("best", "sub", "1.0.4", "https://github.com/fihuza/omani")
+  const rows = Model.settingRows("best", "sub", "90", "1.0.4", "https://github.com/fihuza/omani")
   const version = rows.find(r => r.key === "version")
   assert.equal(version.link, "https://github.com/fihuza/omani")
   assert.deepEqual(Model.settingAction(version), { type: "open", url: "https://github.com/fihuza/omani" })
 })
 
 test("a version row with nowhere to point does nothing when chosen", () => {
-  const version = Model.settingRows("best", "sub", "1.0.4", "").find(r => r.key === "version")
+  const version = Model.settingRows("best", "sub", "90", "1.0.4", "").find(r => r.key === "version")
   assert.equal(version.link, "")
   assert.equal(Model.settingAction(version), null)
 })
 
 test("choosing any other row moves its value on", () => {
-  const rows = Model.settingRows("720", "sub", "1.0.4", "https://example.test")
+  const rows = Model.settingRows("720", "sub", "90", "1.0.4", "https://example.test")
   assert.deepEqual(Model.settingAction(rows[0]), { type: "set", key: "quality", value: "480" })
   assert.deepEqual(Model.settingAction(rows[1]), { type: "set", key: "mode", value: "dub" })
   assert.equal(Model.settingAction(null), null)
 })
 
 test("choosing a cycling row yields the next value", () => {
-  const [quality] = Model.settingRows("best", "sub", "1.0.0")
+  const [quality] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.deepEqual(Model.settingChange(quality), { key: "quality", value: "1080" })
 })
 
 test("choosing the version row writes nothing", () => {
-  const [, , version] = Model.settingRows("best", "sub", "1.0.0")
+  const [, , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(Model.settingChange(version), null)
 })
 
@@ -620,13 +715,13 @@ test("a row whose value cannot move writes nothing", () => {
 })
 
 test("the version row shows what it is and changes nothing when chosen", () => {
-  const [, , version] = Model.settingRows("best", "sub", "1.0.0")
+  const [, , , version] = Model.settingRows("best", "sub", "90", "1.0.0", "")
   assert.equal(version.label, "1.0.0")
   assert.equal(Model.nextSetting(version.key, version.value), "1.0.0")
 })
 
 test("a setting row carries the raw value, not just its label", () => {
-  const [, audio] = Model.settingRows("best", "dub", "1.0.0")
+  const [, audio] = Model.settingRows("best", "dub", "90", "1.0.0", "")
   assert.equal(audio.label, "dubbed")
   assert.equal(audio.value, "dub")
   assert.equal(Model.nextSetting(audio.key, audio.value), "sub")
@@ -803,8 +898,6 @@ test("a view with no label heads nothing rather than undefined", () => {
 })
 
 test("maps the control characters Qt reports for ctrl-d and ctrl-u", () => {
-  // PanelKeyCatcher forwards any single character to onTextKey without
-  // inspecting modifiers, so Ctrl-D arrives as the raw 0x04 byte.
   assert.equal(Model.normalizeKey("\u0004"), "ctrl+d")
   assert.equal(Model.normalizeKey("\u0015"), "ctrl+u")
 })
@@ -821,6 +914,108 @@ test("normalizes nothing to an empty string", () => {
 
 const ctx = { rowCount: 10, pageSize: 4 }
 const start = () => Model.initialKeyState()
+
+test("changing one setting keeps the rest and the module id", () => {
+  const source = { id: "old.id", quality: "best", mode: "sub", historyLimit: 8 }
+  assert.deepEqual(Model.withSetting(source, "io.github.fihuza.omani", "quality", "720"), {
+    id: "io.github.fihuza.omani",
+    quality: "720",
+    mode: "sub",
+    historyLimit: 8
+  })
+})
+
+test("a setting can be added to settings that do not carry it yet", () => {
+  assert.deepEqual(Model.withSetting({ id: "x" }, "x", "watched", "85"), { id: "x", watched: "85" })
+})
+
+test("absent settings still yield an entry the shell can store", () => {
+  assert.deepEqual(Model.withSetting(null, "x", "mode", "dub"), { id: "x", mode: "dub" })
+  assert.deepEqual(Model.withSetting(undefined, "x", "mode", "dub"), { id: "x", mode: "dub" })
+})
+
+test("changing a setting does not mutate the settings it was given", () => {
+  const source = { id: "x", quality: "best" }
+  Model.withSetting(source, "x", "quality", "360")
+  assert.deepEqual(source, { id: "x", quality: "best" })
+})
+
+test("every setting the panel cycles offers exactly what the manifest declares", () => {
+  const manifest = require("../manifest.json")
+  const declared = {}
+  for (const entry of manifest.barWidget.schema) {
+    if (entry.type === "enum") declared[entry.key] = entry.options
+  }
+
+  for (const [key, options] of Object.entries(declared)) {
+    const seen = []
+    let value = options[0]
+    do {
+      seen.push(value)
+      value = Model.nextSetting(key, value)
+    } while (value !== options[0] && seen.length <= options.length)
+    assert.deepEqual(seen, options, key + " cycles through the declared options, in order")
+  }
+
+  assert.deepEqual(
+    Object.keys(declared).sort(),
+    ["mode", "quality", "watched"],
+    "a new enum setting in the manifest needs a ring in Model.js"
+  )
+})
+
+test("a row still reads before any progress has been reported", () => {
+  const row = { kind: "playing", title: "A Episode 3", episode: "3", label: "" }
+  assert.equal(Model.rowLabel(row, null), "ep 3")
+  assert.equal(Model.rowLabel(row, undefined), "ep 3")
+})
+
+test("a history row carries what choosing it needs, not just a title", () => {
+  const raw = JSON.stringify({version: 1, series: {"a-1": {title: "A", episode: "7", position: 0, duration: 0, watched: [], updated: 1}}})
+  assert.deepEqual(Model.historyRows(raw, 1), [
+    { episode: "7", animeId: "a-1", title: "A", label: "ep 7" }
+  ])
+})
+
+test("one series is reported once however many records name it", () => {
+  const records = [
+    { pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" },
+    { pid: "2", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }
+  ]
+  const players = [{ title: "A Episode 1", position: 600, duration: 1400 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "a", episode: "1", position: 600, duration: 1400 }
+  ])
+})
+
+test("a row takes the first position reported for its title", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  const rows = Model.progressRows(records, [
+    { title: "A Episode 1", position: 100, duration: 1000 },
+    { title: "A Episode 1", position: 900, duration: 1000 }
+  ])
+  assert.equal(rows[0].clock, Model.elapsed(100, 1000))
+  assert.equal(rows[0].fraction, 0.1)
+})
+
+test("a playing row and a series row each carry their own icon", () => {
+  const view = Model.historyView(
+    [{ animeId: "b", title: "B", label: "ep 1" }],
+    [{ pid: "1", title: "A Episode 2", animeId: "a", episode: "2" }]
+  )
+  assert.equal(view[0].kind, "playing")
+  assert.equal(view[1].kind, "series")
+  assert.ok(view[0].icon, "a playing row has an icon")
+  assert.ok(view[1].icon, "a series row has an icon")
+  assert.notEqual(view[0].icon, view[1].icon, "the two are told apart by their icon")
+  assert.equal(view[0].label, "", "a playing row is labelled by the progress rows, not here")
+})
+
+test("a digit cancels a pending g rather than arming it further", () => {
+  const after = press(["g", "3"])
+  assert.equal(after.state.pendingG, false)
+  assert.equal(press(["g", "3", "g"]).state.index, 0, "the second g arms rather than jumping")
+})
 
 function press(keys, context = ctx, state = start()) {
   let command = null

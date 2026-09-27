@@ -15,7 +15,8 @@ STATE_DIR="${OMANI_STATE_DIR:-${XDG_RUNTIME_DIR:-/tmp}/omani}"
 PLAYERS_FILE="$STATE_DIR/players"
 
 HIST_FILE="${OMANI_HIST_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omani/history.json}"
-WATCHED_FRACTION=90
+WATCHED_FRACTION="${OMANI_WATCHED_FRACTION:-90}"
+[[ $WATCHED_FRACTION =~ ^([1-9][0-9]?|100)$ ]] || WATCHED_FRACTION=90
 
 QUALITY="${OMANI_QUALITY-best}"
 MODE="${OMANI_MODE:-sub}"
@@ -34,7 +35,7 @@ usage: omani <subcommand> [args]
   status                              JSON: dependencies and paths
   search <query>                      anime-id<TAB>title
   episodes <anime-id>                 episode-id<TAB>number
-  play <anime-id> <title> <episode>   resolve and start playback
+  play <id> <title> <episode> [start]  play it, from [start] or where it was left
   resume <anime-id>                   continue where the series was left off
   next <anime-id>                     play the episode after the one in history
   previous <anime-id>                 play the episode before the one in history
@@ -49,6 +50,8 @@ environment:
   OMANI_PLAYER       media player               (default: mpv)
   OMANI_QUALITY      best | worst | 1080 | ...  (empty means best)
   OMANI_MODE         sub | dub
+  OMANI_WATCHED_FRACTION
+                     percent of an episode that counts as watched (default: 90)
   OMANI_HIST_FILE    watch history (json)
   OMANI_DRY_RUN      non-empty: print what would run instead of running it
   OMANI_PROVIDER     the provider script                (default: bin/omani-provider)
@@ -67,9 +70,6 @@ history_parses() {
   [[ -f $HIST_FILE ]] && jq -e . "$HIST_FILE" >/dev/null 2>&1
 }
 
-# jq prints whatever it parsed before meeting something it cannot, so the file
-# is checked whole before any of it is used: half a document followed by the
-# fallback is two, and a write built on that leaves a history nothing can read.
 read_history() {
   if history_parses; then
     jq -e . "$HIST_FILE"
@@ -79,14 +79,13 @@ read_history() {
 }
 
 update_history() {
-  local tmp
+  local tmp dir
   [[ -f $HIST_FILE ]] && ! history_parses &&
     die "refusing to write over a history that is not valid json: $HIST_FILE"
-  mkdir -p "$(dirname "$HIST_FILE")"
-  # Beside the history rather than in TMPDIR: mv only renames within one
-  # filesystem, and everything that reads the history takes no lock -- it relies
-  # on never being handed half a file.
-  tmp=$(mktemp "$HIST_FILE.XXXXXX")
+  dir=$(dirname "$HIST_FILE")
+  mkdir -p "$dir" 2>/dev/null
+  [[ -w $dir ]] || die "cannot write the history in $dir"
+  tmp=$(mktemp "$HIST_FILE.XXXXXX" 2>/dev/null) || die "cannot write the history in $dir"
   (
     trap 'rm -f "$tmp"' EXIT
     flock -w 5 9 || die "could not take the history lock"
@@ -105,7 +104,7 @@ record_history() {
   # shellcheck disable=SC2016 # $id and friends are jq variables, bound by --arg
   update_history \
     --arg id "$id" --arg title "$title" --arg episode "$episode" \
-    --argjson now "$(date +%s)" '
+    --argjson now "$(date +%s%3N)" '
       .series[$id] = ((.series[$id] // {episodes: {}}) + {
         title: $title,
         episode: $episode,
@@ -121,54 +120,111 @@ record_progress() {
   update_history \
     --arg id "$id" --arg episode "$episode" \
     --argjson position "$position" --argjson duration "$duration" \
-    --argjson now "$(date +%s)" '
-      (.series[$id] // {title: "", episodes: {}}) as $entry
-      | .series[$id] = ($entry + {
-          updated: $now,
-          episodes: (($entry.episodes // {}) + {
-            ($episode): {position: $position, duration: $duration}
+    --argjson now "$(date +%s%3N)" '
+      if (.series[$id] | type) != "object" then . else
+        .series[$id] as $entry
+        | .series[$id] = ($entry + {
+            updated: $now,
+            episodes: (($entry.episodes | objects // {}) + {
+              ($episode): {position: $position, duration: $duration}
+            })
           })
-        })
+      end
     '
 }
 
+players_tmp() {
+  mkdir -p "$STATE_DIR" 2>/dev/null
+  [[ -d $STATE_DIR ]] || return 1
+  [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE" 2>/dev/null
+  mktemp "$PLAYERS_FILE.XXXXXX" 2>/dev/null
+}
+
 record_player() {
-  local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" tmp
-  mkdir -p "$STATE_DIR"
-  [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE"
-  tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
-  # A title reaches awk through the environment rather than -v, which expands
-  # escape sequences and would mangle a backslash in a series name.
-  title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
-    tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" >>"$tmp"
-  mv "$tmp" "$PLAYERS_FILE"
+  local pid="$1" title="$2" id="$3" episode="$4" qualities="${5:-}" started="${6:-}" tmp
+  tmp=$(players_tmp) || die "cannot write the player list in $STATE_DIR"
+  (
+    trap 'rm -f "$tmp"' EXIT
+    title="$title" awk -F'\t' 'NF >= 4 && $2 != ENVIRON["title"]' "$PLAYERS_FILE" |
+      tail -n "$((PLAYER_RECORD_CAP - 1))" >"$tmp"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$title" "$id" "$episode" "$qualities" "$started" >>"$tmp"
+    mv "$tmp" "$PLAYERS_FILE"
+  )
 }
 
 playing_episode() {
-  cmd_players | awk -F'\t' -v id="$1" '$3 == id { print $4; exit }'
+  cmd_players | id="$1" awk -F'\t' '$3 == ENVIRON["id"] { latest = $4 } END { if (latest != "") print latest }'
+}
+
+read_started_at() {
+  local stat fields
+  STARTED_AT=""
+  { read -r stat <"/proc/$1/stat"; } 2>/dev/null || return 0
+  stat=${stat#*") "}
+  # shellcheck disable=SC2206 # the stat line is split on its own spaces
+  fields=($stat)
+  [[ ${fields[0]} == Z ]] && return 0
+  STARTED_AT=${fields[19]}
+}
+
+split_record() {
+  local line=$1
+  RECORD=()
+  while [[ $line == *$'\t'* ]]; do
+    RECORD+=("${line%%$'\t'*}")
+    line=${line#*$'\t'}
+  done
+  RECORD+=("$line")
 }
 
 cmd_players() {
   [[ -f $PLAYERS_FILE ]] || return 0
-  local pid rest
-  while IFS=$'\t' read -r pid rest; do
-    [[ $pid =~ ^[0-9]+$ ]] || continue
-    kill -0 "$pid" 2>/dev/null || continue
-    printf '%s\t%s\n' "$pid" "$rest"
+  local line
+  while IFS= read -r line; do
+    split_record "$line"
+    [[ ${RECORD[0]:-} =~ ^[0-9]+$ && -n ${RECORD[1]:-} && -n ${RECORD[2]:-} && -n ${RECORD[3]:-} ]] || continue
+    read_started_at "${RECORD[0]}"
+    [[ -n $STARTED_AT ]] || continue
+    [[ -n ${RECORD[5]:-} && ${RECORD[5]} != "$STARTED_AT" ]] && continue
+    printf '%s\t%s\t%s\t%s\t%s\n' "${RECORD[0]}" "${RECORD[1]}" "${RECORD[2]}" "${RECORD[3]}" "${RECORD[4]:-}"
   done <"$PLAYERS_FILE"
+}
+
+process_gone() {
+  [[ $1 =~ ^[0-9]+$ ]] || return 0
+  read_started_at "$1"
+  [[ -z $STARTED_AT ]]
+}
+
+end_players() {
+  local pid waited=0 alive
+  while ((waited < 40)); do
+    alive=""
+    for pid in $1; do
+      process_gone "$pid" || alive=yes
+    done
+    [[ -z $alive ]] && return 0
+    if ((waited == 20)); then
+      for pid in $1; do
+        process_gone "$pid" || kill -9 "$pid" 2>/dev/null
+      done
+    fi
+    sleep 0.05
+    waited=$((waited + 1))
+  done
 }
 
 cmd_stop() {
   local target="${1:-all}"
   [[ -f $PLAYERS_FILE ]] || return 0
 
-  local pids
+  local live pids
+  live=$(cmd_players)
   if [[ $target == "all" ]]; then
-    pids=$(cut -f1 "$PLAYERS_FILE")
+    pids=$(cut -f1 <<<"$live")
   else
     pids=$(target="$target" awk -F'\t' \
-      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"] || $3 == ENVIRON["target"]) { print $1 }' "$PLAYERS_FILE")
+      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"] || $3 == ENVIRON["target"]) { print $1 }' <<<"$live")
   fi
   [[ -n $pids ]] || return 0
 
@@ -177,24 +233,33 @@ cmd_stop() {
     return 0
   fi
 
-  local pid tmp
+  local pid tmp gone=""
   for pid in $pids; do
     [[ $pid =~ ^[0-9]+$ ]] && kill "$pid" 2>/dev/null
   done
-  tmp=$(mktemp "$PLAYERS_FILE.XXXXXX")
-  awk -F'\t' -v list="$pids" '
-    BEGIN { n = split(list, k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
-    !dead[$1]
-  ' "$PLAYERS_FILE" >"$tmp"
-  mv "$tmp" "$PLAYERS_FILE"
+  end_players "$pids"
+  for pid in $pids; do
+    process_gone "$pid" && gone+="$pid"$'\n'
+  done
+  tmp=$(players_tmp) || die "cannot write the player list in $STATE_DIR"
+  (
+    trap 'rm -f "$tmp"' EXIT
+    list="$gone" awk -F'\t' '
+      BEGIN { n = split(ENVIRON["list"], k, "\n"); for (i = 1; i <= n; i++) dead[k[i]] = 1 }
+      !dead[$1]
+    ' "$PLAYERS_FILE" >"$tmp"
+    mv "$tmp" "$PLAYERS_FILE"
+  )
 }
 
 cmd_play() {
-  local id="${1:-}" title="${2:-}" episode="${3:-}" start="${4:-0}"
+  local id="${1:-}" title="${2:-}" episode="${3:-}" start="${4:-}"
   [[ -n $id && -n $title && -n $episode ]] || die "usage: omani play <anime-id> <title> <episode> [start-seconds]"
+  [[ -n $start ]] || start=$(episode_start "$(entry_for "$id" || printf '{}')" "$episode")
   [[ $start =~ ^[0-9]+$ ]] || die "start must be whole seconds"
 
   title=${title//$'\t'/ }
+  title=${title//$'\n'/ }
 
   local stream url referrer subtitles
   stream=$("$PROVIDER" stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
@@ -204,24 +269,24 @@ cmd_play() {
   local qualities
   qualities=$(awk -F'\t' '$1 == "qualities" { print $2 }' <<<"$stream")
   [[ -n $url ]] || die "no playable source for episode $episode"
+  [[ $url == https://* || $url == http://* ]] || die "not a playable source: $url"
+  [[ -z $subtitles || $subtitles == https://* || $subtitles == http://* ]] || subtitles=""
 
   cmd_stop "$id"
 
   local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
   [[ -n $subtitles ]] && args+=("--sub-file=$subtitles")
   ((start > 0)) && args+=("--start=$start")
-  args+=("$url")
+  args+=(-- "$url")
 
   if dry; then
     printf '%s\n' "${args[*]}"
     return 0
   fi
 
-  mkdir -p "$STATE_DIR"
-  # Launched directly rather than through setsid --fork, whose pid belongs to a
-  # wrapper that exits at once: the record has to name the player itself.
   "${args[@]}" </dev/null >/dev/null 2>&1 &
-  record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities"
+  read_started_at "$!"
+  record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities" "$STARTED_AT"
   disown
 
   record_history "$episode" "$id" "$title"
@@ -230,10 +295,32 @@ cmd_play() {
 neighbour_episode() {
   local current="$1" side="$2" episodes="$3"
   if [[ $side == after ]]; then
-    awk -F'\t' -v w="$current" 'seen { print $2; exit } $2 == w { seen = 1 }' <<<"$episodes"
+    current="$current" awk -F'\t' 'seen { print $2; exit } $2 == ENVIRON["current"] { seen = 1 }' <<<"$episodes"
   else
-    awk -F'\t' -v w="$current" '$2 == w { print previous; exit } { previous = $2 }' <<<"$episodes"
+    current="$current" awk -F'\t' '$2 == ENVIRON["current"] { print previous; exit } { previous = $2 }' <<<"$episodes"
   fi
+}
+
+episode_field() {
+  # shellcheck disable=SC2016 # $ep and $f are jq variables, bound by --arg
+  jq -r --arg ep "$2" --arg f "$3" '((.episodes? // {})[$ep]?[$f]? | numbers) // 0' <<<"$1"
+}
+
+seconds_or_zero() {
+  [[ $1 =~ ^[0-9]+$ ]] && printf '%s\n' "$1" && return 0
+  printf '0\n'
+}
+
+episode_watched() {
+  local position duration
+  position=$(seconds_or_zero "$(episode_field "$1" "$2" position)")
+  duration=$(seconds_or_zero "$(episode_field "$1" "$2" duration)")
+  ((duration > 0 && position * 100 >= duration * WATCHED_FRACTION))
+}
+
+episode_start() {
+  episode_watched "$1" "$2" && printf '0\n' && return 0
+  seconds_or_zero "$(episode_field "$1" "$2" position)"
 }
 
 cmd_resume() {
@@ -242,16 +329,12 @@ cmd_resume() {
   local entry
   entry=$(entry_for "$id") || die "'$id' is not in history"
 
-  local title episode position duration
+  local title episode
   title=$(jq -r '.title' <<<"$entry")
   episode=$(jq -r '.episode' <<<"$entry")
-  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
-  position=$(jq -r --arg ep "$episode" '.episodes[$ep].position // 0' <<<"$entry")
-  # shellcheck disable=SC2016 # $ep is a jq variable, bound by --arg
-  duration=$(jq -r --arg ep "$episode" '.episodes[$ep].duration // 0' <<<"$entry")
 
-  if ((duration == 0 || position * 100 < duration * WATCHED_FRACTION)); then
-    cmd_play "$id" "$title" "$episode" "$position"
+  if ! episode_watched "$entry" "$episode"; then
+    cmd_play "$id" "$title" "$episode" "$(episode_start "$entry" "$episode")"
     return
   fi
 
@@ -279,7 +362,7 @@ cmd_step() {
   target=$(neighbour_episode "$current" "$side" "$episodes")
   [[ -n $target ]] || die "no episode $side $current of $title"
 
-  cmd_play "$id" "$title" "$target"
+  cmd_play "$id" "$title" "$target" "$(episode_start "$entry" "$target")"
 }
 
 mpris_present() {
@@ -365,7 +448,8 @@ cmd_history_clear() {
     printf 'truncate %s\n' "$HIST_FILE"
     return 0
   fi
-  cp "$HIST_FILE" "$HIST_FILE.bak"
+  cp "$HIST_FILE" "$HIST_FILE.bak" 2>/dev/null ||
+    die "refusing to clear a history that cannot be backed up: $HIST_FILE.bak"
   update_history '{version: 1, series: {}}'
 }
 

@@ -53,7 +53,8 @@ var BACK_FROM = {
   quality: "player"
 }
 
-function backFrom(view) {
+function backFrom(view, openedFrom) {
+  if (view === "episodes" && openedFrom) return openedFrom
   return BACK_FROM[view] || "close"
 }
 
@@ -97,10 +98,11 @@ function progressReports(records, players) {
   return reports
 }
 
-function livePlayers(records, liveTitles) {
+function livePlayers(records, liveTitles, livePids) {
   var live = []
   for (var i = 0; i < records.length; i++) {
     if (liveTitles.indexOf(records[i].title) === -1) continue
+    if (livePids && livePids.indexOf(records[i].pid) === -1) continue
     live.push(records[i])
   }
   return live
@@ -113,8 +115,12 @@ function launchPids(players) {
   })
 }
 
-function launchDone(tracking, players, before) {
-  if (!tracking) return true
+function noticeOnOpen(notice, unseen) {
+  return unseen ? String(notice || "") : ""
+}
+
+function launchDone(tracking, players, before, waitedTooLong) {
+  if (!tracking || waitedTooLong) return true
   var running = players || []
   var started = before || []
   for (var i = 0; i < running.length; i++) {
@@ -299,7 +305,17 @@ function nextInRing(values, current) {
   return values[(at + 1) % values.length]
 }
 
-var RINGS = { quality: QUALITIES, mode: MODES }
+var WATCHED = ["80", "85", "90", "95"]
+
+var RINGS = { quality: QUALITIES, mode: MODES, watched: WATCHED }
+
+function withSetting(source, moduleName, key, value) {
+  var entry = { id: moduleName }
+  for (var existing in source)
+    if (existing !== "id") entry[existing] = source[existing]
+  entry[key] = value
+  return entry
+}
 
 function nextSetting(key, current) {
   var ring = RINGS[key]
@@ -339,16 +355,19 @@ function settingChange(row) {
 }
 
 
-function settingRows(quality, mode, version, repo) {
+function settingRows(quality, mode, watched, version, repo) {
   return [
     { key: "quality", value: quality, title: "Quality", label: quality, link: "" },
     { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed", link: "" },
-    { key: "version", value: version, title: "Version", label: version, link: repo || "" }
+    { key: "watched", value: watched, title: "Counts as watched", label: watched + "%", link: "" },
+    { key: "version", value: version, title: "Version", label: version, link: repo || "" },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" }
   ]
 }
 
 function settingAction(row) {
   if (!row) return null
+  if (row.key === "clear") return { type: "clear" }
   if (row.link) return { type: "open", url: row.link }
   var change = settingChange(row)
   return change ? { type: "set", key: change.key, value: change.value } : null
@@ -600,6 +619,7 @@ if (typeof module !== "undefined") {
     progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
     launchPids: launchPids,
+    noticeOnOpen: noticeOnOpen,
     launchDone: launchDone,
     resumeTarget: resumeTarget,
     rowLabel: rowLabel,
@@ -609,12 +629,12 @@ if (typeof module !== "undefined") {
     seriesOf: seriesOf,
     episodeOf: episodeOf,
     historyView: historyView,
-    playingLabel: playingLabel,
     startIndex: startIndex,
     historyEntry: historyEntry,
     historyRows: historyRows,
     scrollTarget: scrollTarget,
     shortcuts: shortcuts,
+    withSetting: withSetting,
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,

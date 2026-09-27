@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.fihuza.omani",
   "name": "Omani",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "fihuza",
   "license": "GPL-3.0-or-later",
   "description": "Watch anime from the Omarchy bar — search, continue watching and play, with vim motions.",
@@ -21,7 +21,8 @@
     "defaults": {
       "historyLimit": 8,
       "quality": "best",
-      "mode": "sub"
+      "mode": "sub",
+      "watched": "90"
     },
     "schema": [
       {
@@ -48,6 +49,19 @@
           "worst"
         ],
         "defaultValue": "best"
+      },
+      {
+        "key": "watched",
+        "type": "enum",
+        "label": "Counts as watched",
+        "description": "How far into an episode counts as finished, so continuing moves on to the next.",
+        "options": [
+          "80",
+          "85",
+          "90",
+          "95"
+        ],
+        "defaultValue": "90"
       },
       {
         "key": "mode",

@@ -23,11 +23,13 @@ Panel {
     readonly property bool busy: service ? service.busy : false
     readonly property bool launching: service ? service.launching : false
     property string notice: ""
+    property bool noticeUnseen: false
 
     Connections {
         target: root.service
         function onFailed(message) {
             root.notice = message;
+            root.noticeUnseen = !root.opened;
         }
         function onLaunchingChanged() {
             if (root.service.launching)
@@ -54,6 +56,7 @@ Panel {
     readonly property string seriesTitle: service ? service.selectedTitle : ""
     readonly property string quality: service ? service.quality : "best"
     readonly property string mode: service ? service.mode : "sub"
+    readonly property string watched: service ? service.watched : "90"
 
     readonly property color foreground: bar ? bar.foreground : Color.foreground
     readonly property color dim: Qt.darker(foreground, 1.55)
@@ -66,17 +69,12 @@ Panel {
             "history": service ? Model.historyView(service.rows, service.players) : [],
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
-            "settings": service ? Model.settingRows(root.quality, root.mode, service.version, service.repo) : [],
+            "settings": service ? Model.settingRows(root.quality, root.mode, root.watched, service.version, service.repo) : [],
             "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
-    readonly property var keyContext: ({
-            rowCount: rows.length,
-            pageSize: root.pageSize
-        })
-
     readonly property var headings: ({
             "history": "Continue watching",
             "results": "Results",
@@ -120,6 +118,9 @@ Panel {
         })
 
     readonly property var settingActions: ({
+            "clear": function () {
+                confirmClear.opened = true;
+            },
             "open": function (action) {
                 root.service.openLink(action.url);
             },
@@ -154,9 +155,7 @@ Panel {
             },
             "select": function () {
                 root.service.openSeries(root.service.playingId, root.service.playingSeries);
-                root.view = "episodes";
-                root.keyState = Model.initialKeyState();
-                root.cursorActive = false;
+                root.setView("episodes");
             },
             "quality": function () {
                 root.setView("quality");
@@ -202,7 +201,10 @@ Panel {
             }
         })
 
+    property string openedFrom: ""
+
     function setView(next) {
+        openedFrom = view;
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;
@@ -215,7 +217,7 @@ Panel {
         })
 
     function goBack() {
-        var next = Model.backFrom(view);
+        var next = Model.backFrom(view, openedFrom);
         var action = backActions[next];
         if (action)
             action();
@@ -226,7 +228,10 @@ Panel {
     function dispatch(key) {
         if (key === "" || !service)
             return;
-        var result = Model.reduceKey(keyState, key, keyContext);
+        var result = Model.reduceKey(keyState, key, {
+            rowCount: rows.length,
+            pageSize: pageSize
+        });
         keyState = result.state;
         if (!result.command)
             return;
@@ -309,13 +314,7 @@ Panel {
 
     function applySetting(key, value) {
         var source = service ? service.settings : root.settings;
-        var entry = {
-            id: root.moduleName
-        };
-        for (var existing in source)
-            if (existing !== "id")
-                entry[existing] = source[existing];
-        entry[key] = value;
+        var entry = Model.withSetting(source, root.moduleName, key, value);
         root.settings = entry;
         if (service)
             service.settings = entry;
@@ -324,16 +323,13 @@ Panel {
     }
 
     onOpenedChanged: {
-        if (!opened) {
-            searchField.text = "";
-            notice = "";
-            if (service)
-                service.results = [];
-            setView("history");
+        if (!opened || !service)
             return;
-        }
-        if (!service)
-            return;
+        searchField.text = "";
+        notice = Model.noticeOnOpen(notice, noticeUnseen);
+        noticeUnseen = false;
+        service.results = [];
+        setView("history");
         service.refresh();
         var adopt = Model.adoptable(service.players, service.playingId);
         if (adopt)
@@ -408,17 +404,6 @@ Panel {
                                 spacing: Style.space(4)
 
                                 Button {
-                                    iconText: "󰒓"
-                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
-                                    foreground: root.foreground
-                                    fontFamily: root.fontFamily
-                                    iconSize: Style.font.subtitle * 1.5
-                                    horizontalPadding: Style.space(5)
-                                    verticalPadding: Style.space(2)
-                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
-                                }
-
-                                Button {
                                     iconText: "󰌌"
                                     tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
                                     foreground: root.foreground
@@ -430,14 +415,14 @@ Panel {
                                 }
 
                                 Button {
-                                    iconText: "󰃢"
-                                    tooltipText: "Clear history (c)"
+                                    iconText: "󰒓"
+                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     iconSize: Style.font.subtitle * 1.5
                                     horizontalPadding: Style.space(5)
                                     verticalPadding: Style.space(2)
-                                    onClicked: confirmClear.opened = true
+                                    onClicked: root.setView(root.view === "settings" ? "history" : "settings")
                                 }
                             }
                         }
