@@ -186,12 +186,15 @@ cmd_stop() {
   local target="${1:-all}"
   [[ -f $PLAYERS_FILE ]] || return 0
 
-  local pids
+  # Stopping reads the same list players prints, so a record whose pid the
+  # kernel has since handed to something else is never acted on.
+  local live pids
+  live=$(cmd_players)
   if [[ $target == "all" ]]; then
-    pids=$(cut -f1 "$PLAYERS_FILE")
+    pids=$(cut -f1 <<<"$live")
   else
     pids=$(target="$target" awk -F'\t' \
-      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"] || $3 == ENVIRON["target"]) { print $1 }' "$PLAYERS_FILE")
+      'NF >= 4 && ($1 == ENVIRON["target"] || $2 == ENVIRON["target"] || $3 == ENVIRON["target"]) { print $1 }' <<<"$live")
   fi
   [[ -n $pids ]] || return 0
 

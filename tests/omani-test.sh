@@ -694,6 +694,21 @@ t_stop_by_id_leaves_other_series_alone() {
   assert_lacks "$out" "$naruto"
 }
 
+t_stop_leaves_a_pid_that_is_no_longer_its_player() {
+  # players already refuses a record whose pid started at another moment; stop
+  # would still have killed whatever holds it now.
+  sleep 60 &
+  local victim=$!
+  printf '%s\n' "$victim" >>"$WORK/spawned"
+  mkdir -p "$OMANI_STATE_DIR"
+  printf '%s\tImpostor Episode 1\timpostor-1\t1\t\t1\n' "$victim" >>"$OMANI_STATE_DIR/players"
+  assert_contains "$(cat "$OMANI_STATE_DIR/players")" "impostor-1"
+  OMANI_DRY_RUN='' "$OMANI" stop impostor-1
+  sleep 0.2
+  still_running "$victim" || fail "$current" "stop killed a process the record no longer names"
+  kill "$victim" 2>/dev/null
+}
+
 t_stop_matches_a_title_holding_a_backslash() {
   local pid
   pid=$(live_player 'A\D Episode 1' tricky-3 1)
@@ -719,6 +734,17 @@ t_stop_forgets_the_player_it_stopped() {
   left=$(cat "$OMANI_STATE_DIR/players")
   assert_contains "$left" "Naruto"
   assert_lacks "$left" "Frieren"
+}
+
+t_a_record_whose_player_is_gone_is_pruned_by_the_next_one() {
+  local first
+  first=$(live_player "Frieren Episode 3" frieren-1 3)
+  kill "$first" 2>/dev/null
+  wait_until_gone "$first"
+  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play naruto-2 "Naruto" 9
+  cut -f1 "$OMANI_STATE_DIR/players" >>"$WORK/spawned"
+  assert_eq "$("$OMANI" players | wc -l)" "1"
+  assert_contains "$("$OMANI" players)" "Naruto Episode 9"
 }
 
 t_stop_an_unknown_player_is_not_an_error() {
@@ -952,9 +978,11 @@ check "stop targets one player by pid" t_stop_targets_one_player_by_pid
 check "stop targets one player by title" t_stop_targets_one_player_by_title
 check "stop targets a series by its id" t_stop_targets_a_series_by_its_id
 check "stop by id leaves another series playing" t_stop_by_id_leaves_other_series_alone
+check "stop leaves a pid that is no longer its player" t_stop_leaves_a_pid_that_is_no_longer_its_player
 check "stop matches a title holding a backslash" t_stop_matches_a_title_holding_a_backslash
 check "stop all targets every player" t_stop_all_targets_every_player
 check "stop forgets the player it stopped" t_stop_forgets_the_player_it_stopped
+check "a record whose player is gone is pruned by the next one" t_a_record_whose_player_is_gone_is_pruned_by_the_next_one
 check "stopping an unknown player is not an error" t_stop_an_unknown_player_is_not_an_error
 check "stopping with no players is not an error" t_stop_without_any_player_is_not_an_error
 check "forget drops one series and leaves the rest" t_forget_drops_one_series
