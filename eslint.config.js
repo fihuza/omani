@@ -93,6 +93,25 @@ module.exports = [
     ignores: ["priv/**", "tests/fixtures/**"]
   },
   {
+    // Everything, so a javascript file added tomorrow is linted without anyone
+    // remembering to list it. A file matching no block is parsed and then left
+    // unchecked, which reads as a pass.
+    files: ["**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "writable",
+        console: "readonly",
+        process: "readonly",
+        __dirname: "readonly"
+      }
+    },
+    linterOptions,
+    rules: Object.assign({}, rules, { "no-implicit-globals": "error" })
+  },
+  {
     // Model.js loads in Qt's javascript engine and in node, from one file, so it
     // is a script rather than a module. The ceiling is ES2015: the bar glyphs
     // are code-point escapes, which ES5 cannot parse, and syntax newer than that
@@ -108,22 +127,12 @@ module.exports = [
       globals: { module: "writable" }
     },
     linterOptions,
-    rules: rules
+    rules: Object.assign({}, rules, { "no-implicit-globals": "off" })
   },
   {
+    // The suite can omit a caught error's binding, so an unused one is a
+    // leftover rather than the language giving no choice.
     files: ["tests/**/*.js", "eslint.config.js"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "commonjs",
-      globals: {
-        require: "readonly",
-        module: "writable",
-        console: "readonly",
-        process: "readonly",
-        __dirname: "readonly"
-      }
-    },
-    linterOptions,
-    rules: Object.assign({}, rules, { "no-implicit-globals": "error" })
+    rules: { "no-unused-vars": ["error", { args: "after-used", caughtErrors: "all" }] }
   }
 ];
