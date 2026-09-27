@@ -4,7 +4,7 @@ Watch anime from the Omarchy bar. Search, resume what you are part-way through,
 and follow a series without leaving the panel — all keyboard-driven, with vim
 motions. Inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 
-![Searching for a series from the bar, playing an episode in mpv, and stepping through the player menu](demo.gif)
+![Searching for a series from the bar, playing an episode in mpv, and stepping through the player menu](priv/demo.gif)
 
 ## Install
 
@@ -60,7 +60,7 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 Choosing a series from **Continue watching** starts the episode you are on, at
 the second you stopped, and opens its menu:
 
-![The player menu: pause, next episode, replay, previous episode, select episode, change quality and stop, above a bar showing how far into the episode it is](controls.png)
+![The player menu: pause, next episode, replay, previous episode, select episode, change quality and stop, above a bar showing how far into the episode it is](priv/controls.png)
 
 The menu carries a bar for the episode it controls: how far in it is, and
 dimmed while it is paused.
@@ -92,7 +92,7 @@ Settings live in the widget's entry in `~/.config/omarchy/shell.json`. Press
 `s`, or the gear in the header, to change them without leaving the panel. All
 of them hot-reload.
 
-![The settings view: quality, audio, counts as watched, the version, and clear watch history](settings.png)
+![The settings view: quality, audio, counts as watched, the version, and clear watch history](priv/settings.png)
 
 Everything but `historyLimit` is editable from the panel; that one is set in
 `shell.json`.
