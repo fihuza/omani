@@ -196,8 +196,6 @@ process_gone() {
   [[ -z $STARTED_AT ]]
 }
 
-# A player asked to close and still running is a player that will never be
-# listed again once its record goes, so it is insisted on rather than forgotten.
 end_players() {
   local pid waited=0 alive
   while ((waited < 40)); do

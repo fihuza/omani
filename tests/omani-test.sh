@@ -806,13 +806,7 @@ t_stop_ends_a_player_that_ignores_being_asked() {
 
   OMANI_DRY_RUN='' "$OMANI" stop stubborn-1 >/dev/null 2>&1
 
-  # kill -0 answers yes for a zombie, so the state is what says it is over.
-  local stat fields
-  if stat=$(cat "/proc/$pid/stat" 2>/dev/null); then
-    stat=${stat#*") "}
-    read -ra fields <<<"$stat"
-    [[ ${fields[0]} == Z ]] || fail "$current" "the player ignored the stop and is still running"
-  fi
+  still_running "$pid" && fail "$current" "the player ignored the stop and is still running"
   assert_lacks "$(cat "$OMANI_STATE_DIR/players")" "Stubborn Episode 1"
 }
 

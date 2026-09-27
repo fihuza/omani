@@ -137,7 +137,10 @@ external command it can invoke is listed here.
 | `mpv` | playback | Omarchy's base packages |
 | `jq` | the watch history, the embed payload, status | Omarchy's base packages |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
-| `awk`, `sed`, `base64`, `od`, `mktemp` | parsing, history, deobfuscation | base system |
+| `awk`, `sed`, `grep`, `tr`, `cut`, `sort`, `head`, `tail`, `cat` | parsing the provider's pages and the plugin's own records | base system |
+| `base64`, `od` | decoding the embed payload | `coreutils` |
+| `mktemp`, `cp`, `mv`, `rm`, `mkdir`, `dirname`, `basename` | writing the watch history and the player list | `coreutils` |
+| `date`, `sleep` | timestamping a history entry, and waiting for a player to close | `coreutils` |
 | `flock` | serialising writes to the watch history | `util-linux`, required by `base` |
 | `omarchy-launch-browser` | opening this repository from the settings | Omarchy |
 
