@@ -204,7 +204,7 @@ Panel {
             }
         })
 
-    readonly property int wheelRows: 3
+    readonly property int wheelRows: 5
 
     property var viewStack: ["history"]
 
@@ -564,6 +564,7 @@ Panel {
                             if (event.angleDelta.y === 0)
                                 return;
                             panelFlick.contentY = Model.wheelTarget(panelFlick.contentY, event.angleDelta.y * root.wheelRows, panelFlick.contentHeight, panelFlick.height);
+                            event.accepted = true;
                         }
                     }
 

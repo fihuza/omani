@@ -44,10 +44,10 @@ function progressLabel(row) {
   return "ep " + row.episode + " \u00b7 " + percent + "%"
 }
 
-var OVERLAY = { settings: true, shortcuts: true, quality: true }
+var SEARCHABLE = { history: true, results: true }
 
 function searchable(view) {
-  return !OVERLAY[view] && view !== "player"
+  return SEARCHABLE[view] === true
 }
 
 function pushView(stack, next) {

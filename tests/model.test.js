@@ -1267,7 +1267,8 @@ test("slash still moves nothing, so the cursor is where it was", () => {
 test("the views with a search field are the ones that list something to search", () => {
   assert.equal(Model.searchable("history"), true)
   assert.equal(Model.searchable("results"), true)
-  assert.equal(Model.searchable("episodes"), true)
+  assert.equal(Model.searchable("episodes"), false,
+    "the episode list is a list of episodes; the field above it searches anime")
   assert.equal(Model.searchable("player"), false)
   assert.equal(Model.searchable("settings"), false)
   assert.equal(Model.searchable("shortcuts"), false)
