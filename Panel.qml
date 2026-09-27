@@ -16,7 +16,6 @@ Panel {
     property var service: null
 
     property string view: "history"
-    property string replaceTarget: ""
     property var keyState: Model.initialKeyState()
     property bool cursorActive: false
 
@@ -100,8 +99,7 @@ Panel {
                 root.setView("episodes");
             },
             "episodes": function (i) {
-                root.service.play(root.service.selectedId, root.service.selectedTitle, root.rows[i].number, root.replaceTarget);
-                root.replaceTarget = "";
+                root.service.play(root.service.selectedId, root.service.selectedTitle, root.rows[i].number);
                 root.showPlayer();
             },
             "quality": function (i) {
@@ -145,7 +143,6 @@ Panel {
                 root.service.playPrevious();
             },
             "select": function () {
-                root.replaceTarget = Model.replaces("player", root.service.playingTitle);
                 root.service.openSeries(root.service.playingId, root.service.playingSeries);
                 root.view = "episodes";
                 root.keyState = Model.initialKeyState();
@@ -196,8 +193,6 @@ Panel {
         })
 
     function setView(next) {
-        if (next === "history")
-            replaceTarget = "";
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;

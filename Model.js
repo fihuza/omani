@@ -58,13 +58,6 @@ function backFrom(view) {
   return BACK_FROM[view] || "close"
 }
 
-// Following a series replaces what is on screen; starting one from the watch
-// history adds to it. Decided here so no path into the player menu can forget.
-function replaces(view, playingTitle) {
-  if (view !== "player" && view !== "episodes") return ""
-  return playingTitle || ""
-}
-
 function playerRecords(raw) {
   if (!raw) return []
   var records = []
@@ -166,14 +159,6 @@ function episodeOf(players, animeId, fallback) {
     if (players[i].animeId === animeId) return String(players[i].episode)
   }
   return remembered(fallback)
-}
-
-function playingTitleOf(players, animeId) {
-  if (!animeId) return ""
-  for (var i = 0; i < players.length; i++) {
-    if (players[i].animeId === animeId) return players[i].title
-  }
-  return ""
 }
 
 function isPlayingSeries(players, animeId) {
@@ -587,12 +572,10 @@ if (typeof module !== "undefined") {
     watchedFraction: watchedFraction,
     progressLabel: progressLabel,
     backFrom: backFrom,
-    replaces: replaces,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     progressReports: progressReports,
     isPlayingSeries: isPlayingSeries,
-    playingTitleOf: playingTitleOf,
     launchedPlayer: launchedPlayer,
     adoptable: adoptable,
     qualitiesOf: qualitiesOf,

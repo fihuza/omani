@@ -25,21 +25,6 @@ test("going back from the history closes the panel", () => {
   assert.equal(Model.backFrom("nonsense"), "close")
 })
 
-test("following a series replaces the episode on screen", () => {
-  assert.equal(Model.replaces("player", "A Episode 1"), "A Episode 1")
-  assert.equal(Model.replaces("episodes", "A Episode 1"), "A Episode 1")
-})
-
-test("starting from the watch history adds a player instead", () => {
-  assert.equal(Model.replaces("history", "A Episode 1"), "")
-  assert.equal(Model.replaces("results", "A Episode 1"), "")
-})
-
-test("with nothing playing there is nothing to replace", () => {
-  assert.equal(Model.replaces("player", ""), "")
-  assert.equal(Model.replaces("episodes", undefined), "")
-})
-
 test("player records are read back with every field", () => {
   const [record] = Model.playerRecords("4242\tNaruto Episode 79\tnaruto-1335\t79\t1080 720\n")
   assert.deepEqual(record, { pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79", qualities: "1080 720" })
@@ -149,20 +134,6 @@ test("with no matching player the remembered value is used", () => {
 test("nothing known leaves the label empty rather than undefined", () => {
   assert.equal(Model.seriesOf([], "", ""), "")
   assert.equal(Model.episodeOf([], "", null), "")
-})
-
-test("a series already playing names the player to replace", () => {
-  const players = [
-    { pid: "1", title: "Other Episode 2", animeId: "other", episode: "2" },
-    { pid: "2", title: "Naruto Episode 8", animeId: "naruto-1335", episode: "8" }
-  ]
-  assert.equal(Model.playingTitleOf(players, "naruto-1335"), "Naruto Episode 8")
-})
-
-test("a series not playing names nothing to replace", () => {
-  assert.equal(Model.playingTitleOf([{ animeId: "other", title: "Other Episode 2" }], "naruto-1335"), "")
-  assert.equal(Model.playingTitleOf([], "naruto-1335"), "")
-  assert.equal(Model.playingTitleOf([{ animeId: "a", title: "A" }], ""), "")
 })
 
 test("a series is playing when a live player carries its id", () => {

@@ -107,8 +107,8 @@ Item {
         return Math.max(min, Math.min(max, n));
     }
 
-    function command(args, replacing, qualityOverride) {
-        return ["env", "OMANI_QUALITY=" + (qualityOverride || quality), "OMANI_MODE=" + mode, "OMANI_REPLACE=" + (replacing || ""), scriptPath].concat(args);
+    function command(args, qualityOverride) {
+        return ["env", "OMANI_QUALITY=" + (qualityOverride || quality), "OMANI_MODE=" + mode, scriptPath].concat(args);
     }
 
     function refresh() {
@@ -190,7 +190,7 @@ Item {
         episodesProcess.running = true;
     }
 
-    function play(id, title, episode, replacing) {
+    function play(id, title, episode) {
         if (!ready || launching)
             return;
         beginLaunch();
@@ -199,7 +199,7 @@ Item {
         playingSeries = String(title);
         playingEpisode = String(episode);
         playingTitle = title + " Episode " + episode;
-        launch(command(["play", id, title, String(episode)], replacing));
+        launch(command(["play", id, title, String(episode)]));
     }
 
     function resume(row) {
@@ -211,7 +211,7 @@ Item {
         playingSeries = String(row.title);
         playingEpisode = "";
         playingTitle = "";
-        launch(command(["resume", row.animeId], Model.playingTitleOf(players, row.animeId)));
+        launch(command(["resume", row.animeId]));
     }
 
     function playNext() {
@@ -222,18 +222,14 @@ Item {
         step("previous");
     }
 
-    // The episode being left is always the one the menu was opened for, so the
-    // replacement target is captured here rather than tracked as panel state
-    // that a path into the menu could forget to set.
     function step(action) {
         if (!ready || playingId === "" || launching)
             return;
         beginLaunch();
         playingQuality = "";
-        var replacing = playingTitle;
         playingEpisode = "";
         playingTitle = "";
-        launch(command([action, playingId], replacing));
+        launch(command([action, playingId]));
     }
 
     // Per play: it goes into the command, never into the stored settings.
@@ -246,16 +242,15 @@ Item {
         var episode = Model.episodeOf(players, playingId, playingEpisode);
         if (series === "" || episode === "")
             return;
-        var replacing = playingTitle;
         beginLaunch();
         playingQuality = String(value);
-        launch(command(["play", playingId, series, episode], replacing, playingQuality));
+        launch(command(["play", playingId, series, episode], playingQuality));
     }
 
     function replayCurrent() {
         if (!ready || playingId === "")
             return;
-        play(playingId, playingSeries, playingEpisode, playingTitle);
+        play(playingId, playingSeries, playingEpisode);
     }
 
     function stop() {

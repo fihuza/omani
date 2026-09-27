@@ -463,48 +463,33 @@ t_stop_closes_the_player() {
   wait_until_gone "$pid" || fail "$current" "player $pid survived stop"
 }
 
-t_resume_replaces_a_player_of_the_same_series() {
+t_resume_closes_the_player_the_series_already_has() {
   OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 2
   local first
   first=$(cut -f1 "$OMANI_STATE_DIR/players")
   printf '%s\n' "$first" >>"$WORK/spawned"
 
-  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" OMANI_REPLACE="Frieren Episode 2" \
-    "$OMANI" resume frieren-1
+  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" resume frieren-1
   cut -f1 "$OMANI_STATE_DIR/players" >>"$WORK/spawned"
 
   wait_until_gone "$first" || fail "$current" "the player of the same series is still running"
   assert_eq "$("$OMANI" players | wc -l)" "1"
 }
 
-t_a_replacing_play_closes_the_one_it_replaces() {
+t_one_player_per_series_whoever_asks() {
   OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 1
   local first
   first=$(cut -f1 "$OMANI_STATE_DIR/players")
   printf '%s\n' "$first" >>"$WORK/spawned"
 
-  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" OMANI_REPLACE="Frieren Episode 1" \
-    "$OMANI" play frieren-1 "Frieren" 2
+  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 2
   cut -f1 "$OMANI_STATE_DIR/players" >>"$WORK/spawned"
-  wait_until_gone "$first" || fail "$current" "the replaced player is still running"
+  wait_until_gone "$first" || fail "$current" "the first player of the series is still running"
   assert_eq "$("$OMANI" players | wc -l)" "1"
   assert_contains "$("$OMANI" players)" "Frieren Episode 2"
 }
 
-t_resume_replaces_the_episode_it_follows() {
-  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 1
-  local first
-  first=$(cut -f1 "$OMANI_STATE_DIR/players")
-  printf '%s\n' "$first" >>"$WORK/spawned"
-
-  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" OMANI_REPLACE="Frieren Episode 1" \
-    "$OMANI" resume frieren-1
-  cut -f1 "$OMANI_STATE_DIR/players" >>"$WORK/spawned"
-  wait_until_gone "$first" || fail "$current" "the episode being followed is still running"
-  assert_eq "$("$OMANI" players | wc -l)" "1"
-}
-
-t_playing_without_replace_keeps_both() {
+t_another_series_adds_a_player_rather_than_replacing_one() {
   OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 1
   OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play naruto-2 "Naruto" 9
   cut -f1 "$OMANI_STATE_DIR/players" >>"$WORK/spawned"
@@ -775,10 +760,9 @@ check "previous refuses at the first episode" t_previous_refuses_at_the_first_ep
 check "previous refuses a series not in history" t_previous_refuses_an_unknown_series
 check "the recorded pid is the player itself" t_the_recorded_pid_is_the_player_itself
 check "stop closes the player" t_stop_closes_the_player
-check "resuming a series closes the player it already has" t_resume_replaces_a_player_of_the_same_series
-check "a replacing play closes the one it replaces" t_a_replacing_play_closes_the_one_it_replaces
-check "resume replaces the episode it follows" t_resume_replaces_the_episode_it_follows
-check "playing without replace keeps both" t_playing_without_replace_keeps_both
+check "resume closes the player the series already has" t_resume_closes_the_player_the_series_already_has
+check "one player per series, whoever asks" t_one_player_per_series_whoever_asks
+check "another series adds a player rather than replacing one" t_another_series_adds_a_player_rather_than_replacing_one
 check "play records the player it started" t_play_records_the_player_it_started
 check "two episodes are tracked at once" t_two_episodes_are_tracked_at_once
 check "players omits one that has exited" t_players_omits_one_that_exited
