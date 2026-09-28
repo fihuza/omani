@@ -1,8 +1,3 @@
-// Self-contained on purpose: a config that reaches for @eslint/js would need a
-// package.json and node_modules, and this repo keeps its javascript free of
-// both. The list below is eslint's own recommended set, read from its rule
-// metadata rather than remembered, plus the handful this project adds.
-
 const recommended = {
   "constructor-super": "error",
   "for-direction": "error",
@@ -93,10 +88,7 @@ module.exports = [
     ignores: ["priv/**", "tests/fixtures/**"]
   },
   {
-    // Everything, so a javascript file added tomorrow is linted without anyone
-    // remembering to list it. A file matching no block is parsed and then left
-    // unchecked, which reads as a pass.
-    files: ["**/*.js"],
+    files: ["**/*.{js,cjs}"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "commonjs",
@@ -112,14 +104,16 @@ module.exports = [
     rules: Object.assign({}, rules, { "no-implicit-globals": "error" })
   },
   {
-    // Model.js loads in Qt's javascript engine and in node, from one file, so it
-    // is a script rather than a module. The ceiling is ES2015: the bar glyphs
-    // are code-point escapes, which ES5 cannot parse, and syntax newer than that
-    // has no business arriving here untested against the engine that ships it.
-    //
-    // no-implicit-globals stays off here: what QML reaches through `Model.` are
-    // the declarations at its top level, so they are its interface rather than
-    // leaked globals, and the rule would reject every one.
+    files: ["**/*.mjs"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: { console: "readonly", process: "readonly" }
+    },
+    linterOptions,
+    rules: Object.assign({}, rules, { "no-implicit-globals": "error" })
+  },
+  {
     files: ["Model.js"],
     languageOptions: {
       ecmaVersion: 2015,
@@ -132,7 +126,7 @@ module.exports = [
   {
     // The suite can omit a caught error's binding, so an unused one is a
     // leftover rather than the language giving no choice.
-    files: ["tests/**/*.js", "eslint.config.js"],
+    files: ["tests/**/*.{js,mjs,cjs}", "eslint.config.js"],
     rules: { "no-unused-vars": ["error", { args: "after-used", caughtErrors: "all" }] }
   }
 ];
