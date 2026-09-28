@@ -204,20 +204,21 @@ Panel {
             }
         })
 
-    property string openedFrom: ""
+    property var viewStack: ["history"]
 
     function setView(next) {
-        openedFrom = Model.originFor(view, next, openedFrom);
+        viewStack = Model.pushView(viewStack, next);
         view = next;
         keyState = Model.initialKeyState();
         cursorActive = false;
     }
 
-    readonly property var backActions: ({
-            "close": function () {
-                root.close();
-            }
-        })
+    function resetViews() {
+        viewStack = ["history"];
+        view = "history";
+        keyState = Model.initialKeyState();
+        cursorActive = false;
+    }
 
     function toggleView(name) {
         if (view === name)
@@ -227,12 +228,15 @@ Panel {
     }
 
     function goBack() {
-        var next = Model.backFrom(view, openedFrom);
-        var action = backActions[next];
-        if (action)
-            action();
-        else
-            setView(next);
+        var back = Model.popView(viewStack);
+        if (back.view === "close") {
+            root.close();
+            return;
+        }
+        viewStack = back.stack;
+        view = back.view;
+        keyState = Model.initialKeyState();
+        cursorActive = false;
     }
 
     function dispatch(key) {
@@ -340,7 +344,7 @@ Panel {
         notice = Model.noticeOnOpen(notice, noticeUnseen);
         noticeUnseen = false;
         service.results = [];
-        setView("history");
+        resetViews();
         service.refresh();
         var adopt = Model.adoptable(service.players, service.playingId);
         if (adopt)
@@ -582,6 +586,12 @@ Panel {
                                 readonly property string section: modelData.section !== undefined ? modelData.section : ""
 
                                 onSelectedChanged: if (selected)
+                                    root.scrollIntoView(rowItem, index)
+
+                                onYChanged: if (selected)
+                                    root.scrollIntoView(rowItem, index)
+
+                                onHeightChanged: if (selected)
                                     root.scrollIntoView(rowItem, index)
 
                                 Component.onCompleted: if (selected)

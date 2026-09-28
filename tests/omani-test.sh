@@ -253,6 +253,36 @@ t_play_needs_all_three_arguments() {
   assert_fails $?
 }
 
+t_play_drops_a_subtitle_that_is_not_a_web_address() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n' ;;
+stream) printf 'url\thttps://cdn/a.m3u8\nreferrer\thttps://e/\nsubtitles\t%s\n' "${FAKE_SUBS:-}" ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  local subs out
+  for subs in file:///etc/passwd /etc/shadow --sub-file=/etc/shadow; do
+    out=$(FAKE_SUBS="$subs" "$OMANI" play frieren-1 "Frieren" 1 2>&1)
+    assert_ok $?
+    assert_lacks "$out" "--sub-file"
+    assert_lacks "$out" "etc"
+  done
+}
+
+t_play_keeps_a_subtitle_that_is_a_web_address() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n' ;;
+stream) printf 'url\thttps://cdn/a.m3u8\nreferrer\thttps://e/\nsubtitles\thttps://cdn/en.vtt\n' ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--sub-file=https://cdn/en.vtt"
+}
+
 t_play_refuses_a_url_the_provider_should_not_have_sent() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
@@ -1164,6 +1194,8 @@ check "no requested quality asks the provider for best" t_play_without_a_quality
 check "play passes subtitles when the provider offers them" t_play_passes_subtitles_when_offered
 check "play omits the subtitle flag when there are none" t_play_omits_subtitles_when_absent
 check "play needs an id, a title and an episode" t_play_needs_all_three_arguments
+check "play drops a subtitle that is not a web address" t_play_drops_a_subtitle_that_is_not_a_web_address
+check "play keeps a subtitle that is a web address" t_play_keeps_a_subtitle_that_is_a_web_address
 check "play refuses a url the provider should not have sent" t_play_refuses_a_url_the_provider_should_not_have_sent
 check "the player is told where its arguments end" t_the_player_is_told_where_its_arguments_end
 check "play fails when no source resolves" t_play_fails_when_no_source_resolves

@@ -1,0 +1,13 @@
+module qs.Ui
+Button 1.0 Button.qml
+Panel 1.0 Panel.qml
+KeyboardPanel 1.0 KeyboardPanel.qml
+PanelKeyCatcher 1.0 PanelKeyCatcher.qml
+TextField 1.0 TextField.qml
+PanelHero 1.0 PanelHero.qml
+PanelActionButton 1.0 PanelActionButton.qml
+PanelSectionHeader 1.0 PanelSectionHeader.qml
+PanelSeparator 1.0 PanelSeparator.qml
+ConfirmDialog 1.0 ConfirmDialog.qml
+CursorSurface 1.0 CursorSurface.qml
+BarIconButton 1.0 BarIconButton.qml

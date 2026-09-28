@@ -10,7 +10,7 @@ failed=0
 
 TARGET="${1:-all}"
 
-GATES=(qml-format qml-lint shell-format shell-lint manifest unit shell-tests version)
+GATES=(qml-format qml-lint shell-format shell-lint js-lint manifest unit qml-tests shell-tests version)
 
 if [[ $TARGET != all ]] && ! printf '%s\n' "${GATES[@]}" | grep -qx -- "$TARGET"; then
   printf 'no such gate: %s\n' "$TARGET" >&2
@@ -94,9 +94,10 @@ if wanted qml-lint; then
     # These three fire on Quickshell's singletons and on Process.onExited, which
     # qmllint cannot type without Quickshell's qmltypes; first-party plugins trip
     # them far more than this one (dropbox/Panel.qml: 19 and 54), so they cannot
-    # tell a mistake from the tooling gap. Everything else is a failure, read from
-    # the output because qmllint exits 0 even when it warns.
+    # tell a mistake from the tooling gap. Everything else is a failure: any
+    # output at all, because an info-level finding prints and still exits 0.
     lint_out=$("$QMLLINT" \
+      --max-warnings 0 \
       --unused-imports warning \
       --unqualified disable \
       --missing-property disable \
@@ -104,15 +105,19 @@ if wanted qml-lint; then
       -I "$qsroot" -I "$OMARCHY_PATH/shell" "${QML[@]}" 2>&1)
     lint_status=$?
     rm -rf "$qsroot"
-    if [[ -n $lint_out ]] && grep -qE '^(Warning|Error)' <<<"$lint_out"; then
+    if ((lint_status != 0)) || [[ -n $lint_out ]]; then
       printf '%s\n' "$lint_out"
       fail "qmllint reported findings"
-    elif ((lint_status != 0)); then
-      printf '%s\n' "$lint_out"
-      fail "qmllint exited $lint_status"
     fi
   elif [[ ! -d $OMARCHY_PATH/shell ]]; then
     fail "\$OMARCHY_PATH/shell ($OMARCHY_PATH/shell) is absent -- qs.* imports cannot resolve, so this gate did NOT run"
+  fi
+fi
+
+if wanted js-lint; then
+  step "Lint (JavaScript)"
+  if require eslint "eslint (mise install)"; then
+    eslint --max-warnings 0 . || fail "eslint found problems"
   fi
 fi
 
@@ -140,6 +145,16 @@ if wanted unit; then
       --test-coverage-functions=$COVERAGE_MIN \
       --test-coverage-include='Model.js' \
       'tests/*.test.js' || fail "Model.js tests or coverage threshold failed"
+  fi
+fi
+
+if wanted qml-tests; then
+  step "QML tests (the panel and the model, in Qt's engine)"
+  QMLTESTRUNNER=$(qt6_tool qmltestrunner) ||
+    fail "no Qt6 qmltestrunner -- needs the qt6-declarative package"
+  if [[ -n ${QMLTESTRUNNER:-} ]]; then
+    QT_QPA_PLATFORM=offscreen "$QMLTESTRUNNER" -input tests/qml -import tests/qml/stubs ||
+      fail "qml tests failed"
   fi
 fi
 

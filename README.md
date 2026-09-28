@@ -202,8 +202,9 @@ git config core.hooksPath scripts   # after cloning
 ```
 
 `scripts/pre-commit` is the whole quality gate: `qmlformat` and `qmllint` for
-the QML, `shellcheck` and `shfmt` for the shell, `omarchy plugin validate` for
-the manifest, and the four test suites with a 90% coverage floor on `Model.js`.
+the QML, `eslint` for the JavaScript, `shellcheck` and `shfmt` for the shell,
+`omarchy plugin validate` for the manifest, and the five test suites with a 90%
+coverage floor on `Model.js`. Every one of them treats a warning as an error.
 
 The layers are kept apart on purpose:
 
