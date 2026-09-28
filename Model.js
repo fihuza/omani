@@ -1,5 +1,24 @@
-// No `.pragma library`: that directive is not valid JavaScript, so Node cannot
-// parse a file carrying it, and the tests would stop running what ships.
+
+function statusFields(raw, fallbackFraction) {
+  if (!raw) return null
+  var parsed
+  try {
+    parsed = JSON.parse(String(raw))
+  } catch (e) {
+    return null
+  }
+  if (!parsed || typeof parsed !== "object" || parsed instanceof Array) return null
+  return {
+    ready: parsed.ready === true,
+    tracking: parsed.tracking !== false,
+    watchedFraction: Number(parsed.watchedFraction) || fallbackFraction,
+    missing: parsed.missing ? String(parsed.missing) : "",
+    version: parsed.version ? String(parsed.version) : "",
+    repo: parsed.repo ? String(parsed.repo) : "",
+    historyPath: parsed.historyPath ? String(parsed.historyPath) : "",
+    playersPath: parsed.playersPath ? String(parsed.playersPath) : ""
+  }
+}
 
 function parseHistory(raw) {
   if (!raw) return []
@@ -44,18 +63,22 @@ function progressLabel(row) {
   return "ep " + row.episode + " \u00b7 " + percent + "%"
 }
 
-var BACK_FROM = {
-  episodes: "results",
-  results: "history",
-  settings: "history",
-  shortcuts: "history",
-  player: "history",
-  quality: "player"
+var SEARCHABLE = { history: true, results: true }
+
+function searchable(view) {
+  return SEARCHABLE[view] === true
 }
 
-function backFrom(view, openedFrom) {
-  if (view === "episodes" && openedFrom) return openedFrom
-  return BACK_FROM[view] || "close"
+function pushView(stack, next) {
+  var at = stack.indexOf(next)
+  if (at !== -1) return stack.slice(0, at + 1)
+  return stack.concat([next])
+}
+
+function popView(stack) {
+  if (!stack || stack.length <= 1) return { stack: stack || [], view: "close" }
+  var out = stack.slice(0, stack.length - 1)
+  return { stack: out, view: out[out.length - 1] }
 }
 
 function playerRecords(raw) {
@@ -271,7 +294,8 @@ function historyRows(raw, limit) {
 function scrollTarget(list) {
   var limit = Math.max(0, list.content - list.viewport)
   if (list.index <= 0) return 0
-  if (list.index >= list.lastIndex) return limit
+  if (list.index >= list.lastIndex)
+    return Math.max(0, Math.max(limit, list.rowTop + list.rowHeight - list.viewport))
   var above = list.rowTop - list.margin
   if (above < list.current) return Math.max(0, Math.min(limit, above))
   var below = list.rowTop + list.rowHeight + list.margin
@@ -336,13 +360,29 @@ function qualityRows(available, current) {
   return rows
 }
 
-function playerRows(title, episode, paused, quality) {
+function episodeCaption(episode) {
+  return episode ? "Episode " + episode : ""
+}
+
+function neighbourLabel(episode, step) {
+  if (!/^[0-9]+$/.test(String(episode))) return ""
+  var at = Number(episode) + step
+  return at < 1 ? "" : "episode " + at
+}
+
+function restoredVolume(before) {
+  var level = Number(before)
+  return isFinite(level) && level > 0 ? level : 1
+}
+
+function playerRows(title, episode, paused, quality, muted) {
   return [
     { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
-    { key: "next", title: "Next episode", label: "" },
+    { key: "mute", title: muted ? "Unmute" : "Mute", label: "" },
+    { key: "next", title: "Next episode", label: neighbourLabel(episode, 1) },
     { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
-    { key: "previous", title: "Previous episode", label: "" },
-    { key: "select", title: "Select episode", label: title },
+    { key: "previous", title: "Previous episode", label: neighbourLabel(episode, -1) },
+    { key: "select", title: "Select episode", label: "" },
     { key: "quality", title: "Change quality", label: quality || "" },
     { key: "stop", title: "Stop", label: "" }
   ]
@@ -355,13 +395,18 @@ function settingChange(row) {
 }
 
 
+function releaseLink(repo, version) {
+  return repo && version ? repo + "/releases/tag/v" + version : ""
+}
+
 function settingRows(quality, mode, watched, version, repo) {
   return [
     { key: "quality", value: quality, title: "Quality", label: quality, link: "" },
     { key: "mode", value: mode, title: "Audio", label: mode === "dub" ? "dubbed" : "subbed", link: "" },
     { key: "watched", value: watched, title: "Counts as watched", label: watched + "%", link: "" },
-    { key: "version", value: version, title: "Version", label: version, link: repo || "" },
-    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" }
+    { key: "version", value: version, title: "Version", label: version, link: releaseLink(repo, version) },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" },
+    { key: "about", value: "", title: "About", label: "", link: repo || "" }
   ]
 }
 
@@ -594,7 +639,7 @@ function reduceKey(state, key, ctx) {
 
   if (key === "s") return done({ type: "toggleSettings" })
   if (key === "?") return done({ type: "toggleShortcuts" })
-  if (key === "/" || key === "i") return done({ type: "focusSearch" })
+  if (key === "/" || key === "i") return done(ctx && ctx.searchable ? { type: "focusSearch" } : null)
   if (key === "d") return done(rowCount > 0 ? { type: "forget", index: next.index } : null)
   if (key === "c") return done({ type: "clearHistory" })
   if (key === "r") return done({ type: "refresh" })
@@ -611,9 +656,12 @@ function reduceKey(state, key, ctx) {
 if (typeof module !== "undefined") {
   module.exports = {
     parseHistory: parseHistory,
+    statusFields: statusFields,
     watchedFraction: watchedFraction,
     progressLabel: progressLabel,
-    backFrom: backFrom,
+    pushView: pushView,
+    popView: popView,
+    searchable: searchable,
     playerRecords: playerRecords,
     livePlayers: livePlayers,
     progressReports: progressReports,
@@ -638,6 +686,8 @@ if (typeof module !== "undefined") {
     nextSetting: nextSetting,
     settingChange: settingChange,
     playerRows: playerRows,
+    restoredVolume: restoredVolume,
+    episodeCaption: episodeCaption,
     qualityRows: qualityRows,
     settingRows: settingRows,
     settingAction: settingAction,

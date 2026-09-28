@@ -249,8 +249,40 @@ FAKE
 }
 
 t_play_needs_all_three_arguments() {
-  "$OMANI" play frieren-1 "Frieren" >/dev/null 2>&1
+  local out
+  out=$("$OMANI" play frieren-1 "Frieren" 2>&1)
   assert_fails $?
+  assert_contains "$out" "usage: omani play"
+}
+
+t_play_drops_a_subtitle_that_is_not_a_web_address() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n' ;;
+stream) printf 'url\thttps://cdn/a.m3u8\nreferrer\thttps://e/\nsubtitles\t%s\n' "${FAKE_SUBS:-}" ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  local subs out
+  for subs in file:///etc/passwd /etc/shadow --sub-file=/etc/shadow; do
+    out=$(FAKE_SUBS="$subs" "$OMANI" play frieren-1 "Frieren" 1 2>&1)
+    assert_ok $?
+    assert_lacks "$out" "--sub-file"
+    assert_lacks "$out" "etc"
+  done
+}
+
+t_play_keeps_a_subtitle_that_is_a_web_address() {
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+case "$1" in
+episodes) printf '9001\t1\n' ;;
+stream) printf 'url\thttps://cdn/a.m3u8\nreferrer\thttps://e/\nsubtitles\thttps://cdn/en.vtt\n' ;;
+esac
+FAKE
+  chmod +x "$WORK/provider"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--sub-file=https://cdn/en.vtt"
 }
 
 t_play_refuses_a_url_the_provider_should_not_have_sent() {
@@ -399,6 +431,132 @@ t_progress_refuses_a_position_that_is_not_seconds() {
   local out
   out=$(OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 half 1400 2>&1)
   assert_fails $?
+  assert_contains "$out" "whole seconds"
+  out=$(OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 later 2>&1)
+  assert_fails $?
+  assert_contains "$out" "whole seconds"
+}
+
+t_resume_needs_an_anime_id() {
+  local out
+  out=$("$OMANI" resume 2>&1)
+  assert_fails $?
+  assert_contains "$out" "usage: omani resume"
+}
+
+t_stepping_needs_an_anime_id() {
+  local out sub
+  for sub in next previous; do
+    out=$("$OMANI" "$sub" 2>&1)
+    assert_fails $?
+    assert_contains "$out" "usage: omani $sub"
+  done
+}
+
+t_resume_refuses_when_the_episode_list_cannot_be_read() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "episodes": {"3": {"position": 1400, "duration": 1400}}}}'
+  cat >"$WORK/provider" <<'FAKE'
+#!/bin/bash
+exit 1
+FAKE
+  chmod +x "$WORK/provider"
+  local out
+  out=$("$OMANI" resume frieren-1 2>&1)
+  assert_fails $?
+  assert_contains "$out" "could not list episodes for 'Frieren'"
+}
+
+t_finishing_the_last_episode_keeps_the_episode_it_recorded() {
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "episodes": {}}}'
+  OMANI_DRY_RUN='' "$OMANI" progress frieren-1 3 1400 1400
+  assert_eq "$(jq -r '.series["frieren-1"].episode' "$OMANI_HIST_FILE")" "3"
+}
+
+t_a_fresh_install_lists_no_players_and_says_nothing() {
+  rm -rf "$OMANI_STATE_DIR"
+  local out err
+  out=$("$OMANI" players 2>"$WORK/err")
+  assert_ok $?
+  err=$(cat "$WORK/err")
+  assert_eq "$out" ""
+  assert_eq "$err" ""
+}
+
+t_a_fresh_install_stops_nothing_and_says_nothing() {
+  rm -rf "$OMANI_STATE_DIR"
+  local out err
+  out=$("$OMANI" stop 2>"$WORK/err")
+  assert_ok $?
+  err=$(cat "$WORK/err")
+  assert_eq "$out" ""
+  assert_eq "$err" ""
+}
+
+t_stopping_something_that_is_not_playing_leaves_the_player_alone() {
+  local pid
+  pid=$(live_player "Frieren Episode 4" frieren-1 4)
+  local out err
+  out=$(OMANI_DRY_RUN='' "$OMANI" stop naruto-2 2>"$WORK/err")
+  assert_ok $?
+  err=$(cat "$WORK/err")
+  assert_eq "$out" ""
+  assert_eq "$err" ""
+  still_running "$pid" || fail "$current" "stopped a player that was not asked for"
+}
+
+t_a_history_entry_that_is_not_a_series_is_refused_plainly() {
+  seed_history '{"frieren-1": "junk", "naruto-2": {"title": "Naruto", "episode": "5", "episodes": {}}}'
+  local before out sub
+  before=$(cat "$OMANI_HIST_FILE")
+  for sub in "resume frieren-1" "next frieren-1" "previous frieren-1" "progress frieren-1 4 600 1400"; do
+    # shellcheck disable=SC2086 # each case is a whole argument list
+    out=$(OMANI_DRY_RUN='' "$OMANI" $sub 2>&1)
+    assert_fails $?
+    assert_contains "$out" "is not in history"
+    assert_lacks "$out" "jq:"
+  done
+  assert_eq "$(cat "$OMANI_HIST_FILE")" "$before"
+}
+
+t_forgetting_removes_an_entry_that_is_not_a_series() {
+  seed_history '{"frieren-1": "junk", "naruto-2": {"title": "Naruto", "episode": "5", "episodes": {}}}'
+  local out
+  out=$(OMANI_DRY_RUN='' "$OMANI" forget frieren-1 2>&1)
+  assert_ok $?
+  assert_lacks "$out" "jq:"
+  assert_eq "$(jq -c '.series | keys' "$OMANI_HIST_FILE")" '["naruto-2"]'
+}
+
+t_a_history_whose_series_is_not_a_table_is_never_written_over() {
+  printf '{"version":1,"series":"junk"}\n' >"$OMANI_HIST_FILE"
+  local before out
+  before=$(cat "$OMANI_HIST_FILE")
+  out=$(OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/player" "$OMANI" play frieren-1 "Frieren" 1 2>&1)
+  assert_fails $?
+  assert_contains "$out" "refusing to write a history that is not valid json"
+  assert_lacks "$out" "jq:"
+  assert_eq "$(cat "$OMANI_HIST_FILE")" "$before"
+  cut -f1 "$OMANI_STATE_DIR/players" 2>/dev/null >>"$WORK/spawned"
+}
+
+t_writing_refuses_a_history_it_cannot_place() {
+  # The history has to be readable for the lookup and its directory unwritable
+  # for the write, which only file permissions express -- and root ignores those.
+  (($(id -u) != 0)) || return 0
+  local pen="$WORK/pen"
+  mkdir -p "$pen"
+  export OMANI_HIST_FILE="$pen/history.json"
+  seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
+  local seeded
+  seeded=$(cat "$OMANI_HIST_FILE")
+  chmod 500 "$pen"
+  local out
+  out=$(OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400 2>&1)
+  local code=$?
+  chmod 700 "$pen"
+  ((code != 0)) || fail "$current" "wrote a history into a directory it cannot write"
+  assert_contains "$out" "cannot write the history in"
+  assert_eq "$(cat "$OMANI_HIST_FILE")" "$seeded"
 }
 
 t_resume_restarts_the_episode_where_it_stopped() {
@@ -1164,6 +1322,8 @@ check "no requested quality asks the provider for best" t_play_without_a_quality
 check "play passes subtitles when the provider offers them" t_play_passes_subtitles_when_offered
 check "play omits the subtitle flag when there are none" t_play_omits_subtitles_when_absent
 check "play needs an id, a title and an episode" t_play_needs_all_three_arguments
+check "play drops a subtitle that is not a web address" t_play_drops_a_subtitle_that_is_not_a_web_address
+check "play keeps a subtitle that is a web address" t_play_keeps_a_subtitle_that_is_a_web_address
 check "play refuses a url the provider should not have sent" t_play_refuses_a_url_the_provider_should_not_have_sent
 check "the player is told where its arguments end" t_the_player_is_told_where_its_arguments_end
 check "play fails when no source resolves" t_play_fails_when_no_source_resolves
@@ -1270,6 +1430,17 @@ check "clearing refuses when the backup cannot be written" t_clearing_refuses_wh
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
 check "history-clear on an absent history is not an error" t_history_clear_on_an_absent_history_is_not_an_error
 check "an unknown subcommand fails loudly" t_unknown_subcommand_fails_loudly
+check "resume needs an anime id" t_resume_needs_an_anime_id
+check "next and previous need an anime id" t_stepping_needs_an_anime_id
+check "resume refuses when the episode list cannot be read" t_resume_refuses_when_the_episode_list_cannot_be_read
+check "finishing the last episode keeps the episode it recorded" t_finishing_the_last_episode_keeps_the_episode_it_recorded
+check "a fresh install lists no players and says nothing" t_a_fresh_install_lists_no_players_and_says_nothing
+check "a fresh install stops nothing and says nothing" t_a_fresh_install_stops_nothing_and_says_nothing
+check "stopping something that is not playing leaves the player alone" t_stopping_something_that_is_not_playing_leaves_the_player_alone
+check "a history entry that is not a series is refused plainly" t_a_history_entry_that_is_not_a_series_is_refused_plainly
+check "forgetting removes an entry that is not a series" t_forgetting_removes_an_entry_that_is_not_a_series
+check "a history whose series is not a table is never written over" t_a_history_whose_series_is_not_a_table_is_never_written_over
+check "writing refuses a history it cannot place" t_writing_refuses_a_history_it_cannot_place
 check "no subcommand prints usage" t_no_subcommand_prints_usage
 check "help succeeds" t_help_succeeds
 

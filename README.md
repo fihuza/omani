@@ -26,7 +26,8 @@ Nothing else to install: Omani's dependencies all ship with Omarchy.
 | Forget a series | Hover its row and click ✕, or select it and press `d` or `x` |
 | Settings | The gear button in the header, or press `s` |
 | Clear the watch history | **Settings → Clear watch history**, or press `c` |
-| Open this repository | Press Enter on **Version** in the settings |
+| Open this release on GitHub | Press Enter on **Version** in the settings |
+| Open the repository | Press Enter on **About**, the last setting |
 
 ### Keyboard
 
@@ -43,7 +44,7 @@ moving under the same keys.
 | `Ctrl-d` / `Ctrl-u` | Half a page down / up |
 | `/` or `i` | Focus the search field |
 | `Enter` | Open or play the row under the cursor |
-| `s` | Settings — quality, audio, watched threshold, clear history |
+| `s` | Settings — quality, audio, watched threshold, clear history, about |
 | `?` | Keyboard shortcuts |
 | `d` or `x` | Forget the series under the cursor |
 | `c` | Clear the whole watch history (asks first) |
@@ -60,7 +61,7 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 Choosing a series from **Continue watching** starts the episode you are on, at
 the second you stopped, and opens its menu:
 
-![The player menu: pause, next episode, replay, previous episode, select episode, change quality and stop, above a bar showing how far into the episode it is](priv/controls.png)
+![The player menu: pause, next episode, replay, previous episode, select episode, change quality and stop, under the series name with its clock](priv/controls.png)
 
 The menu carries a bar for the episode it controls: how far in it is, and
 dimmed while it is paused.
@@ -78,6 +79,9 @@ each listed under **Playing** with its own menu.
 
 **Select episode** picks the chosen episode up where you left it, and so does
 changing quality; **Replay** is the one control that starts an episode over.
+Next, Replay and Previous each name the episode they would reach, so you can
+see where a control leads before pressing it. **Mute** silences the player and
+restores the level it had rather than jumping to full.
 
 **Change quality** applies to the episode playing, not to the setting, and is
 offered only when the provider has more than one variant of it. The next
@@ -198,8 +202,9 @@ git config core.hooksPath scripts   # after cloning
 ```
 
 `scripts/pre-commit` is the whole quality gate: `qmlformat` and `qmllint` for
-the QML, `shellcheck` and `shfmt` for the shell, `omarchy plugin validate` for
-the manifest, and the four test suites with a 90% coverage floor on `Model.js`.
+the QML, `eslint` for the JavaScript, `shellcheck` and `shfmt` for the shell,
+`omarchy plugin validate` for the manifest, and the five test suites with a 90%
+coverage floor on `Model.js`. Every one of them treats a warning as an error.
 
 The layers are kept apart on purpose:
 

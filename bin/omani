@@ -84,19 +84,22 @@ update_history() {
     die "refusing to write over a history that is not valid json: $HIST_FILE"
   dir=$(dirname "$HIST_FILE")
   mkdir -p "$dir" 2>/dev/null
-  [[ -w $dir ]] || die "cannot write the history in $dir"
   tmp=$(mktemp "$HIST_FILE.XXXXXX" 2>/dev/null) || die "cannot write the history in $dir"
   (
     trap 'rm -f "$tmp"' EXIT
     flock -w 5 9 || die "could not take the history lock"
-    read_history | jq "$@" >"$tmp"
+    read_history | jq "$@" >"$tmp" 2>/dev/null
     jq -e . "$tmp" >/dev/null 2>&1 || die "refusing to write a history that is not valid json"
     mv "$tmp" "$HIST_FILE"
   ) 9>"$HIST_FILE.lock"
 }
 
 entry_for() {
-  read_history | jq -e --arg id "$1" '.series[$id] // empty' 2>/dev/null
+  read_history | jq -e --arg id "$1" '.series[$id] | objects' 2>/dev/null
+}
+
+series_has() {
+  read_history | jq -e --arg id "$1" '(.series // {}) | has($id)' >/dev/null 2>&1
 }
 
 record_history() {
@@ -135,7 +138,6 @@ record_progress() {
 
 players_tmp() {
   mkdir -p "$STATE_DIR" 2>/dev/null
-  [[ -d $STATE_DIR ]] || return 1
   [[ -f $PLAYERS_FILE ]] || : >"$PLAYERS_FILE" 2>/dev/null
   mktemp "$PLAYERS_FILE.XXXXXX" 2>/dev/null
 }
@@ -191,7 +193,6 @@ cmd_players() {
 }
 
 process_gone() {
-  [[ $1 =~ ^[0-9]+$ ]] || return 0
   read_started_at "$1"
   [[ -z $STARTED_AT ]]
 }
@@ -216,7 +217,6 @@ end_players() {
 
 cmd_stop() {
   local target="${1:-all}"
-  [[ -f $PLAYERS_FILE ]] || return 0
 
   local live pids
   live=$(cmd_players)
@@ -433,7 +433,7 @@ cmd_progress() {
 cmd_forget() {
   local id="${1:-}"
   [[ -n $id ]] || die "usage: omani forget <anime-id>"
-  entry_for "$id" >/dev/null || die "'$id' is not in history"
+  series_has "$id" || die "'$id' is not in history"
   if dry; then
     printf 'forget %s\n' "$id"
     return 0

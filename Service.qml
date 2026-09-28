@@ -75,6 +75,20 @@ Item {
             currentPlayer.togglePlaying();
     }
 
+    property real volumeBeforeMute: 1.0
+    readonly property bool muted: currentPlayer ? currentPlayer.volume <= 0 : false
+
+    function toggleMuted() {
+        if (!currentPlayer)
+            return;
+        if (muted) {
+            currentPlayer.volume = Model.restoredVolume(volumeBeforeMute);
+            return;
+        }
+        volumeBeforeMute = currentPlayer.volume;
+        currentPlayer.volume = 0;
+    }
+
     // mpris position is not a notifying property: quickshell reads it fresh
     // every time, but nothing tells a binding to look again. The tick is what
     // makes the clock move.
@@ -130,16 +144,22 @@ Item {
         statusProcess.running = true;
     }
 
+    // A status that will not parse leaves every path alone: the panel stops
+    // claiming to be ready, and the views keep watching the files they had.
     function applyStatus(raw) {
-        var parsed = JSON.parse(raw);
-        ready = parsed.ready === true;
-        tracking = parsed.tracking !== false;
-        watchedFraction = Number(parsed.watchedFraction) || watchedFraction;
-        missing = String(parsed.missing || "");
-        version = String(parsed.version || "");
-        repo = String(parsed.repo || "");
-        historyPath = String(parsed.historyPath || "");
-        playersPath = String(parsed.playersPath || "");
+        var status = Model.statusFields(raw, watchedFraction);
+        if (!status) {
+            ready = false;
+            return;
+        }
+        ready = status.ready;
+        tracking = status.tracking;
+        watchedFraction = status.watchedFraction;
+        missing = status.missing;
+        version = status.version;
+        repo = status.repo;
+        historyPath = status.historyPath;
+        playersPath = status.playersPath;
     }
 
     function reloadHistory() {
