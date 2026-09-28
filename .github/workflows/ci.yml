@@ -56,6 +56,10 @@ jobs:
       - name: Unit tests and coverage
         if: ${{ !cancelled() }}
         run: ./scripts/pre-commit unit
+      - name: QML tests
+        if: ${{ !cancelled() }}
+        run: ./scripts/pre-commit qml-tests
+
       - name: Shell and provider tests
         if: ${{ !cancelled() }}
         run: ./scripts/pre-commit shell-tests

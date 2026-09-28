@@ -10,7 +10,7 @@ failed=0
 
 TARGET="${1:-all}"
 
-GATES=(qml-format qml-lint shell-format shell-lint js-lint manifest unit shell-tests version)
+GATES=(qml-format qml-lint shell-format shell-lint js-lint manifest unit qml-tests shell-tests version)
 
 if [[ $TARGET != all ]] && ! printf '%s\n' "${GATES[@]}" | grep -qx -- "$TARGET"; then
   printf 'no such gate: %s\n' "$TARGET" >&2
@@ -145,6 +145,16 @@ if wanted unit; then
       --test-coverage-functions=$COVERAGE_MIN \
       --test-coverage-include='Model.js' \
       'tests/*.test.js' || fail "Model.js tests or coverage threshold failed"
+  fi
+fi
+
+if wanted qml-tests; then
+  step "QML tests (Model.js in Qt's engine)"
+  QMLTESTRUNNER=$(qt6_tool qmltestrunner) ||
+    fail "no Qt6 qmltestrunner -- needs the qt6-declarative package"
+  if [[ -n ${QMLTESTRUNNER:-} ]]; then
+    QT_QPA_PLATFORM=offscreen "$QMLTESTRUNNER" -input tests/qml ||
+      fail "qml tests failed"
   fi
 fi
 
