@@ -149,11 +149,11 @@ if wanted unit; then
 fi
 
 if wanted qml-tests; then
-  step "QML tests (Model.js in Qt's engine)"
+  step "QML tests (the panel and the model, in Qt's engine)"
   QMLTESTRUNNER=$(qt6_tool qmltestrunner) ||
     fail "no Qt6 qmltestrunner -- needs the qt6-declarative package"
   if [[ -n ${QMLTESTRUNNER:-} ]]; then
-    QT_QPA_PLATFORM=offscreen "$QMLTESTRUNNER" -input tests/qml ||
+    QT_QPA_PLATFORM=offscreen "$QMLTESTRUNNER" -input tests/qml -import tests/qml/stubs ||
       fail "qml tests failed"
   fi
 fi
