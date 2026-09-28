@@ -10,7 +10,7 @@ failed=0
 
 TARGET="${1:-all}"
 
-GATES=(qml-format qml-lint shell-format shell-lint js-lint manifest unit qml-tests shell-tests version)
+GATES=(toolchain qml-format qml-lint shell-format shell-lint js-lint manifest unit qml-tests shell-tests version)
 
 if [[ $TARGET != all ]] && ! printf '%s\n' "${GATES[@]}" | grep -qx -- "$TARGET"; then
   printf 'no such gate: %s\n' "$TARGET" >&2
@@ -119,6 +119,25 @@ if wanted js-lint; then
   if require eslint "eslint (mise install)"; then
     eslint --max-warnings 0 . || fail "eslint found problems"
   fi
+fi
+
+if wanted toolchain; then
+  step "Toolchain"
+  pinned() { sed -nE "s/^\"?$1\"? = \"(.*)\"$/\\1/p" mise.toml; }
+  running() { "$1" --version 2>/dev/null | tr -d 'v' | head -1; }
+
+  for tool in node:node eslint:npm:eslint; do
+    name=${tool%%:*}
+    want=$(pinned "${tool#*:}")
+    have=$(running "$name")
+    if [[ -z $want ]]; then
+      fail "mise.toml pins no version for $name"
+    elif [[ -z $have ]]; then
+      fail "$name is not on PATH -- mise.toml pins $want"
+    elif [[ $have != "$want" ]]; then
+      fail "$name $have is running where mise.toml pins $want -- run under mise, or the pin describes nothing"
+    fi
+  done
 fi
 
 if wanted manifest; then
