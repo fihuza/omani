@@ -134,7 +134,10 @@ and asks first.
 ## Dependencies
 
 Omani runs unsandboxed inside the shared Omarchy shell process, so every
-external command it can invoke is listed here.
+external command it can invoke is listed here. If you find a way to make it
+run something that is not on this list, [report it
+privately](https://github.com/fihuza/omani/security/advisories/new) rather
+than opening an issue -- `SECURITY.md` says what is in scope.
 
 | Command | Used for | Comes from |
 |---|---|---|

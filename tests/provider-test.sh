@@ -408,7 +408,7 @@ t_a_cloudflare_block_on_plain_curl_names_the_fix() {
   mkdir -p "$bin"
   cp "$FIXTURES/fake-curl" "$bin/curl"
   local out
-  out=$(FAKE_CLOUDFLARE=1 PATH="$bin:/usr/bin:/bin" env -u OMANI_CURL "$PROVIDER" search x 2>&1)
+  out=$(FAKE_CLOUDFLARE=1 PATH="$bin:/usr/bin:/bin" OMANI_CURL=curl "$PROVIDER" search x 2>&1)
   assert_contains "$out" "install curl-impersonate"
 }
 
