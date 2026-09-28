@@ -1,7 +1,7 @@
 import QtQuick
 
-// Stands in for Service.qml so the panel can be driven. It records what it was
-// asked to do, which is how a test says "that key reached the script".
+// Stands in for Service.qml so the panel can be driven, recording what it was
+// asked to do.
 QtObject {
     property bool ready: true
     property bool busy: false

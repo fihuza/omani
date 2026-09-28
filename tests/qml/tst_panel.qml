@@ -1,7 +1,6 @@
 import QtQuick
 import QtTest
 import "../.." as Plugin
-import "../../Model.js" as Model
 import "stubs"
 
 // The panel is driven the way a key drives it: dispatch() is what the key
@@ -22,10 +21,9 @@ TestCase {
     }
 
     function init() {
-        panel.viewStack = ["history"];
-        panel.view = "history";
-        panel.cursorActive = false;
-        panel.keyState = Model.initialKeyState();
+        fake.asked = [];
+        fake.episodes = [];
+        panel.resetViews();
     }
 
     function test_question_mark_opens_the_shortcut_list_and_closes_it() {
@@ -72,21 +70,50 @@ TestCase {
         compare(panel.keyState.index, 3);
     }
 
-    function test_going_back_always_reaches_the_end() {
-        var views = ["results", "episodes", "player", "settings", "shortcuts", "quality"];
-        for (var i = 0; i < views.length; i++) {
-            for (var j = 0; j < views.length; j++) {
-                panel.viewStack = ["history"];
-                panel.view = "history";
-                panel.setView(views[i]);
-                panel.setView(views[j]);
-                var steps = 0;
-                while (panel.view !== "history" && steps <= views.length + 2) {
-                    panel.dispatch("escape");
-                    steps++;
-                }
-                compare(panel.view, "history", views[i] + " then " + views[j] + " never ends");
+    function test_a_key_reaches_the_service() {
+        panel.dispatch("r");
+        compare(fake.asked, ["refresh"]);
+    }
+
+    function test_choosing_an_episode_asks_the_service_to_play_it() {
+        fake.selectedId = "naruto";
+        fake.selectedTitle = "Naruto";
+        fake.episodes = [
+            {
+                "number": "6"
+            },
+            {
+                "number": "7"
             }
+        ];
+        panel.setView("episodes");
+        panel.activateCursor();
+        panel.dispatch("j");
+        panel.dispatch("enter");
+        compare(fake.asked, ["play:naruto:7"]);
+    }
+
+    function test_going_back_always_reaches_the_end_data() {
+        var views = ["results", "episodes", "player", "settings", "shortcuts", "quality"];
+        var rows = [];
+        for (var i = 0; i < views.length; i++)
+            for (var j = 0; j < views.length; j++)
+                rows.push({
+                    "tag": views[i] + " then " + views[j],
+                    "first": views[i],
+                    "second": views[j]
+                });
+        return rows;
+    }
+
+    function test_going_back_always_reaches_the_end(data) {
+        panel.setView(data.first);
+        panel.setView(data.second);
+        var steps = 0;
+        while (panel.view !== "history" && steps <= 8) {
+            panel.dispatch("escape");
+            steps++;
         }
+        compare(panel.view, "history");
     }
 }
