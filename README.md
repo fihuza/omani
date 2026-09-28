@@ -61,7 +61,7 @@ so typing `hjkl` types text — `Esc` returns you to the list.
 Choosing a series from **Continue watching** starts the episode you are on, at
 the second you stopped, and opens its menu:
 
-![The player menu: pause, mute, next episode, replay, previous episode, select episode, change quality and stop, under the series name and the episode with its clock](priv/controls.png)
+![The player menu: pause, next episode, replay, previous episode, select episode, change quality and stop, under the series name with its clock](priv/controls.png)
 
 The menu carries a bar for the episode it controls: how far in it is, and
 dimmed while it is paused.
