@@ -1,5 +1,3 @@
-// No `.pragma library`: that directive is not valid JavaScript, so Node cannot
-// parse a file carrying it, and the tests would stop running what ships.
 
 function parseHistory(raw) {
   if (!raw) return []

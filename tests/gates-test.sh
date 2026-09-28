@@ -157,6 +157,22 @@ t_every_stub_stands_for_something_real() {
   [[ -z $missing ]] || fail "$current" "stubs with no component upstream any more: $missing"
 }
 
+t_the_fake_service_answers_for_the_real_one() {
+  local fake="$ROOT/tests/qml/stubs/FakeService.qml"
+  local name missing=""
+
+  while read -r name; do
+    grep -qE "^[[:space:]]*signal $name\b" "$fake" || missing+="signal $name "
+  done < <(grep -oP '^\s*signal \K[a-zA-Z0-9_]+' "$ROOT/Service.qml")
+
+  while read -r name; do
+    grep -qE "^[[:space:]]*(signal $name\b|function $name\(|property [a-zA-Z<>]+ $name\b)" "$fake" ||
+      missing+="$name "
+  done < <(grep -ohP 'service\.\K[a-zA-Z0-9_]+' "$ROOT"/Panel.qml "$ROOT"/BarWidget.qml | sort -u)
+
+  [[ -z $missing ]] || fail "$current" "the panel needs what the fake does not offer: $missing"
+}
+
 check "every stub stands for something real" t_every_stub_stands_for_something_real
 check "every shape of javascript is linted" t_every_shape_of_javascript_is_linted
 check "the config covers what eslint recommends" t_the_config_covers_what_eslint_recommends
@@ -164,6 +180,7 @@ check "the declared list matches the gates that exist" t_the_declared_list_match
 check "an unknown gate is refused" t_an_unknown_gate_is_refused
 check "every gate the pipeline names exists" t_every_gate_the_pipeline_names_exists
 check "every gate is run by the pipeline" t_every_gate_is_run_by_the_pipeline
+check "the fake service answers for the real one" t_the_fake_service_answers_for_the_real_one
 
 printf '\n%d passed, %d failed\n' "$passed" "$failed"
 ((failed == 0))

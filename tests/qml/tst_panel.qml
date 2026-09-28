@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import "../../Model.js" as Model
 import "../.." as Plugin
 import "stubs"
 
@@ -21,8 +22,15 @@ TestCase {
     }
 
     function init() {
+        failOnWarning(/.*/);
         fake.asked = [];
         fake.episodes = [];
+        fake.rows = [];
+        fake.results = [];
+        fake.players = [];
+        fake.playingId = "";
+        fake.launching = false;
+        panel.close();
         panel.resetViews();
     }
 
@@ -70,6 +78,63 @@ TestCase {
         compare(panel.keyState.index, 3);
     }
 
+    function test_a_launch_failure_becomes_a_notice() {
+        panel.open();
+        fake.failed("mpv could not start");
+        compare(panel.notice, "mpv could not start");
+        verify(!panel.noticeUnseen, "the panel is open, so it was seen");
+    }
+
+    function test_a_failure_while_the_panel_is_shut_waits_to_be_seen() {
+        panel.close();
+        fake.failed("the episode list could not be read");
+        compare(panel.notice, "the episode list could not be read");
+        verify(panel.noticeUnseen, "nobody saw it yet");
+    }
+
+    function test_a_new_launch_clears_the_last_failure() {
+        panel.open();
+        fake.failed("mpv could not start");
+        fake.launching = true;
+        compare(panel.notice, "");
+    }
+
+    function test_a_player_that_dies_sends_the_panel_back() {
+        fake.playingId = "naruto";
+        fake.players = [
+            {
+                "animeId": "naruto",
+                "episode": "4",
+                "title": "Naruto"
+            }
+        ];
+        panel.setView("player");
+        fake.players = [];
+        compare(panel.view, "history");
+    }
+
+    function test_a_launch_in_flight_keeps_the_player_view() {
+        fake.playingId = "naruto";
+        fake.launching = true;
+        panel.setView("player");
+        compare(panel.view, "player", "no player is on the bus yet, and that is expected");
+        fake.launching = false;
+        compare(panel.view, "history", "once the launch is over, nothing is playing");
+    }
+
+    function test_a_live_player_keeps_the_player_view() {
+        fake.playingId = "naruto";
+        fake.players = [
+            {
+                "animeId": "naruto",
+                "episode": "4",
+                "title": "Naruto"
+            }
+        ];
+        panel.setView("player");
+        compare(panel.view, "player");
+    }
+
     function test_a_key_reaches_the_service() {
         panel.dispatch("r");
         compare(fake.asked, ["refresh"]);
@@ -78,19 +143,69 @@ TestCase {
     function test_choosing_an_episode_asks_the_service_to_play_it() {
         fake.selectedId = "naruto";
         fake.selectedTitle = "Naruto";
-        fake.episodes = [
-            {
-                "number": "6"
-            },
-            {
-                "number": "7"
-            }
-        ];
+        fake.episodes = Model.episodeRows("e6\t6\ne7\t7\n", {}, 0.9);
         panel.setView("episodes");
         panel.activateCursor();
         panel.dispatch("j");
         panel.dispatch("enter");
         compare(fake.asked, ["play:naruto:7"]);
+    }
+
+    readonly property var everyKey: ["j", "k", "g", "g", "G", "ctrl+d", "ctrl+u", "0", "3", "j", "enter", "d", "c", "r", "s", "?", "/", "i", "x", "q", " ", "z", "escape"]
+
+    function test_no_key_breaks_a_view_data() {
+        return [
+            {
+                "tag": "an empty list",
+                "rows": false
+            },
+            {
+                "tag": "a list with rows",
+                "rows": true
+            }
+        ];
+    }
+
+    function test_no_key_breaks_a_view(data) {
+        var views = ["history", "results", "episodes", "player", "settings", "shortcuts", "quality"];
+        if (data.rows) {
+            fake.rows = [
+                {
+                    "animeId": "naruto",
+                    "episode": "4",
+                    "title": "Naruto",
+                    "kind": "series"
+                }
+            ];
+            fake.results = [
+                {
+                    "animeId": "naruto",
+                    "title": "Naruto"
+                }
+            ];
+            fake.episodes = Model.episodeRows("e4\t4\n", {}, 0.9);
+            fake.playingId = "naruto";
+            fake.players = [
+                {
+                    "animeId": "naruto",
+                    "episode": "4",
+                    "title": "Naruto",
+                    "quality": "1080p"
+                }
+            ];
+        }
+        for (var v = 0; v < views.length; v++) {
+            for (var k = 0; k < everyKey.length; k++) {
+                panel.resetViews();
+                panel.setView(views[v]);
+                panel.activateCursor();
+                panel.dispatch(everyKey[k]);
+                var where = views[v] + " + " + everyKey[k];
+                verify(views.indexOf(panel.view) >= 0, where + " left the view at " + panel.view);
+                var index = panel.keyState.index;
+                verify(index >= 0 && index < Math.max(1, panel.rows.length), where + " left the cursor at " + index + " of " + panel.rows.length);
+            }
+        }
     }
 
     function test_going_back_always_reaches_the_end_data() {
