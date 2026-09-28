@@ -255,8 +255,6 @@ Panel {
             handler(result.command);
     }
 
-    // Asks only about the player. Including the view made setView, which this
-    // handler calls, feed back into the property it is reacting to.
     readonly property bool watchedPlayerGone: service && !service.launching && !Model.isPlayingSeries(service.players, service.playingId)
 
     onWatchedPlayerGoneChanged: {

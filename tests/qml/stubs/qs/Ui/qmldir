@@ -11,3 +11,4 @@ PanelSeparator 1.0 PanelSeparator.qml
 ConfirmDialog 1.0 ConfirmDialog.qml
 CursorSurface 1.0 CursorSurface.qml
 BarIconButton 1.0 BarIconButton.qml
+PanelController 1.0 PanelController.qml

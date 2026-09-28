@@ -10,22 +10,27 @@ Item {
     property bool manageIpc: true
     property bool popoutSwitching: false
     property bool popoutSwitchClosing: false
-    property bool opened: false
+    property alias controller: panelController
+    readonly property bool opened: panelController.open
 
     function open() {
-        opened = true;
+        panelController.show();
     }
     function close() {
-        opened = false;
+        panelController.hide();
     }
     function toggle() {
-        opened = !opened;
+        opened ? close() : open();
     }
     function closeForPopoutSwitch() {
-        opened = false;
+        panelController.hide();
     }
     function switchPanel(direction) {
     }
+    PanelController {
+        id: panelController
+    }
+
     function setting(name, fallback) {
         var value = settings ? settings[name] : undefined;
         return value === undefined || value === null || value === "" ? fallback : value;

@@ -1,5 +1,24 @@
-// No `.pragma library`: that directive is not valid JavaScript, so Node cannot
-// parse a file carrying it, and the tests would stop running what ships.
+
+function statusFields(raw, fallbackFraction) {
+  if (!raw) return null
+  var parsed
+  try {
+    parsed = JSON.parse(String(raw))
+  } catch (e) {
+    return null
+  }
+  if (!parsed || typeof parsed !== "object" || parsed instanceof Array) return null
+  return {
+    ready: parsed.ready === true,
+    tracking: parsed.tracking !== false,
+    watchedFraction: Number(parsed.watchedFraction) || fallbackFraction,
+    missing: parsed.missing ? String(parsed.missing) : "",
+    version: parsed.version ? String(parsed.version) : "",
+    repo: parsed.repo ? String(parsed.repo) : "",
+    historyPath: parsed.historyPath ? String(parsed.historyPath) : "",
+    playersPath: parsed.playersPath ? String(parsed.playersPath) : ""
+  }
+}
 
 function parseHistory(raw) {
   if (!raw) return []
@@ -637,6 +656,7 @@ function reduceKey(state, key, ctx) {
 if (typeof module !== "undefined") {
   module.exports = {
     parseHistory: parseHistory,
+    statusFields: statusFields,
     watchedFraction: watchedFraction,
     progressLabel: progressLabel,
     pushView: pushView,

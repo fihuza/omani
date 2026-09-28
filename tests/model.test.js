@@ -1322,3 +1322,57 @@ test("an index left beyond a shrunken list is pulled back into range", () => {
   const stale = { index: 8, pendingCount: "", pendingG: false }
   assert.equal(Model.reduceKey(stale, "j", { rowCount: 3, pageSize: 4 }).state.index, 2)
 })
+
+test("the status the script reports is read field by field", () => {
+  const raw = JSON.stringify({
+    ready: true,
+    tracking: false,
+    watchedFraction: 75,
+    missing: "mpv",
+    version: "1.2.0",
+    repo: "https://example.invalid/omani",
+    historyPath: "/h",
+    playersPath: "/p",
+  })
+  assert.deepEqual(Model.statusFields(raw, 90), {
+    ready: true,
+    tracking: false,
+    watchedFraction: 75,
+    missing: "mpv",
+    version: "1.2.0",
+    repo: "https://example.invalid/omani",
+    historyPath: "/h",
+    playersPath: "/p",
+  })
+})
+
+test("output that is not json reports no status at all", () => {
+  assert.equal(Model.statusFields("bash: line 1: warning\n{}", 90), null)
+  assert.equal(Model.statusFields("", 90), null)
+  assert.equal(Model.statusFields(null, 90), null)
+})
+
+test("json that is not an object reports no status", () => {
+  assert.equal(Model.statusFields("[1,2]", 90), null)
+  assert.equal(Model.statusFields("null", 90), null)
+  assert.equal(Model.statusFields('"ready"', 90), null)
+})
+
+test("nothing is ready until the script says so, and tracking stays on", () => {
+  const status = Model.statusFields("{}", 90)
+  assert.equal(status.ready, false)
+  assert.equal(status.tracking, true)
+})
+
+test("an unusable watched fraction keeps the one already in use", () => {
+  assert.equal(Model.statusFields('{"watchedFraction":"x"}', 90).watchedFraction, 90)
+  assert.equal(Model.statusFields('{"watchedFraction":0}', 90).watchedFraction, 90)
+  assert.equal(Model.statusFields('{"watchedFraction":75}', 90).watchedFraction, 75)
+})
+
+test("every name and path comes back as a string", () => {
+  const status = Model.statusFields('{"missing":null,"version":12,"repo":false}', 90)
+  assert.equal(status.missing, "")
+  assert.equal(status.version, "12")
+  assert.equal(status.repo, "")
+})
