@@ -141,6 +141,23 @@ eslint_recommended() {
   ' "$pkg" 2>/dev/null
 }
 
+t_every_stub_stands_for_something_real() {
+  local shell="${OMARCHY_PATH:-/usr/share/omarchy}/shell"
+  [[ -d $shell ]] || return 0
+
+  local stub name missing=""
+  for stub in "$ROOT"/tests/qml/stubs/qs/Ui/*.qml; do
+    name=$(basename "$stub")
+    [[ -f "$shell/Ui/$name" ]] || missing+="$name "
+  done
+  for stub in "$ROOT"/tests/qml/stubs/qs/Commons/*.qml; do
+    name=$(basename "$stub")
+    [[ -f "$shell/Commons/$name" ]] || missing+="$name "
+  done
+  [[ -z $missing ]] || fail "$current" "stubs with no component upstream any more: $missing"
+}
+
+check "every stub stands for something real" t_every_stub_stands_for_something_real
 check "every shape of javascript is linted" t_every_shape_of_javascript_is_linted
 check "the config covers what eslint recommends" t_the_config_covers_what_eslint_recommends
 check "the declared list matches the gates that exist" t_the_declared_list_matches_the_gates_that_exist
