@@ -208,6 +208,77 @@ TestCase {
         }
     }
 
+    function test_every_player_row_reaches_the_service_data() {
+        return [
+            {
+                "tag": "pause",
+                "row": "pause",
+                "asked": "pause"
+            },
+            {
+                "tag": "mute",
+                "row": "mute",
+                "asked": "mute"
+            },
+            {
+                "tag": "next episode",
+                "row": "next",
+                "asked": "next"
+            },
+            {
+                "tag": "replay",
+                "row": "replay",
+                "asked": "replay"
+            },
+            {
+                "tag": "previous episode",
+                "row": "previous",
+                "asked": "previous"
+            },
+            {
+                "tag": "select episode",
+                "row": "select",
+                "asked": "openSeries:naruto",
+                "view": "episodes"
+            },
+            {
+                "tag": "change quality",
+                "row": "quality",
+                "asked": "",
+                "view": "quality"
+            },
+            {
+                "tag": "stop",
+                "row": "stop",
+                "asked": "stop",
+                "view": "history"
+            }
+        ];
+    }
+
+    function test_every_player_row_reaches_the_service(data) {
+        fake.playingId = "naruto";
+        fake.playingSeries = "Naruto";
+        fake.players = [
+            {
+                "animeId": "naruto",
+                "episode": "4",
+                "title": "Naruto",
+                "quality": "1080p"
+            }
+        ];
+        panel.setView("player");
+        var keys = panel.rows.map(function (row) {
+            return row.key;
+        });
+        var index = keys.indexOf(data.row);
+        verify(index >= 0, data.row + " is not a row of the player menu: " + keys.join(", "));
+        panel.activateRow(index);
+        compare(fake.asked, data.asked === "" ? [] : [data.asked]);
+        if (data.view !== undefined)
+            compare(panel.view, data.view);
+    }
+
     function test_going_back_always_reaches_the_end_data() {
         var views = ["results", "episodes", "player", "settings", "shortcuts", "quality"];
         var rows = [];
