@@ -112,9 +112,6 @@ t_the_config_covers_what_eslint_recommends() {
   [[ -z $out ]] || fail "$current" "rules eslint recommends that the config does not name: $out"
 }
 
-# A distribution package puts the binary inside the package it belongs to; a
-# version manager puts a shim beside a tree that holds it further down. Walk up
-# from the binary, looking down a little at each step, and both are found.
 eslint_package() {
   local bin dir found
   bin=$(command -v eslint) || return 1
