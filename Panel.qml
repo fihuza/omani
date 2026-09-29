@@ -599,14 +599,12 @@ Panel {
 
                                 PanelSeparator {
                                     visible: rowItem.index > 0 && rowItem.section !== ""
-                                    height: visible ? implicitHeight : 0
                                     width: parent.width
                                     foreground: root.foreground
                                 }
 
                                 SectionLabel {
                                     visible: rowItem.section !== ""
-                                    height: visible ? implicitHeight : 0
                                     width: parent.width
                                     text: rowItem.section
                                 }
@@ -637,7 +635,6 @@ Panel {
                                         Text {
                                             id: rowIcon
                                             visible: text !== ""
-                                            width: visible ? implicitWidth : 0
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: parent.left
                                             textFormat: Text.PlainText
