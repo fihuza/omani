@@ -42,6 +42,10 @@ QtObject {
     function refresh() {
         note("refresh");
     }
+
+    function reloadHistory() {
+        note("history");
+    }
     function search(query) {
         note("search:" + query);
     }
