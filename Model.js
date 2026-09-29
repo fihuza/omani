@@ -485,7 +485,7 @@ function clock(seconds) {
 }
 
 function elapsed(position, duration) {
-  if (!duration || duration <= 0) return ""
+  if (!(duration > 0)) return ""
   return clock(position) + " / " + clock(duration)
 }
 
