@@ -1422,3 +1422,22 @@ test("a report from a real episode still goes through", () => {
     { animeId: "rezero-1387", episode: "2", position: 492, duration: 1467 },
   ])
 })
+
+test("the player being watched is named by its own record when nothing else names it", () => {
+  const players = [
+    { pid: "1", title: "Re:ZERO Episode 5", animeId: "rezero-1387", episode: "5" },
+    { pid: "2", title: "Naruto Episode 9", animeId: "naruto-970", episode: "9" },
+  ]
+  assert.equal(Model.playingTitleOf(players, "rezero-1387", ""), "Re:ZERO Episode 5")
+})
+
+test("a title already known is kept over the record", () => {
+  const players = [{ pid: "1", title: "from the record", animeId: "a", episode: "1" }]
+  assert.equal(Model.playingTitleOf(players, "a", "already known"), "already known")
+})
+
+test("nothing playing names nothing", () => {
+  assert.equal(Model.playingTitleOf([], "a", ""), "")
+  assert.equal(Model.playingTitleOf([{ pid: "1", title: "x", animeId: "b", episode: "1" }], "a", ""), "")
+})
+

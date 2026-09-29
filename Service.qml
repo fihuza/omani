@@ -67,7 +67,7 @@ Item {
     }
     readonly property bool playing: players.length > 0
 
-    readonly property var currentPlayer: Model.playerFor(playerList, playingTitle)
+    readonly property var currentPlayer: Model.playerFor(playerList, Model.playingTitleOf(players, playingId, playingTitle))
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
     readonly property bool playerReachable: currentPlayer !== null
