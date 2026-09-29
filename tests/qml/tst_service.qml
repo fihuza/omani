@@ -4,9 +4,6 @@ import Quickshell
 import Quickshell.Services.Mpris
 import "../.." as Plugin
 
-// Service.qml reaches for Quickshell directly, so it is built against stubs for
-// the types that live in the quickshell binary. What is under test is its
-// bookkeeping: which players it believes are alive, and when a launch is over.
 TestCase {
     id: harness
     name: "Service"
@@ -25,8 +22,6 @@ TestCase {
         answer("players", "");
     }
 
-    // The real process ends; the stub waits to be told, which is what lets a
-    // test decide what the script said.
     function answer(subcommand, out) {
         var p = Quickshell.running(subcommand);
         if (p)
@@ -70,8 +65,6 @@ TestCase {
         compare(service.launching, true, "a play should be waiting for its player");
         verify(answer("play", ""), "nothing was asked to start a player");
 
-        // The script wrote the record. Mpris says nothing, and no file
-        // notification arrives, so the only way to learn is to ask.
         Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 5", "dragon-ball-970", "5");
 
         tryVerify(function () {

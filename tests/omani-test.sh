@@ -21,10 +21,6 @@ fail() {
   ((failed++))
 }
 
-# A stopped player lingers as a zombie until its parent reaps it, and nothing
-# here is that parent -- under a CI container whose pid 1 never calls wait(),
-# the zombie is permanent and `kill -0` still answers yes. Process state is what
-# says whether a player is really gone.
 still_running() {
   local state
   state=$(sed -n 's/^State:[[:space:]]*\([A-Z]\).*/\1/p' "/proc/$1/status" 2>/dev/null)
@@ -540,20 +536,18 @@ t_a_history_whose_series_is_not_a_table_is_never_written_over() {
 }
 
 t_writing_refuses_a_history_it_cannot_place() {
-  # The history has to be readable for the lookup and its directory unwritable
-  # for the write, which only file permissions express -- and root ignores those.
   (($(id -u) != 0)) || return 0
-  local pen="$WORK/pen"
-  mkdir -p "$pen"
-  export OMANI_HIST_FILE="$pen/history.json"
+  local unwritable_dir="$WORK/unwritable_dir"
+  mkdir -p "$unwritable_dir"
+  export OMANI_HIST_FILE="$unwritable_dir/history.json"
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
   local seeded
   seeded=$(cat "$OMANI_HIST_FILE")
-  chmod 500 "$pen"
+  chmod 500 "$unwritable_dir"
   local out
   out=$(OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400 2>&1)
   local code=$?
-  chmod 700 "$pen"
+  chmod 700 "$unwritable_dir"
   ((code != 0)) || fail "$current" "wrote a history into a directory it cannot write"
   assert_contains "$out" "cannot write the history in"
   assert_eq "$(cat "$OMANI_HIST_FILE")" "$seeded"
@@ -656,9 +650,8 @@ t_a_history_that_carries_trailing_garbage_reads_as_empty() {
 
 t_clearing_refuses_when_the_backup_cannot_be_written() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
-  # A symlink to a directory that does not exist: cp follows it and fails, which
-  # root cannot bypass the way it bypasses permissions.
-  ln -s "$WORK/no-such-dir/history.json" "$OMANI_HIST_FILE.bak"
+  local backup_into_a_missing_dir="$WORK/no-such-dir/history.json"
+  ln -s "$backup_into_a_missing_dir" "$OMANI_HIST_FILE.bak"
   local out
   out=$(OMANI_DRY_RUN='' "$OMANI" history-clear 2>&1)
   local code=$?
@@ -685,8 +678,6 @@ t_a_player_list_that_cannot_be_written_is_said_so() {
 }
 
 t_a_history_that_cannot_be_written_is_said_so() {
-  # A file where the directory should be: root ignores permissions, but nobody
-  # gets to write inside a regular file.
   printf 'not a directory\n' >"$WORK/blocked"
   local out
   out=$(OMANI_HIST_FILE="$WORK/blocked/history.json" OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400 2>&1)

@@ -89,21 +89,18 @@ Item {
         currentPlayer.volume = 0;
     }
 
-    // mpris position is not a notifying property: quickshell reads it fresh
-    // every time, but nothing tells a binding to look again. The tick is what
-    // makes the clock move.
-    property int clockTick: 0
+    property int mprisPositionTick: 0
     readonly property var progress: {
-        clockTick;
+        mprisPositionTick;
         return Model.progressRows(players, livePositions());
     }
 
     Timer {
-        id: clockTicks
+        id: mprisPositionPoll
         interval: 1000
         running: root.playing
         repeat: true
-        onTriggered: root.clockTick++
+        onTriggered: root.mprisPositionTick++
     }
 
     function setting(name, fallback) {
@@ -144,8 +141,6 @@ Item {
         statusProcess.running = true;
     }
 
-    // A status that will not parse leaves every path alone: the panel stops
-    // claiming to be ready, and the views keep watching the files they had.
     function applyStatus(raw) {
         var status = Model.statusFields(raw, watchedFraction);
         if (!status) {
@@ -189,15 +184,13 @@ Item {
         run(["stop", target]);
     }
 
-    property bool cancelled: false
+    property bool swallowNextExit: false
 
     function cancelLaunch() {
         if (!launching)
             return;
         launchWait.stop();
-        // Only a process still running will report an exit to swallow; one that
-        // has already finished would leave the flag set for the next launch.
-        cancelled = launchProcess.running;
+        swallowNextExit = launchProcess.running;
         launchProcess.running = false;
         launching = false;
     }
@@ -338,8 +331,6 @@ Item {
         failed(message);
     }
 
-    // A player that dies before it reaches the bus never arrives, and the flag
-    // it would clear is what every later play waits on.
     Timer {
         id: launchWait
         interval: 10000
@@ -356,7 +347,7 @@ Item {
     }
 
     function beginLaunch() {
-        cancelled = false;
+        swallowNextExit = false;
         waitedTooLong = false;
         launchWait.stop();
         launchPids = Model.launchPids(players);
@@ -390,8 +381,8 @@ Item {
             waitForEnd: true
         }
         onExited: function (exitCode) {
-            if (root.cancelled) {
-                root.cancelled = false;
+            if (root.swallowNextExit) {
+                root.swallowNextExit = false;
                 return;
             }
             if (exitCode === 0) {
