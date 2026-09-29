@@ -495,7 +495,7 @@ function playingTitleOf(players, animeId, titleFromBefore) {
       if (players[i].animeId === animeId) return String(players[i].title || "")
     }
   }
-  return titleFromBefore || ""
+  return String(titleFromBefore || "")
 }
 
 function playerFor(players, title) {
