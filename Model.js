@@ -376,17 +376,19 @@ function restoredVolume(before) {
   return isFinite(level) && level > 0 ? level : 1
 }
 
-function playerRows(title, episode, paused, quality, muted) {
-  return [
-    { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
-    { key: "mute", title: muted ? "Unmute" : "Mute", label: "" },
-    { key: "next", title: "Next episode", label: neighbourLabel(episode, 1) },
-    { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
-    { key: "previous", title: "Previous episode", label: neighbourLabel(episode, -1) },
-    { key: "select", title: "Select episode", label: "" },
-    { key: "quality", title: "Change quality", label: quality || "" },
-    { key: "stop", title: "Stop", label: "" }
-  ]
+function playerRows(title, episode, paused, quality, muted, reachable) {
+  var rows = []
+  if (reachable !== false) {
+    rows.push({ key: "pause", title: paused ? "Resume" : "Pause", label: "" })
+    rows.push({ key: "mute", title: muted ? "Unmute" : "Mute", label: "" })
+  }
+  rows.push({ key: "next", title: "Next episode", label: neighbourLabel(episode, 1) })
+  rows.push({ key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode })
+  rows.push({ key: "previous", title: "Previous episode", label: neighbourLabel(episode, -1) })
+  rows.push({ key: "select", title: "Select episode", label: "" })
+  rows.push({ key: "quality", title: "Change quality", label: quality || "" })
+  rows.push({ key: "stop", title: "Stop", label: "" })
+  return rows
 }
 
 function settingChange(row) {

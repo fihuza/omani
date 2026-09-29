@@ -1391,3 +1391,13 @@ test("the script is believed over the bus, both ways", () => {
   ]
   assert.deepEqual(Model.livePlayers(records, ["A Episode 1", "B Episode 1"], ["2"]), [records[1]])
 })
+
+test("a player that cannot be reached offers neither pause nor mute", () => {
+  const keys = Model.playerRows("Dragon Ball", "7", false, "best", false, false).map((r) => r.key)
+  assert.deepEqual(keys, ["next", "replay", "previous", "select", "quality", "stop"])
+})
+
+test("a player that can be reached offers both", () => {
+  const keys = Model.playerRows("Dragon Ball", "7", false, "best", false, true).map((r) => r.key)
+  assert.deepEqual(keys, ["pause", "mute", "next", "replay", "previous", "select", "quality", "stop"])
+})
