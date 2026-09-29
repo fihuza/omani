@@ -1431,9 +1431,13 @@ test("the player being watched is named by its own record when nothing else name
   assert.equal(Model.playingTitleOf(players, "rezero-1387", ""), "Re:ZERO Episode 5")
 })
 
-test("a title already known is kept over the record", () => {
-  const players = [{ pid: "1", title: "from the record", animeId: "a", episode: "1" }]
-  assert.equal(Model.playingTitleOf(players, "a", "already known"), "already known")
+test("the record outranks a title remembered from before", () => {
+  const players = [{ pid: "1", title: "Re:ZERO Episode 7", animeId: "a", episode: "7" }]
+  assert.equal(Model.playingTitleOf(players, "a", "Re:ZERO Episode "), "Re:ZERO Episode 7")
+})
+
+test("a title remembered is used only when no record answers for it", () => {
+  assert.equal(Model.playingTitleOf([], "a", "Re:ZERO Episode 7"), "Re:ZERO Episode 7")
 })
 
 test("nothing playing names nothing", () => {
