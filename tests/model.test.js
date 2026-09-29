@@ -1391,3 +1391,63 @@ test("the script is believed over the bus, both ways", () => {
   ]
   assert.deepEqual(Model.livePlayers(records, ["A Episode 1", "B Episode 1"], ["2"]), [records[1]])
 })
+
+test("a player that cannot be reached offers neither pause nor mute", () => {
+  const keys = Model.playerRows("Dragon Ball", "7", false, "best", false, false).map((r) => r.key)
+  assert.deepEqual(keys, ["next", "replay", "previous", "select", "quality", "stop"])
+})
+
+test("a player that can be reached offers both", () => {
+  const keys = Model.playerRows("Dragon Ball", "7", false, "best", false, true).map((r) => r.key)
+  assert.deepEqual(keys, ["pause", "mute", "next", "replay", "previous", "select", "quality", "stop"])
+})
+
+test("a duration too short to be an episode is not reported", () => {
+  const records = [{ pid: "1", title: "Dragon Ball Episode 4", animeId: "dragon-ball-970", episode: "4" }]
+  assert.deepEqual(Model.progressReports(records, [{ title: "Dragon Ball Episode 4", position: 24, duration: 24 }]), [])
+  assert.deepEqual(Model.progressReports(records, [{ title: "Dragon Ball Episode 4", position: 1, duration: 1 }]), [])
+})
+
+test("a position past the end of its episode is not reported", () => {
+  const records = [{ pid: "1", title: "Dragon Ball Episode 4", animeId: "dragon-ball-970", episode: "4" }]
+  assert.deepEqual(
+    Model.progressReports(records, [{ title: "Dragon Ball Episode 4", position: 2000, duration: 1244 }]),
+    [],
+  )
+})
+
+test("a report from a real episode still goes through", () => {
+  const records = [{ pid: "1", title: "Re:ZERO Episode 2", animeId: "rezero-1387", episode: "2" }]
+  assert.deepEqual(Model.progressReports(records, [{ title: "Re:ZERO Episode 2", position: 492, duration: 1467 }]), [
+    { animeId: "rezero-1387", episode: "2", position: 492, duration: 1467 },
+  ])
+})
+
+test("the player being watched is named by its own record when nothing else names it", () => {
+  const players = [
+    { pid: "1", title: "Re:ZERO Episode 5", animeId: "rezero-1387", episode: "5" },
+    { pid: "2", title: "Naruto Episode 9", animeId: "naruto-970", episode: "9" },
+  ]
+  assert.equal(Model.playingTitleOf(players, "rezero-1387", ""), "Re:ZERO Episode 5")
+})
+
+test("a title already known is kept over the record", () => {
+  const players = [{ pid: "1", title: "from the record", animeId: "a", episode: "1" }]
+  assert.equal(Model.playingTitleOf(players, "a", "already known"), "already known")
+})
+
+test("nothing playing names nothing", () => {
+  assert.equal(Model.playingTitleOf([], "a", ""), "")
+  assert.equal(Model.playingTitleOf([{ pid: "1", title: "x", animeId: "b", episode: "1" }], "a", ""), "")
+})
+
+test("no series playing names nothing, whatever the records hold", () => {
+  const players = [{ pid: "1", title: "Re:ZERO Episode 5", animeId: "rezero-1387", episode: "5" }]
+  assert.equal(Model.playingTitleOf(players, "", ""), "")
+})
+
+test("a record carrying no title names nothing rather than undefined", () => {
+  const players = [{ pid: "1", animeId: "rezero-1387", episode: "5" }]
+  assert.equal(Model.playingTitleOf(players, "rezero-1387", ""), "")
+})
+

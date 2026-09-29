@@ -67,20 +67,27 @@ Item {
     }
     readonly property bool playing: players.length > 0
 
-    readonly property var currentPlayer: Model.playerFor(playerList, playingTitle)
+    readonly property var currentPlayer: Model.playerFor(playerList, Model.playingTitleOf(players, playingId, playingTitle))
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
+    readonly property bool playerReachable: currentPlayer !== null
+
     function togglePaused() {
-        if (currentPlayer)
-            currentPlayer.togglePlaying();
+        if (!playerReachable) {
+            failed("this player is not answering, so it cannot be paused from here");
+            return;
+        }
+        currentPlayer.togglePlaying();
     }
 
     property real volumeBeforeMute: 1.0
     readonly property bool muted: currentPlayer ? currentPlayer.volume <= 0 : false
 
     function toggleMuted() {
-        if (!currentPlayer)
+        if (!playerReachable) {
+            failed("this player is not answering, so it cannot be muted from here");
             return;
+        }
         if (muted) {
             currentPlayer.volume = Model.restoredVolume(volumeBeforeMute);
             return;
@@ -357,9 +364,9 @@ Item {
     onLiveTitlesChanged: reloadPlayers()
 
     Timer {
-        id: playersSample
-        interval: 700
-        running: root.launching
+        id: playersPoll
+        interval: root.launching ? 700 : 2000
+        running: root.launching || root.playing
         repeat: true
         onTriggered: root.reloadPlayers()
     }
@@ -404,7 +411,8 @@ Item {
             waitForEnd: true
         }
         onExited: function (exitCode) {
-            root.livePids = exitCode === 0 ? Model.launchPids(Model.playerRecords(String(playersOut.text || ""))) : null;
+            if (exitCode === 0)
+                root.livePids = Model.launchPids(Model.playerRecords(String(playersOut.text || "")));
             root.applyPlayers();
         }
     }

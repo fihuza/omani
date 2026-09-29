@@ -1,4 +1,6 @@
 
+var SHORTEST_EPISODE_SECONDS = 60
+
 function statusFields(raw, fallbackFraction) {
   if (!raw) return null
   var parsed
@@ -106,7 +108,8 @@ function progressReports(records, players) {
     var title = String(players[i].title || "")
     var position = Math.floor(Number(players[i].position) || 0)
     var duration = Math.floor(Number(players[i].duration) || 0)
-    if (title === "" || duration <= 0 || position <= 0) continue
+    if (title === "" || position <= 0) continue
+    if (duration < SHORTEST_EPISODE_SECONDS || position > duration) continue
     for (var r = 0; r < records.length; r++) {
       if (records[r].title !== title) continue
       reports.push({
@@ -376,17 +379,19 @@ function restoredVolume(before) {
   return isFinite(level) && level > 0 ? level : 1
 }
 
-function playerRows(title, episode, paused, quality, muted) {
-  return [
-    { key: "pause", title: paused ? "Resume" : "Pause", label: "" },
-    { key: "mute", title: muted ? "Unmute" : "Mute", label: "" },
-    { key: "next", title: "Next episode", label: neighbourLabel(episode, 1) },
-    { key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode },
-    { key: "previous", title: "Previous episode", label: neighbourLabel(episode, -1) },
-    { key: "select", title: "Select episode", label: "" },
-    { key: "quality", title: "Change quality", label: quality || "" },
-    { key: "stop", title: "Stop", label: "" }
-  ]
+function playerRows(title, episode, paused, quality, muted, reachable) {
+  var rows = []
+  if (reachable !== false) {
+    rows.push({ key: "pause", title: paused ? "Resume" : "Pause", label: "" })
+    rows.push({ key: "mute", title: muted ? "Unmute" : "Mute", label: "" })
+  }
+  rows.push({ key: "next", title: "Next episode", label: neighbourLabel(episode, 1) })
+  rows.push({ key: "replay", title: "Replay", label: episode === "" ? "" : "episode " + episode })
+  rows.push({ key: "previous", title: "Previous episode", label: neighbourLabel(episode, -1) })
+  rows.push({ key: "select", title: "Select episode", label: "" })
+  rows.push({ key: "quality", title: "Change quality", label: quality || "" })
+  rows.push({ key: "stop", title: "Stop", label: "" })
+  return rows
 }
 
 function settingChange(row) {
@@ -480,8 +485,17 @@ function clock(seconds) {
 }
 
 function elapsed(position, duration) {
-  if (!duration || duration <= 0) return ""
+  if (!(duration > 0)) return ""
   return clock(position) + " / " + clock(duration)
+}
+
+function playingTitleOf(players, animeId, known) {
+  if (known) return known
+  if (!animeId) return ""
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return String(players[i].title || "")
+  }
+  return ""
 }
 
 function playerFor(players, title) {
@@ -705,6 +719,7 @@ if (typeof module !== "undefined") {
     clock: clock,
     elapsed: elapsed,
     playerFor: playerFor,
+    playingTitleOf: playingTitleOf,
     sectionLabel: sectionLabel,
     firstLine: firstLine,
     normalizeKey: normalizeKey,

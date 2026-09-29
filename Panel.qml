@@ -70,7 +70,7 @@ Panel {
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, root.watched, service.version, service.repo) : [],
-            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality, service.muted) : [],
+            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality, service.muted, service.playerReachable) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
         })
@@ -344,6 +344,7 @@ Panel {
         service.results = [];
         resetViews();
         service.refresh();
+        service.reloadHistory();
         var adopt = Model.adoptable(service.players, service.playingId);
         if (adopt)
             selectPlayer(adopt);
@@ -598,14 +599,12 @@ Panel {
 
                                 PanelSeparator {
                                     visible: rowItem.index > 0 && rowItem.section !== ""
-                                    height: visible ? implicitHeight : 0
                                     width: parent.width
                                     foreground: root.foreground
                                 }
 
                                 SectionLabel {
                                     visible: rowItem.section !== ""
-                                    height: visible ? implicitHeight : 0
                                     width: parent.width
                                     text: rowItem.section
                                 }
@@ -636,7 +635,6 @@ Panel {
                                         Text {
                                             id: rowIcon
                                             visible: text !== ""
-                                            width: visible ? implicitWidth : 0
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: parent.left
                                             textFormat: Text.PlainText

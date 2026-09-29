@@ -50,6 +50,58 @@ TestCase {
         compare(service.watchedFraction, 90);
     }
 
+    function test_a_player_that_went_away_is_noticed_without_being_told() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 7", "dragon-ball-970", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        compare(service.players.length, 1, "the player never became live");
+        compare(service.playing, true);
+
+        Quickshell.file("players").contents = "";
+
+        tryVerify(function () {
+            return Quickshell.running("players") !== null;
+        }, 4000, "the service stopped asking once a player was live, so a closed player stays on screen");
+
+        answer("players", "");
+        tryCompare(service, "playing", false, 2000);
+    }
+
+    function test_a_failed_ask_does_not_forget_a_live_player() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 7", "dragon-ball-970", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        compare(service.players.length, 1, "the player never became live");
+
+        var asking = Quickshell.running("players");
+        if (!asking) {
+            service.reloadPlayers();
+            asking = Quickshell.running("players");
+        }
+        verify(asking, "the service never asked again");
+        asking.finish(1, "");
+
+        compare(service.players.length, 1, "a failed ask threw away what the service already knew");
+    }
+
+    SignalSpy {
+        id: refused
+        target: service
+        signalName: "failed"
+    }
+
+    function test_pausing_a_player_we_cannot_reach_says_so() {
+        refused.clear();
+        service.togglePaused();
+        compare(refused.count, 1, "pause did nothing and said nothing");
+    }
+
+    function test_muting_a_player_we_cannot_reach_says_so() {
+        refused.clear();
+        service.toggleMuted();
+        compare(refused.count, 1, "mute did nothing and said nothing");
+    }
+
     function test_stopping_a_player_asks_the_script_to_stop_it() {
         Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 5", "dragon-ball-970", "5");
         service.reloadPlayers();
