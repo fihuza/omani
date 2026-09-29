@@ -144,24 +144,6 @@ t_episodes_ignore_another_series() {
   assert_eq "$out" ""
 }
 
-t_deobfuscate_round_trip() {
-  # The fixture is base64(json XOR "otaku-embed-v1"), committed once, so the
-  # suite needs no interpreter to produce it.
-  local out expected_src expected_default
-  out=$("$PROVIDER" deobfuscate "$(cat "$FIXTURES/embed-blob.txt")")
-  expected_src='"src":"https://cdn/master.m3u8"'
-  expected_default='"default":true'
-  assert_contains "$out" "$expected_src"
-  assert_contains "$out" "$expected_default"
-}
-
-t_a_payload_in_another_script_survives_deobfuscation() {
-  local out
-  out=$("$PROVIDER" deobfuscate "$(cat "$FIXTURES/embed-blob-utf8.txt")")
-  assert_contains "$out" '"label":"日本語"'
-  assert_contains "$out" "https://cdn/日本語/master.m3u8"
-}
-
 t_qualities_sorted_best_first() {
   local out
   out=$(printf '#EXT-X-STREAM-INF:BANDWIDTH=1,RESOLUTION=640x360,FRAME-RATE=24.000\n360/index.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2,RESOLUTION=1920x1080,FRAME-RATE=24.000\n1080/index.m3u8\n' |
@@ -286,14 +268,7 @@ t_stream_resolves_url_referrer_and_subtitles() {
   local out
   out=$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
   assert_contains "$out" "url	https://cdn/1080/i.m3u8"
-  assert_contains "$out" "referrer	https://zokoanime.video/"
-  assert_contains "$out" "subtitles	https://cdn/en.vtt"
-}
-
-t_stream_takes_the_source_the_payload_names() {
-  local out
-  out=$(FAKE_EMBED="$FIXTURES/embed-blob-two-sources.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best)
-  assert_contains "$out" "https://cdn/real/"
+  assert_contains "$out" "referrer	https://megaplay.buzz/"
   assert_contains "$out" "subtitles	https://cdn/en.vtt"
 }
 
@@ -368,27 +343,17 @@ t_an_embed_hash_that_is_not_base64_is_refused() {
   assert_contains "$out" "could not decode the embed url"
 }
 
-t_an_embed_page_without_a_payload_is_refused() {
-  local page="$WORK/no-payload.html"
-  printf '<html><body>nothing here</body></html>\n' >"$page"
+t_a_playlist_that_names_no_source_is_refused() {
   local out
-  if out=$(FAKE_EMBED_PAGE="$page" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+  if out=$(FAKE_SOURCES="$FIXTURES/sources-no-file.json" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
     fail "$current" "expected a non-zero exit"
   fi
-  assert_contains "$out" "embed page carried no payload"
-}
-
-t_a_payload_without_a_source_is_refused() {
-  local out
-  if out=$(FAKE_EMBED="$FIXTURES/embed-blob-no-source.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
-    fail "$current" "expected a non-zero exit"
-  fi
-  assert_contains "$out" "no m3u8 in the payload"
+  assert_contains "$out" "named no source"
 }
 
 t_a_subtitle_that_is_not_a_web_address_is_dropped() {
   local out
-  out=$(FAKE_EMBED="$FIXTURES/embed-blob-local-subtitle.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  out=$(FAKE_SOURCES="$FIXTURES/sources-local-subtitle.json" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
   assert_contains "$out" "subtitles	"
   assert_lacks "$out" "passwd"
 }
@@ -412,10 +377,55 @@ t_a_cloudflare_block_on_plain_curl_names_the_fix() {
   assert_contains "$out" "install curl-impersonate"
 }
 
+t_stream_resolves_through_the_source_the_site_now_serves() {
+  local out
+  out=$(FAKE_SOURCES="$FIXTURES/sources-megaplay.json" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "url	https://fetch.nexabloom.top/"
+  assert_contains "$out" "referrer	https://megaplay.buzz/"
+  assert_contains "$out" "subtitles	https://"
+}
+
+t_a_server_the_site_renames_still_plays() {
+  sed 's|Vidstream-2|Vidstream-9|g' "$FIXTURES/servers-vidstream.html" >"$WORK/renamed.html"
+  local out
+  out=$(FAKE_SERVERS="$WORK/renamed.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "url	"
+}
+
+t_an_embed_without_a_player_id_is_refused() {
+  printf '<html><body>no player here</body></html>
+' >"$WORK/blank-embed.html"
+  local out
+  if out=$(FAKE_EMBED_PAGE="$WORK/blank-embed.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "player id"
+}
+
+t_sources_without_an_encrypted_playlist_are_refused() {
+  printf '{"tracks":[]}
+' >"$WORK/bare.json"
+  local out
+  if out=$(FAKE_SOURCES="$WORK/bare.json" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "no encrypted playlist"
+}
+
+t_a_playlist_that_will_not_decrypt_is_refused() {
+  printf '{"enc":"bm90IGEgcmVhbCBibG9i"}
+' >"$WORK/bad.json"
+  local out
+  if out=$(FAKE_SOURCES="$WORK/bad.json" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$out" "its key has changed"
+}
+
 t_usage_names_every_subcommand() {
   local usage sub
   usage=$("$PROVIDER" 2>&1)
-  for sub in search episodes stream parse-search parse-episodes parse-qualities deobfuscate; do
+  for sub in search episodes stream parse-search parse-episodes parse-qualities; do
     assert_contains "$usage" "$sub"
   done
 }
@@ -452,7 +462,7 @@ t_the_fetcher_speaks_only_http() {
 
 t_stream_refuses_a_source_that_is_not_a_web_address() {
   local out
-  if out=$(FAKE_EMBED="$FIXTURES/embed-blob-local-file.txt" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+  if out=$(FAKE_SOURCES="$FIXTURES/sources-local-file.json" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
     fail "$current" "expected a non-zero exit"
   fi
   assert_contains "$out" "not a playable"
@@ -460,16 +470,8 @@ t_stream_refuses_a_source_that_is_not_a_web_address() {
 
 t_stream_refuses_a_mode_with_no_source() {
   local out
-  out=$("$PROVIDER" stream frieren-beyond-journeys-end-481 1 dub best 2>&1)
-  assert_contains "$out" "no ZokoAnime source for dub"
-}
-
-t_stream_reports_a_server_list_without_a_usable_player() {
-  local servers="$WORK/other-servers.html"
-  printf '<div class="server-item" data-type="sub" data-server-name="SomeOther" data-hash="x"></div>\n' >"$servers"
-  local out
-  out=$(FAKE_SERVERS="$servers" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
-  assert_contains "$out" "no ZokoAnime source"
+  out=$(FAKE_SERVERS="$FIXTURES/servers-sub-only.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 dub best 2>&1)
+  assert_contains "$out" "no dub source"
 }
 
 t_stream_needs_an_id_and_an_episode() {
@@ -489,7 +491,6 @@ check "search needs a query" t_search_needs_a_query
 check "episodes works end to end" t_episodes_end_to_end
 check "episodes needs an id" t_episodes_needs_an_id
 check "stream resolves url, referrer and subtitles" t_stream_resolves_url_referrer_and_subtitles
-check "stream takes the source the payload names" t_stream_takes_the_source_the_payload_names
 check "stream reports the variants the episode has" t_stream_reports_the_variants_the_episode_has
 check "stream honours the requested quality" t_stream_honours_the_requested_quality
 check "stream falls back when the quality is absent" t_stream_falls_back_when_the_quality_is_absent
@@ -500,11 +501,15 @@ check "a height does not carry to the next variant" t_a_height_does_not_carry_to
 check "one variant line is offered per declaration" t_one_variant_line_is_offered_per_declaration
 check "the first matching server is the one used" t_the_first_matching_server_is_the_one_used
 check "an embed hash that is not base64 is refused" t_an_embed_hash_that_is_not_base64_is_refused
-check "an embed page without a payload is refused" t_an_embed_page_without_a_payload_is_refused
-check "a payload without a source is refused" t_a_payload_without_a_source_is_refused
+check "a playlist that names no source is refused" t_a_playlist_that_names_no_source_is_refused
 check "a subtitle that is not a web address is dropped" t_a_subtitle_that_is_not_a_web_address_is_dropped
 check "a master playlist with no variants is refused" t_a_master_playlist_with_no_variants_is_refused
 check "a cloudflare block on plain curl names the fix" t_a_cloudflare_block_on_plain_curl_names_the_fix
+check "stream resolves through the source the site now serves" t_stream_resolves_through_the_source_the_site_now_serves
+check "a server the site renames still plays" t_a_server_the_site_renames_still_plays
+check "an embed without a player id is refused" t_an_embed_without_a_player_id_is_refused
+check "sources without an encrypted playlist are refused" t_sources_without_an_encrypted_playlist_are_refused
+check "a playlist that will not decrypt is refused" t_a_playlist_that_will_not_decrypt_is_refused
 check "usage names every subcommand" t_usage_names_every_subcommand
 check "a query carrying url syntax is encoded" t_a_query_carrying_url_syntax_is_encoded
 check "a query in another script is encoded as utf8" t_a_query_in_another_script_is_encoded_as_utf8
@@ -512,7 +517,6 @@ check "stream refuses an embed that is not a web address" t_stream_refuses_an_em
 check "the fetcher speaks only http" t_the_fetcher_speaks_only_http
 check "stream refuses a source that is not a web address" t_stream_refuses_a_source_that_is_not_a_web_address
 check "stream refuses a mode with no source" t_stream_refuses_a_mode_with_no_source
-check "stream reports a server list with no usable player" t_stream_reports_a_server_list_without_a_usable_player
 check "stream needs an id and an episode" t_stream_needs_an_id_and_an_episode
 
 check "search rows come back as id and title" t_search_rows
@@ -525,8 +529,6 @@ check "a page that is not valid text is parsed without complaint" t_a_page_that_
 check "search stops at the sidebar that repeats results" t_search_stops_at_the_sidebar
 check "episode rows come back as id and number" t_episode_rows
 check "episodes belonging to another series are ignored" t_episodes_ignore_another_series
-check "a payload in another script survives deobfuscation" t_a_payload_in_another_script_survives_deobfuscation
-check "the embed payload round-trips through deobfuscation" t_deobfuscate_round_trip
 check "qualities are sorted best first and made absolute" t_qualities_sorted_best_first
 check "qualities survive tags between the variants" t_qualities_survive_tags_between_the_variants
 check "a variant without a resolution is left out" t_a_variant_without_a_resolution_is_left_out
