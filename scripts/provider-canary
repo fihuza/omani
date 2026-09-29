@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -uo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+PROVIDER="${OMANI_PROVIDER:-$ROOT/bin/omani-provider}"
+QUERY="${OMANI_CANARY_QUERY:-naruto}"
+REFUSED_BY_THE_SITE='blocked by cloudflare|could not fetch|HTTP [45][0-9][0-9] from'
+COMPLAINT=$(mktemp)
+trap 'rm -f "$COMPLAINT"' EXIT
+
+reached_nobody() {
+  grep -qE "$REFUSED_BY_THE_SITE" "$COMPLAINT"
+}
+
+give_up_without_a_verdict() {
+  printf 'inconclusive: %s\n' "$1" >&2
+  printf 'The site refused us, so nothing was learned about whether it still parses.\n' >&2
+  exit 0
+}
+
+the_site_changed() {
+  printf 'FAIL: %s\n' "$1" >&2
+  printf '\nA page was fetched and could not be read. Save it into tests/fixtures/\nand reproduce it offline before changing a parser.\n' >&2
+  exit 1
+}
+
+ask_patiently() {
+  local out tries=0
+  while ((tries < 3)); do
+    if out=$("$@" 2>"$COMPLAINT") && [[ -n $out ]]; then
+      printf '%s' "$out"
+      return 0
+    fi
+    reached_nobody && return 2
+    tries=$((tries + 1))
+    sleep $((tries * 5))
+  done
+  return 1
+}
+
+whatever_went_wrong() {
+  local status="$1" step="$2"
+  ((status == 2)) && give_up_without_a_verdict "$step: $(head -1 "$COMPLAINT")"
+  the_site_changed "$step: $(head -1 "$COMPLAINT")"
+}
+
+results=$(ask_patiently "$PROVIDER" search "$QUERY") || whatever_went_wrong $? search
+id=$(awk -F'\t' 'NF >= 2 && $1 != "" && $2 != "" { print $1; exit }' <<<"$results")
+[[ -n $id ]] || the_site_changed "search '$QUERY' returned rows carrying no id and title"
+
+episodes=$(ask_patiently "$PROVIDER" episodes "$id") || whatever_went_wrong $? episodes
+episode=$(awk -F'\t' 'NF >= 2 && $2 != "" { print $2; exit }' <<<"$episodes")
+[[ -n $episode ]] || the_site_changed "'$id' returned rows carrying no episode number"
+
+stream=$(ask_patiently "$PROVIDER" stream "$id" "$episode") || whatever_went_wrong $? stream
+url=$(awk -F'\t' '$1 == "url" { print $2; exit }' <<<"$stream")
+referrer=$(awk -F'\t' '$1 == "referrer" { print $2; exit }' <<<"$stream")
+
+[[ $url == https://* ]] ||
+  the_site_changed "episode $episode of '$id' resolved to something that is not an https url: ${url:-<none>}"
+[[ -n $referrer ]] ||
+  the_site_changed "episode $episode of '$id' resolved without the referrer the player needs"
+
+printf 'searched, listed and resolved: %s -> %s episode %s\n' "$QUERY" "$id" "$episode"
