@@ -93,8 +93,7 @@ b64_decode() {
 }
 
 # The sources endpoint seals the playlist with a fixed key, so openssl can open
-# it without running the site's own javascript. base64url leaves out the padding
-# openssl insists on.
+# it without running the site's own javascript.
 decrypt_playlist() {
   local key iv pad
   key=$(printf '%s' 'i?LMTAx0Q6,:}50U' | od -v -An -tx1 | tr -d ' \n')
