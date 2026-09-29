@@ -1376,3 +1376,18 @@ test("every name and path comes back as a string", () => {
   assert.equal(status.version, "12")
   assert.equal(status.repo, "")
 })
+
+test("a player the script still reports is live however silent the bus is", () => {
+  const records = [
+    { pid: "153691", title: "Dragon Ball Episode 5", animeId: "dragon-ball-970", episode: "5" },
+  ]
+  assert.deepEqual(Model.livePlayers(records, [], ["153691"]), records)
+})
+
+test("the script is believed over the bus, both ways", () => {
+  const records = [
+    { pid: "1", title: "A Episode 1", animeId: "a", episode: "1" },
+    { pid: "2", title: "B Episode 1", animeId: "b", episode: "1" },
+  ]
+  assert.deepEqual(Model.livePlayers(records, ["A Episode 1", "B Episode 1"], ["2"]), [records[1]])
+})
