@@ -70,17 +70,24 @@ Item {
     readonly property var currentPlayer: Model.playerFor(playerList, playingTitle)
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
+    readonly property bool playerReachable: currentPlayer !== null
+
     function togglePaused() {
-        if (currentPlayer)
-            currentPlayer.togglePlaying();
+        if (!playerReachable) {
+            failed("this player is not answering, so it cannot be paused from here");
+            return;
+        }
+        currentPlayer.togglePlaying();
     }
 
     property real volumeBeforeMute: 1.0
     readonly property bool muted: currentPlayer ? currentPlayer.volume <= 0 : false
 
     function toggleMuted() {
-        if (!currentPlayer)
+        if (!playerReachable) {
+            failed("this player is not answering, so it cannot be muted from here");
             return;
+        }
         if (muted) {
             currentPlayer.volume = Model.restoredVolume(volumeBeforeMute);
             return;
