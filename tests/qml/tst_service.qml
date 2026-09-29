@@ -55,6 +55,16 @@ TestCase {
         compare(service.watchedFraction, 90);
     }
 
+    function test_stopping_a_player_asks_the_script_to_stop_it() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 5", "dragon-ball-970", "5");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+
+        service.stopPlayer(service.players[0]);
+        compare(Quickshell.detached.length, 1, "nothing was asked to stop the player");
+        verify(Quickshell.detached[0].command.indexOf("stop") >= 0, "the script was asked for something other than a stop");
+    }
+
     function test_a_player_the_script_reports_is_live_even_when_mpris_says_nothing() {
         service.play("dragon-ball-970", "Dragon Ball", "5", 0);
         compare(service.launching, true, "a play should be waiting for its player");

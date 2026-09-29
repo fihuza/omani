@@ -22,10 +22,4 @@ QtObject {
     function reload() {
         loaded();
     }
-
-    // The file changed underneath, the way a rename by the script does.
-    function rewrite(next) {
-        contents = next;
-        fileChanged();
-    }
 }

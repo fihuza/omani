@@ -13,8 +13,6 @@ QtObject {
         detached = detached.concat([spec]);
     }
 
-    // Only the call log resets between tests. The process and file lists are
-    // the objects themselves, and they outlive any one test.
     function forget() {
         detached = [];
     }
