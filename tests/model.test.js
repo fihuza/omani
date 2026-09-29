@@ -1441,3 +1441,13 @@ test("nothing playing names nothing", () => {
   assert.equal(Model.playingTitleOf([{ pid: "1", title: "x", animeId: "b", episode: "1" }], "a", ""), "")
 })
 
+test("no series playing names nothing, whatever the records hold", () => {
+  const players = [{ pid: "1", title: "Re:ZERO Episode 5", animeId: "rezero-1387", episode: "5" }]
+  assert.equal(Model.playingTitleOf(players, "", ""), "")
+})
+
+test("a record carrying no title names nothing rather than undefined", () => {
+  const players = [{ pid: "1", animeId: "rezero-1387", episode: "5" }]
+  assert.equal(Model.playingTitleOf(players, "rezero-1387", ""), "")
+})
+
