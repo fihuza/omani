@@ -489,6 +489,15 @@ function elapsed(position, duration) {
   return clock(position) + " / " + clock(duration)
 }
 
+function playingTitleOf(players, animeId, known) {
+  if (known) return known
+  if (!animeId) return ""
+  for (var i = 0; i < players.length; i++) {
+    if (players[i].animeId === animeId) return String(players[i].title || "")
+  }
+  return ""
+}
+
 function playerFor(players, title) {
   if (!title) return null
   for (var i = 0; i < players.length; i++) {
@@ -710,6 +719,7 @@ if (typeof module !== "undefined") {
     clock: clock,
     elapsed: elapsed,
     playerFor: playerFor,
+    playingTitleOf: playingTitleOf,
     sectionLabel: sectionLabel,
     firstLine: firstLine,
     normalizeKey: normalizeKey,
