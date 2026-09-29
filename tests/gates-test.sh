@@ -173,6 +173,15 @@ t_the_fake_service_answers_for_the_real_one() {
   [[ -z $missing ]] || fail "$current" "the panel needs what the fake does not offer: $missing"
 }
 
+t_hovering_a_row_follows_the_pointer_not_the_list() {
+  local panel="$ROOT/Panel.qml"
+  grep -q "onPositionChanged: root.selectRow" "$panel" ||
+    fail "$current" "nothing selects a row as the pointer moves across it"
+  if grep -q "onEntered: root.selectRow" "$panel"; then
+    fail "$current" "a row that appears under a still pointer takes the keyboard cursor, so the next j carries on from it"
+  fi
+}
+
 check "every stub stands for something real" t_every_stub_stands_for_something_real
 check "every shape of javascript is linted" t_every_shape_of_javascript_is_linted
 check "the config covers what eslint recommends" t_the_config_covers_what_eslint_recommends
@@ -181,6 +190,7 @@ check "an unknown gate is refused" t_an_unknown_gate_is_refused
 check "every gate the pipeline names exists" t_every_gate_the_pipeline_names_exists
 check "every gate is run by the pipeline" t_every_gate_is_run_by_the_pipeline
 check "the fake service answers for the real one" t_the_fake_service_answers_for_the_real_one
+check "hovering a row follows the pointer, not the list" t_hovering_a_row_follows_the_pointer_not_the_list
 
 printf '\n%d passed, %d failed\n' "$passed" "$failed"
 ((failed == 0))

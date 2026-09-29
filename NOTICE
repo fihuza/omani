@@ -16,6 +16,10 @@ The provider layer in bin/omani-provider is derived from ani-cli:
     GPL-3.0-or-later
 
 Specifically, the request handling, the search and episode-list scraping, the
-base64+XOR deobfuscation of the embed payload, the m3u8 resolution and the
-quality selection follow ani-cli's implementation. Omani is therefore a
-derivative work and carries the same license.
+m3u8 resolution and the quality selection follow ani-cli's implementation.
+
+When the site replaced its player, the way a stream is resolved was adapted
+from the same project's fallback branch: reading the player id from the embed
+page, asking its sources endpoint for the episode, and opening the sealed
+playlist with a fixed key. Omani is therefore a derivative work and carries the
+same license.

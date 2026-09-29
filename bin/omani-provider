@@ -92,19 +92,20 @@ b64_decode() {
   base64 -d 2>/dev/null <<<"$1"
 }
 
-deobfuscate() (
-  local bytes
-  bytes=$(b64_decode "$1" | od -v -An -tu1)
-  set -- 111 116 97 107 117 45 101 109 98 101 100 45 118 49
-  local out="" byte char
-  for byte in $bytes; do
-    char=$((byte ^ $1))
-    out="${out}\\0$((char / 64))$(((char / 8) % 8))$((char % 8))"
-    set -- "$@" "$1"
-    shift
-  done
-  printf '%b' "$out"
-)
+# The sources endpoint seals the playlist with a fixed key, so openssl can open
+# it without running the site's own javascript.
+decrypt_playlist() {
+  local key iv pad
+  key=$(printf '%s' 'i?LMTAx0Q6,:}50U' | od -v -An -tx1 | tr -d ' \n')
+  iv=$(printf '%s' "W0;27ToaUpl_P%'c" | od -v -An -tx1 | tr -d ' \n')
+  case "$((${#1} % 4))" in
+  2) pad="==" ;;
+  3) pad="=" ;;
+  *) pad="" ;;
+  esac
+  printf '%s%s' "$1" "$pad" | tr '_-' '/+' |
+    openssl enc -d -aes-256-cbc -a -A -K "${key}00000000000000000000000000000000" -iv "$iv" 2>/dev/null
+}
 
 parse_qualities() {
   base="${1%/*}" awk '
@@ -180,9 +181,7 @@ cmd_stream() {
   servers=$(fetch "$BASE_API/api/theme/episode/servers?episodeId=$ep_id" | sed 's|\\"|"|g; s|server-item|\nserver-item|g')
   hash=$(mode="$mode" awk '
     /server-item/ {
-      type = attr($0, "data-type")
-      name = attr($0, "data-server-name")
-      if (type == ENVIRON["mode"] && name == "ZokoAnime") {
+      if (attr($0, "data-type") == ENVIRON["mode"]) {
         print attr($0, "data-hash")
         exit
       }
@@ -193,21 +192,25 @@ cmd_stream() {
       return substr(m, length(key) + 3, length(m) - length(key) - 3)
     }
   ' <<<"$servers")
-  [[ -n $hash ]] || die "no ZokoAnime source for $mode"
+  [[ -n $hash ]] || die "the site lists no $mode source for this episode"
   embed=$(b64_decode "$hash")
   [[ -n $embed ]] || die "could not decode the embed url"
   [[ $embed == https://* || $embed == http://* ]] || die "not a playable embed: $embed"
 
-  local referrer blob json master subs links url
+  local referrer player json blob opened master subs links url
   referrer=$(sed -E 's|^(https?://[^/]*).*|\1/|' <<<"$embed")
-  blob=$(fetch "$embed" | sed -nE 's|.*window\.__P="([^"]*)".*|\1|p')
-  [[ -n $blob ]] || die "embed page carried no payload"
-  json=$(deobfuscate "$blob")
-  master=$(jq -r '.src // empty' <<<"$json" 2>/dev/null)
-  [[ -n $master ]] || die "no m3u8 in the payload"
+  player=$(fetch "$embed" -e "$BASE_API/" | sed -nE 's|.*data-id="([0-9]+)".*|\1|p' | head -1)
+  [[ -n $player ]] || die "the embed page carried no player id"
+  json=$(fetch "${referrer}stream/getSources?id=$player" -H 'X-Requested-With: XMLHttpRequest')
+  blob=$(jq -r '.enc // empty' <<<"$json" 2>/dev/null)
+  [[ -n $blob ]] || die "the sources carried no encrypted playlist"
+  opened=$(decrypt_playlist "$blob")
+  [[ -n $opened ]] || die "the playlist would not decrypt, so its key has changed"
+  master=$(jq -r '.file // empty' <<<"$opened" 2>/dev/null)
+  [[ -n $master ]] || die "the playlist named no source"
   [[ $master == https://* || $master == http://* ]] || die "not a playable source: $master"
   # shellcheck disable=SC2016 # the filter is jq's, not the shell's
-  subs=$(jq -r 'first(.subtitles[]? | select(.default == true) | .src) // empty' <<<"$json" 2>/dev/null)
+  subs=$(jq -r 'first(.tracks[]? | select(.default == true) | .file) // empty' <<<"$json" 2>/dev/null)
   [[ $subs == https://* || $subs == http://* ]] || subs=""
   links=$(fetch "$master" -e "$referrer" | parse_qualities "$master")
   [[ -n $links ]] || die "no playable qualities"
@@ -229,7 +232,6 @@ parsers, reading a saved page on stdin:
   parse-search
   parse-episodes <anime-id>
   parse-qualities <master-url>
-  deobfuscate <blob>
 
 environment:
   OMANI_BASE_API   provider origin        (default: https://hianime.at)
@@ -259,10 +261,6 @@ parse-episodes)
 parse-qualities)
   shift
   parse_qualities "$@"
-  ;;
-deobfuscate)
-  shift
-  deobfuscate "$@"
   ;;
 -h | --help) usage ;;
 *)

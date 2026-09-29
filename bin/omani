@@ -389,6 +389,7 @@ cmd_status() {
   local missing=()
   command -v "$PLAYER" >/dev/null || missing+=("$PLAYER")
   command -v curl >/dev/null || command -v curl_chrome136 >/dev/null || missing+=(curl)
+  command -v openssl >/dev/null || missing+=(openssl)
   local version=""
   [[ -f $MANIFEST ]] && version=$(jq -r '.version // ""' "$MANIFEST" 2>/dev/null)
 

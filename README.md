@@ -144,6 +144,7 @@ than opening an issue -- `SECURITY.md` says what is in scope.
 | `mpv` | playback | Omarchy's base packages |
 | `jq` | the watch history, the embed payload, status | Omarchy's base packages |
 | `curl` | talking to the provider | a dependency of `pacman`, so always present |
+| `openssl` | opening the playlist the provider seals | `openssl`, required by `base` |
 | `awk`, `sed`, `grep`, `tr`, `cut`, `sort`, `head`, `tail`, `cat` | parsing the provider's pages and the plugin's own records | base system |
 | `base64`, `od` | decoding the embed payload | `coreutils` |
 | `mktemp`, `cp`, `mv`, `rm`, `mkdir`, `dirname`, `basename` | writing the watch history and the player list | `coreutils` |

@@ -622,7 +622,7 @@ Panel {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onEntered: root.selectRow(rowItem.index)
+                                        onPositionChanged: root.selectRow(rowItem.index)
                                         onClicked: root.activateRow(rowItem.index)
                                     }
 
