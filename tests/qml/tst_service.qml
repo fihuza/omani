@@ -84,6 +84,24 @@ TestCase {
         compare(service.players.length, 1, "a failed ask threw away what the service already knew");
     }
 
+    SignalSpy {
+        id: refused
+        target: service
+        signalName: "failed"
+    }
+
+    function test_pausing_a_player_we_cannot_reach_says_so() {
+        refused.clear();
+        service.togglePaused();
+        compare(refused.count, 1, "pause did nothing and said nothing");
+    }
+
+    function test_muting_a_player_we_cannot_reach_says_so() {
+        refused.clear();
+        service.toggleMuted();
+        compare(refused.count, 1, "mute did nothing and said nothing");
+    }
+
     function test_stopping_a_player_asks_the_script_to_stop_it() {
         Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 5", "dragon-ball-970", "5");
         service.reloadPlayers();

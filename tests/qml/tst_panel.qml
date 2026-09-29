@@ -132,6 +132,13 @@ TestCase {
         compare(panel.view, "player");
     }
 
+    function test_opening_the_panel_re_reads_the_watch_history() {
+        panel.close();
+        fake.asked = [];
+        panel.open();
+        verify(fake.asked.indexOf("history") >= 0, "the history is only ever re-read when the file says so");
+    }
+
     function test_a_key_reaches_the_service() {
         panel.dispatch("r");
         compare(fake.asked, ["refresh"]);

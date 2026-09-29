@@ -70,7 +70,7 @@ Panel {
             "results": service ? service.results : [],
             "episodes": service ? service.episodes : [],
             "settings": service ? Model.settingRows(root.quality, root.mode, root.watched, service.version, service.repo) : [],
-            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality, service.muted) : [],
+            "player": service ? Model.playerRows(liveSeries, liveEpisode, service.paused, service.playingQuality || root.quality, service.muted, service.playerReachable) : [],
             "quality": service ? Model.qualityRows(Model.qualitiesOf(service.players, service.playingId), service.playingQuality) : [],
             "shortcuts": []
         })
@@ -344,6 +344,7 @@ Panel {
         service.results = [];
         resetViews();
         service.refresh();
+        service.reloadHistory();
         var adopt = Model.adoptable(service.players, service.playingId);
         if (adopt)
             selectPlayer(adopt);

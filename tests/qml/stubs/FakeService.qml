@@ -9,6 +9,7 @@ QtObject {
     property bool playing: false
     property bool paused: false
     property bool muted: false
+    property bool playerReachable: true
     property bool tracking: true
     property string missing: ""
     property string version: "1.2.0"
@@ -41,6 +42,10 @@ QtObject {
 
     function refresh() {
         note("refresh");
+    }
+
+    function reloadHistory() {
+        note("history");
     }
     function search(query) {
         note("search:" + query);
