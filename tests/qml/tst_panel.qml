@@ -4,9 +4,6 @@ import "../../Model.js" as Model
 import "../.." as Plugin
 import "stubs"
 
-// The panel is driven the way a key drives it: dispatch() is what the key
-// catcher calls, so these exercise the reducer, the command table and the view
-// changes together. Calling setView directly would only re-test Model.js.
 TestCase {
     id: harness
     name: "Panel"

@@ -1,9 +1,6 @@
 pragma Singleton
 import QtQuick
 
-// Stands in for the types that live in the quickshell binary. Every stub
-// process registers here so a test can find the one it wants by the argv it
-// was given, and answer for it.
 QtObject {
     property var detached: []
     property var processes: []
@@ -25,8 +22,6 @@ QtObject {
         return null;
     }
 
-    // Matched on the subcommand itself, so asking for "play" cannot hand back
-    // the process that was asked for "players".
     function running(subcommand) {
         for (var i = processes.length - 1; i >= 0; i--) {
             var p = processes[i];

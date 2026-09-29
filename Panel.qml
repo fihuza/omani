@@ -548,8 +548,6 @@ Panel {
                     boundsBehavior: Flickable.StopAtBounds
                     flickableDirection: Flickable.VerticalFlick
                     interactive: contentHeight > height
-                    // Re-applied because a position computed before the column
-                    // finishes laying out clamps against a height still growing.
                     onContentHeightChanged: root.applyScroll()
                     ScrollBar.vertical: ScrollBar {
                         policy: ScrollBar.AsNeeded
