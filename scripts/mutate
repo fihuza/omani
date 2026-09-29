@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -uo pipefail
+
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+TARGET="${1:-all}"
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+total=0
+survived=0
+survivors=""
+
+trimmed() {
+  local text=${1#"${1%%[![:space:]]*}"}
+  printf '%s' "${text:0:64}"
+}
+
+record() {
+  total=$((total + 1))
+  survivors+="  $1"$'\n'
+  survived=$((survived + 1))
+}
+
+pure_layer() {
+  local line src mutant from to pair
+  cp -r "$ROOT" "$WORK/pure"
+  mapfile -t LINES < <(grep -nE '===|!==|&&|\|\||<=|>=|\+ 1|- 1' "$ROOT/Model.js" | cut -d: -f1 | sort -u)
+  for line in "${LINES[@]}"; do
+    src=$(sed -n "${line}p" "$ROOT/Model.js")
+    for pair in '===:!==' '!==:===' '&&:||' '||:&&' '<=:<' '>=:>' '+ 1:- 1' '- 1:+ 1'; do
+      from=${pair%%:*}
+      to=${pair##*:}
+      [[ $src == *"$from"* ]] || continue
+      mutant=${src/"$from"/"$to"}
+      [[ $mutant == "$src" ]] && continue
+      mutant="$mutant" awk -v n="$line" 'NR==n{print ENVIRON["mutant"]; next}{print}' "$ROOT/Model.js" >"$WORK/pure/Model.js"
+      if (cd "$WORK/pure" && node --test 'tests/*.test.js' >/dev/null 2>&1); then
+        record "Model.js:$line  $from -> $to    $(trimmed "$src")"
+      else
+        total=$((total + 1))
+      fi
+    done
+  done
+  cp "$ROOT/Model.js" "$WORK/pure/Model.js"
+}
+
+refusals() {
+  local script=$1 line
+  cp -r "$ROOT" "$WORK/shell"
+  mapfile -t LINES < <(grep -nE '\|\| (die|return)' "$ROOT/$script" | cut -d: -f1)
+  for line in "${LINES[@]}"; do
+    sed "${line}s/.*/:/" "$ROOT/$script" >"$WORK/shell/$script"
+    chmod +x "$WORK/shell/$script"
+    if (cd "$WORK/shell" && bash tests/omani-test.sh >/dev/null 2>&1 && bash tests/provider-test.sh >/dev/null 2>&1); then
+      record "$script:$line  guard removed   $(trimmed "$(sed -n "${line}p" "$ROOT/$script")")"
+    else
+      total=$((total + 1))
+    fi
+  done
+  cp "$ROOT/$script" "$WORK/shell/$script"
+}
+
+[[ $TARGET == all || $TARGET == model ]] && pure_layer
+[[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani
+[[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani-provider
+
+printf 'mutants: %d   killed: %d   survived: %d\n' "$total" "$((total - survived))" "$survived"
+[[ -n $survivors ]] && printf '%s' "$survivors"
+((survived == 0))
