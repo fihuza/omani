@@ -67,7 +67,8 @@ Item {
     }
     readonly property bool playing: players.length > 0
 
-    readonly property var currentPlayer: Model.playerFor(playerList, Model.playingTitleOf(players, playingId, playingTitle))
+    readonly property string playingNow: Model.playingTitleOf(players, playingId, playingTitle)
+    readonly property var currentPlayer: Model.playerFor(playerList, playingNow)
     readonly property bool paused: currentPlayer ? currentPlayer.isPlaying !== true : false
 
     readonly property bool playerReachable: currentPlayer !== null
@@ -295,7 +296,7 @@ Item {
     function replayCurrent() {
         if (!ready || playingId === "")
             return;
-        play(playingId, playingSeries, playingEpisode, 0);
+        play(playingId, playingSeries, Model.episodeOf(players, playingId, playingEpisode), 0);
     }
 
     function stop() {

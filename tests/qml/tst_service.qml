@@ -18,6 +18,11 @@ TestCase {
         failOnWarning(/.*/);
         Quickshell.forget();
         Mpris.carry([]);
+        service.launching = false;
+        service.playingId = "";
+        service.playingTitle = "";
+        service.playingEpisode = "";
+        service.playingSeries = "";
         ready();
         answer("players", "");
     }
@@ -100,6 +105,58 @@ TestCase {
         refused.clear();
         service.toggleMuted();
         compare(refused.count, 1, "mute did nothing and said nothing");
+    }
+
+    function resumedAndPlaying() {
+        service.rows = [
+            {
+                "animeId": "rezero-1387",
+                "title": "Re:ZERO",
+                "episode": "7",
+                "kind": "series"
+            }
+        ];
+        service.resume(service.rows[0]);
+        answer("resume", "");
+        Quickshell.file("players").contents = record("153691", "Re:ZERO Episode 7", "rezero-1387", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        Mpris.carry([
+            {
+                "trackTitle": "Re:ZERO Episode 7",
+                "isPlaying": true,
+                "position": 90,
+                "length": 1466,
+                "volume": 1
+            }
+        ]);
+    }
+
+    function test_replaying_after_a_resume_names_the_episode_that_is_playing() {
+        resumedAndPlaying();
+        compare(service.players.length, 1, "the resumed player never became live");
+
+        Quickshell.forget();
+        service.replayCurrent();
+
+        var asked = Quickshell.running("play");
+        verify(asked, "replay asked the script for nothing");
+        verify(asked.command.indexOf("7") >= 0, "replay asked for episode '" + asked.command.join(" ") + "'");
+    }
+
+    function test_replaying_does_not_lose_the_player_it_is_replaying() {
+        resumedAndPlaying();
+        verify(service.playerReachable, "the player was not reachable even before replay");
+
+        service.replayCurrent();
+
+        verify(service.playerReachable, "replay left the panel unable to find the player, so pause and mute vanish");
+    }
+
+    function test_the_player_is_named_by_its_record_not_by_what_was_remembered() {
+        resumedAndPlaying();
+        service.playingTitle = "Re:ZERO Episode ";
+        compare(service.playingNow, "Re:ZERO Episode 7", "a stale title outranked the record the script keeps");
     }
 
     function test_stopping_a_player_asks_the_script_to_stop_it() {
