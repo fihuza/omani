@@ -1,4 +1,6 @@
 
+var SHORTEST_EPISODE_SECONDS = 60
+
 function statusFields(raw, fallbackFraction) {
   if (!raw) return null
   var parsed
@@ -106,7 +108,8 @@ function progressReports(records, players) {
     var title = String(players[i].title || "")
     var position = Math.floor(Number(players[i].position) || 0)
     var duration = Math.floor(Number(players[i].duration) || 0)
-    if (title === "" || duration <= 0 || position <= 0) continue
+    if (title === "" || position <= 0) continue
+    if (duration < SHORTEST_EPISODE_SECONDS || position > duration) continue
     for (var r = 0; r < records.length; r++) {
       if (records[r].title !== title) continue
       reports.push({

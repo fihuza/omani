@@ -1401,3 +1401,24 @@ test("a player that can be reached offers both", () => {
   const keys = Model.playerRows("Dragon Ball", "7", false, "best", false, true).map((r) => r.key)
   assert.deepEqual(keys, ["pause", "mute", "next", "replay", "previous", "select", "quality", "stop"])
 })
+
+test("a duration too short to be an episode is not reported", () => {
+  const records = [{ pid: "1", title: "Dragon Ball Episode 4", animeId: "dragon-ball-970", episode: "4" }]
+  assert.deepEqual(Model.progressReports(records, [{ title: "Dragon Ball Episode 4", position: 24, duration: 24 }]), [])
+  assert.deepEqual(Model.progressReports(records, [{ title: "Dragon Ball Episode 4", position: 1, duration: 1 }]), [])
+})
+
+test("a position past the end of its episode is not reported", () => {
+  const records = [{ pid: "1", title: "Dragon Ball Episode 4", animeId: "dragon-ball-970", episode: "4" }]
+  assert.deepEqual(
+    Model.progressReports(records, [{ title: "Dragon Ball Episode 4", position: 2000, duration: 1244 }]),
+    [],
+  )
+})
+
+test("a report from a real episode still goes through", () => {
+  const records = [{ pid: "1", title: "Re:ZERO Episode 2", animeId: "rezero-1387", episode: "2" }]
+  assert.deepEqual(Model.progressReports(records, [{ title: "Re:ZERO Episode 2", position: 492, duration: 1467 }]), [
+    { animeId: "rezero-1387", episode: "2", position: 492, duration: 1467 },
+  ])
+})
