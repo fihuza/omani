@@ -357,9 +357,9 @@ Item {
     onLiveTitlesChanged: reloadPlayers()
 
     Timer {
-        id: playersSample
-        interval: 700
-        running: root.launching
+        id: playersPoll
+        interval: root.launching ? 700 : 2000
+        running: root.launching || root.playing
         repeat: true
         onTriggered: root.reloadPlayers()
     }

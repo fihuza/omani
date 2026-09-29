@@ -50,6 +50,23 @@ TestCase {
         compare(service.watchedFraction, 90);
     }
 
+    function test_a_player_that_went_away_is_noticed_without_being_told() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 7", "dragon-ball-970", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        compare(service.players.length, 1, "the player never became live");
+        compare(service.playing, true);
+
+        Quickshell.file("players").contents = "";
+
+        tryVerify(function () {
+            return Quickshell.running("players") !== null;
+        }, 4000, "the service stopped asking once a player was live, so a closed player stays on screen");
+
+        answer("players", "");
+        tryCompare(service, "playing", false, 2000);
+    }
+
     function test_stopping_a_player_asks_the_script_to_stop_it() {
         Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 5", "dragon-ball-970", "5");
         service.reloadPlayers();
