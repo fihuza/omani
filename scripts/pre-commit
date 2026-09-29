@@ -32,9 +32,6 @@ require() {
   return 1
 }
 
-# /usr/bin/qmllint and /usr/bin/qmlformat are Qt5's on Arch and understand far
-# less than Qt6's, which qt6-declarative installs outside PATH. Picking the wrong
-# one gives a gate that passes because it cannot see.
 qt6_tool() {
   local name=$1
   for candidate in "/usr/lib/qt6/bin/$name" "/usr/lib/qt6/$name" "$name-qt6"; do
@@ -91,11 +88,6 @@ if wanted qml-lint; then
     qsroot=$(mktemp -d)
     ln -sfn "$OMARCHY_PATH/shell" "$qsroot/qs"
 
-    # These three fire on Quickshell's singletons and on Process.onExited, which
-    # qmllint cannot type without Quickshell's qmltypes; first-party plugins trip
-    # them far more than this one (dropbox/Panel.qml: 19 and 54), so they cannot
-    # tell a mistake from the tooling gap. Everything else is a failure: any
-    # output at all, because an info-level finding prints and still exits 0.
     lint_out=$("$QMLLINT" \
       --max-warnings 0 \
       --unused-imports warning \

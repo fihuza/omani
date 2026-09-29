@@ -124,9 +124,10 @@ function progressReports(records, players) {
 function livePlayers(records, liveTitles, livePids) {
   var live = []
   for (var i = 0; i < records.length; i++) {
-    if (liveTitles.indexOf(records[i].title) === -1) continue
-    if (livePids && livePids.indexOf(records[i].pid) === -1) continue
-    live.push(records[i])
+    var known = livePids
+      ? livePids.indexOf(records[i].pid) !== -1
+      : liveTitles.indexOf(records[i].title) !== -1
+    if (known) live.push(records[i])
   }
   return live
 }

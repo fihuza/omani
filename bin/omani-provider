@@ -1,5 +1,4 @@
 #!/bin/bash
-#
 # Derived from ani-cli (GPL-3.0-or-later) -- see NOTICE.
 
 set -uo pipefail
@@ -14,7 +13,6 @@ die() {
   exit 1
 }
 
-# curl-impersonate builds get past Cloudflare where plain curl does not.
 pick_curl() {
   local candidate
   for candidate in curl_firefox135 curl_chrome136 curl_chrome116 curl_ff117 curl; do
@@ -92,8 +90,6 @@ b64_decode() {
   base64 -d 2>/dev/null <<<"$1"
 }
 
-# The sources endpoint seals the playlist with a fixed key, so openssl can open
-# it without running the site's own javascript.
 decrypt_playlist() {
   local key iv pad
   key=$(printf '%s' 'i?LMTAx0Q6,:}50U' | od -v -An -tx1 | tr -d ' \n')
