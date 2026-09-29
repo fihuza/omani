@@ -404,7 +404,8 @@ Item {
             waitForEnd: true
         }
         onExited: function (exitCode) {
-            root.livePids = exitCode === 0 ? Model.launchPids(Model.playerRecords(String(playersOut.text || ""))) : null;
+            if (exitCode === 0)
+                root.livePids = Model.launchPids(Model.playerRecords(String(playersOut.text || "")));
             root.applyPlayers();
         }
     }

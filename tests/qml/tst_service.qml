@@ -67,6 +67,23 @@ TestCase {
         tryCompare(service, "playing", false, 2000);
     }
 
+    function test_a_failed_ask_does_not_forget_a_live_player() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 7", "dragon-ball-970", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        compare(service.players.length, 1, "the player never became live");
+
+        var asking = Quickshell.running("players");
+        if (!asking) {
+            service.reloadPlayers();
+            asking = Quickshell.running("players");
+        }
+        verify(asking, "the service never asked again");
+        asking.finish(1, "");
+
+        compare(service.players.length, 1, "a failed ask threw away what the service already knew");
+    }
+
     function test_stopping_a_player_asks_the_script_to_stop_it() {
         Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 5", "dragon-ball-970", "5");
         service.reloadPlayers();
