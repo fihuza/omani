@@ -2,9 +2,6 @@ import QtQuick
 import QtTest
 import "../../Model.js" as Model
 
-// node proves what Model.js decides; this proves the engine that ships it can
-// read and run the same file. A directive node rejects, or syntax this engine
-// does not have, passes every other gate and fails only here.
 TestCase {
     name: "ModelInTheQmlEngine"
 

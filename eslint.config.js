@@ -65,8 +65,6 @@ const recommended = {
   "valid-typeof": ["error", { requireStringLiterals: true }],
 };
 
-// Beyond recommended, each earned by a bug this codebase has shipped: a stale
-// comparison, a name shadowing another, a value read before it was defined.
 const alsoErrors = {
   eqeqeq: ["error", "always"],
   "no-self-compare": "error",
@@ -79,8 +77,6 @@ const alsoErrors = {
 
 const rules = Object.assign({}, recommended, alsoErrors);
 
-// A directive that no longer silences anything is a claim about the code that
-// has stopped being true, so it fails rather than lingering.
 const linterOptions = { reportUnusedDisableDirectives: "error" };
 
 module.exports = [
@@ -124,8 +120,6 @@ module.exports = [
     rules: Object.assign({}, rules, { "no-implicit-globals": "off" })
   },
   {
-    // The suite can omit a caught error's binding, so an unused one is a
-    // leftover rather than the language giving no choice.
     files: ["tests/**/*.{js,mjs,cjs}", "eslint.config.js"],
     rules: { "no-unused-vars": ["error", { args: "after-used", caughtErrors: "all" }] }
   }

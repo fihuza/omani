@@ -1,5 +1,3 @@
-# Release notes. CI renders these when a tag is pushed; `git-cliff --unreleased`
-# previews what the next release would contain.
 
 [changelog]
 header = """
@@ -37,8 +35,6 @@ trim = false
 
 [git]
 conventional_commits = true
-# Unconventional subjects still reach the changelog through the catch-all
-# parser below rather than vanishing.
 filter_unconventional = false
 filter_commits = false
 protect_breaking_commits = true
@@ -47,19 +43,11 @@ sort_commits = "oldest"
 tag_pattern = "v[0-9]*"
 
 commit_parsers = [
-  # A merge introduces no work of its own -- everything it carries is already
-  # listed from the branch commits it brings -- so merges are dropped and the
-  # branch commits kept. git-cliff has no structural merge filter, so they are
-  # matched by subject. GitHub writes "Merge pull request #N from ...".
-  #
-  # Sound only while every PR is a merge commit, which the branch policy
-  # requires. Under squash the same prefix would name the change itself.
   { message = "^Merge pull request", skip = true },
   { message = "^Merge branch", skip = true },
   { message = "^Merge remote-tracking", skip = true },
   { message = "^chore: back-merge", skip = true },
   { message = "^Revert \"", skip = true },
-  # The version bump describes the release rather than a change within it.
   { message = "^chore: bump version", skip = true },
 
   { message = "^feat", group = "Features" },
@@ -72,6 +60,5 @@ commit_parsers = [
   { message = "^build", group = "Build" },
   { message = "^style", group = "Style" },
   { message = "^chore", group = "Chores" },
-  # Catch-all so an unconventional subject is visible rather than dropped.
   { message = ".*", group = "Other" },
 ]

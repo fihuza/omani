@@ -287,8 +287,6 @@ cmd_play() {
   "${args[@]}" </dev/null >/dev/null 2>&1 &
   read_started_at "$!"
   record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities" "$STARTED_AT"
-  # A player that exits before this line leaves no job to disown, and bash says
-  # so on stderr.
   disown 2>/dev/null || true
 
   record_history "$episode" "$id" "$title"
