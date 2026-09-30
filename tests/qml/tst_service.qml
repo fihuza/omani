@@ -18,13 +18,23 @@ TestCase {
         failOnWarning(/.*/);
         Quickshell.forget();
         Mpris.carry([]);
+        ready();
+        var pending = Quickshell.processes.slice();
+        for (var i = 0; i < pending.length; i++) {
+            if (pending[i].running)
+                pending[i].finish(0, "");
+        }
+        var file = Quickshell.file("players");
+        if (file)
+            file.contents = "";
         service.launching = false;
+        service.ready = true;
+        service.results = [];
+        service.episodes = [];
         service.playingId = "";
         service.playingTitle = "";
         service.playingEpisode = "";
         service.playingSeries = "";
-        ready();
-        answer("players", "");
     }
 
     function answer(subcommand, out) {
@@ -157,6 +167,76 @@ TestCase {
         resumedAndPlaying();
         service.playingTitle = "Re:ZERO Episode ";
         compare(service.playingNow, "Re:ZERO Episode 7", "a stale title outranked the record the script keeps");
+    }
+
+    function askedFor(subcommand) {
+        return Quickshell.running(subcommand) !== null;
+    }
+
+    function test_nothing_is_asked_of_a_script_that_is_not_ready() {
+        service.ready = false;
+        Quickshell.forget();
+        service.search("frieren");
+        service.openSeries("frieren-1", "Frieren");
+        service.play("frieren-1", "Frieren", "1", 0);
+        service.resume({
+            "animeId": "frieren-1",
+            "title": "Frieren"
+        });
+        service.replayCurrent();
+        verify(!askedFor("search"), "searched before the status said it was ready");
+        verify(!askedFor("episodes"), "listed episodes before the status said it was ready");
+        verify(!askedFor("play"), "played before the status said it was ready");
+        verify(!askedFor("resume"), "resumed before the status said it was ready");
+    }
+
+    function test_a_blank_search_is_not_carried_to_the_script() {
+        Quickshell.forget();
+        service.search("   ");
+        verify(!askedFor("search"), "a query of nothing but spaces was searched for");
+    }
+
+    function test_a_search_already_running_is_not_started_again() {
+        service.search("frieren");
+        verify(askedFor("search"), "the first search never started");
+        var first = Quickshell.running("search");
+        service.search("naruto");
+        compare(Quickshell.running("search"), first, "a second search began while the first was running");
+    }
+
+    function test_a_play_is_refused_while_a_launch_is_in_flight() {
+        service.play("frieren-1", "Frieren", "1", 0);
+        verify(askedFor("play"), "the first play never started");
+        answer("play", "");
+        service.launching = true;
+        Quickshell.forget();
+        service.play("naruto-2", "Naruto", "3", 0);
+        verify(!askedFor("play"), "a second play began while a launch was still in flight");
+    }
+
+    function test_resuming_needs_a_row_to_resume() {
+        Quickshell.forget();
+        service.resume(null);
+        verify(!askedFor("resume"), "resumed with no row to resume");
+    }
+
+    function test_stepping_and_replaying_need_something_playing() {
+        service.playingId = "";
+        Quickshell.forget();
+        service.playNext();
+        service.playPrevious();
+        service.replayCurrent();
+        verify(!askedFor("next"), "stepped forward with nothing playing");
+        verify(!askedFor("previous"), "stepped back with nothing playing");
+        verify(!askedFor("play"), "replayed with nothing playing");
+    }
+
+    function test_an_episode_list_already_loading_is_not_asked_for_twice() {
+        service.openSeries("frieren-1", "Frieren");
+        verify(askedFor("episodes"), "the first episode list never started");
+        var first = Quickshell.running("episodes");
+        service.openSeries("naruto-2", "Naruto");
+        compare(Quickshell.running("episodes"), first, "a second episode list began while the first was running");
     }
 
     function test_stopping_a_player_asks_the_script_to_stop_it() {
