@@ -1,17 +1,9 @@
 # Mutants that cannot change what the plugin does.
 #
 # A survivor missing from this list fails the gate, and an entry here that no
-# longer survives fails it too -- so a reason cannot outlive the code it
-# describes. Each was measured rather than argued: the mutant and the original
-# were run against a sweep of inputs and compared, or the state it needs was
-# shown to be unreachable.
+# longer survives fails it too, so a reason cannot outlive the code it
+# describes. Each was measured, not argued.
 #
 # file	operator	source	reason
-Model.js	> -> >=	if (below > list.current + list.viewport) return Math.min(limit,	at the boundary both branches yield list.current; compared across 1152 geometries
-Model.js	> -> >=	if (!(max > 0)) return 0	a max of zero or less clamps every value to zero either way; compared across 288 pairs
-Model.js	< -> <=	if (value < 0) return 0	a value of zero returns zero either way; compared across 288 pairs
-Model.js	> -> >=	if (value > max) return max	a value equal to max returns max either way; compared across 288 pairs
-Model.js	> -> >=	var rowCount = ctx && ctx.rowCount > 0 ? ctx.rowCount : 0	a row count of zero yields zero either way; compared across 576 key runs
-Model.js	&& -> ||	var hasCount = isFinite(count) && count > 0	differs only when the pending count is "0", which no key sequence can produce: a leading zero moves to the first row instead of starting a count
-Model.js	> -> >=	var hasCount = isFinite(count) && count > 0	differs only when the pending count is "0", which no key sequence can produce: a leading zero moves to the first row instead of starting a count
+Model.js	&& -> ||	var hasCount = isFinite(count) && count >= 1	differs only for a count that parseInt turns into Infinity, which needs some three hundred digits of typing
 Model.js	return -> null	return 0	progressOfPlayer feeds playingLabel, which reads it as Number(fraction) || 0, so null and 0 give the same label

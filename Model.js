@@ -323,8 +323,7 @@ function scrollTarget(list) {
   var above = list.rowTop - list.margin
   if (above < list.current) return Math.max(0, Math.min(limit, above))
   var below = list.rowTop + list.rowHeight + list.margin
-  if (below > list.current + list.viewport) return Math.min(limit, below - list.viewport)
-  return Math.max(0, Math.min(limit, list.current))
+  return Math.max(0, Math.min(limit, Math.max(list.current, below - list.viewport)))
 }
 
 function shortcuts() {
@@ -591,14 +590,11 @@ function initialKeyState() {
 }
 
 function clamp(value, max) {
-  if (!(max > 0)) return 0
-  if (value < 0) return 0
-  if (value > max) return max
-  return value
+  return Math.max(0, Math.min(Number(max) || 0, Number(value) || 0))
 }
 
 function reduceKey(state, key, ctx) {
-  var rowCount = ctx && ctx.rowCount > 0 ? ctx.rowCount : 0
+  var rowCount = Math.max(0, (ctx && Number(ctx.rowCount)) || 0)
   var pageSize = ctx && ctx.pageSize > 0 ? ctx.pageSize : 1
   var last = rowCount > 0 ? rowCount - 1 : 0
 
@@ -609,7 +605,7 @@ function reduceKey(state, key, ctx) {
   }
 
   var count = parseInt(next.pendingCount, 10)
-  var hasCount = isFinite(count) && count > 0
+  var hasCount = isFinite(count) && count >= 1
   var steps = hasCount ? count : 1
   var wasG = next.pendingG
 

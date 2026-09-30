@@ -1194,6 +1194,18 @@ test("the empty notice names what is missing", () => {
   assert.equal(Model.emptyNotice("results"), "Nothing here.")
 })
 
+test("a count of one means the first row, not the last", () => {
+  assert.equal(press(["1", "G"]).state.index, 0)
+  assert.equal(press(["1", "g", "g"]).state.index, 0)
+})
+
+test("a scroll target is never negative, however far the list is overscrolled", () => {
+  assert.equal(Model.scrollTarget({
+    index: 1, lastIndex: 9, rowTop: 20, rowHeight: 20,
+    current: -10, content: 500, viewport: 50, margin: 8
+  }), 0)
+})
+
 test("the first row scrolls the list to its top, wherever the row sits", () => {
   assert.equal(Model.scrollTarget({
     index: 0, lastIndex: 9, rowTop: 20, rowHeight: 20,
