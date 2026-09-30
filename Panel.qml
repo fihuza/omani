@@ -781,6 +781,7 @@ Panel {
 
             ConfirmDialog {
                 id: confirmClear
+                objectName: "confirmClear"
                 anchors.fill: parent
                 z: 20
                 focus: opened

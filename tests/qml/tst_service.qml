@@ -15,6 +15,10 @@ TestCase {
         scriptPath: "/nowhere/omani"
     }
 
+    Plugin.Service {
+        id: untouched
+    }
+
     function init() {
         failOnWarning(/.*/);
         Quickshell.forget();
@@ -62,6 +66,23 @@ TestCase {
 
     function record(pid, title, id, episode) {
         return pid + "\t" + title + "\t" + id + "\t" + episode + "\t1080\t999\n";
+    }
+
+    function test_nothing_is_claimed_before_the_script_has_answered() {
+        compare(untouched.ready, false, "the service claimed to be ready before asking anything");
+        compare(untouched.busy, false, "the service claimed to be busy having done nothing");
+        compare(untouched.launching, false, "the service claimed a launch it never started");
+        compare(untouched.playing, false, "the service claimed a player it never saw");
+        compare(untouched.playingId, "", "the service named something it is not playing");
+    }
+
+    function test_tracking_is_assumed_until_the_script_says_otherwise() {
+        compare(untouched.tracking, true, "the panel would report tracking as lost before asking");
+    }
+
+    function test_a_launch_that_never_began_is_not_waiting_or_swallowing() {
+        compare(untouched.waitedTooLong, false, "a launch that never began had already timed out");
+        compare(untouched.swallowNextExit, false, "an exit was set to be ignored before anything ran");
     }
 
     function test_the_service_answers_once_its_status_is_read() {
