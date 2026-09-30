@@ -68,6 +68,15 @@ function progressLabel(row) {
 
 var SEARCHABLE = { history: true, results: true }
 
+function wheelKey(dy) {
+  if (dy > 0) return "j"
+  return dy < 0 ? "k" : ""
+}
+
+function shortcutRows(view) {
+  return view === "shortcuts" ? shortcuts() : []
+}
+
 function searchVisible(ready, view) {
   return ready === true && searchable(view)
 }
@@ -742,6 +751,8 @@ function reduceKey(state, key, ctx) {
 // Stryker disable next-line ConditionalExpression,StringLiteral: the QML suite fails on this, which node cannot see
 if (typeof module !== "undefined") {
   module.exports = {
+    wheelKey,
+    shortcutRows,
     headings,
     searchVisible,
     headingVisible,

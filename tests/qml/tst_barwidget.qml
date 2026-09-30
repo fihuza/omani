@@ -12,16 +12,59 @@ TestCase {
         id: widget
     }
 
+    QtObject {
+        id: hostBar
+        property color foreground: "#ffffff"
+        property color urgent: "#ff0000"
+        property string fontFamily: "monospace"
+        property bool vertical: false
+        property int barSize: 26
+    }
+
     function init() {
         failOnWarning(/.*/);
         Quickshell.forget();
         widget.close();
     }
 
+    function panel() {
+        var found = findChild(widget, "omaniPanel");
+        verify(found, "the widget loaded no panel");
+        return found;
+    }
+
+    function test_the_panel_is_given_everything_it_needs_to_work() {
+        var settings = {
+            "quality": "720p"
+        };
+        widget.bar = hostBar;
+        widget.settings = settings;
+
+        compare(panel().bar, hostBar, "the panel was not given the bar it lives in");
+        compare(panel().settings.quality, "720p", "the panel was not given its settings");
+        verify(panel().anchorItem, "the panel has nothing to anchor to");
+        compare(panel().hostWidget, widget, "the panel does not know which widget hosts it");
+        verify(panel().service, "the panel was given no service");
+    }
+
+    function test_the_widget_answers_to_the_name_the_bar_knows_it_by() {
+        compare(widget.moduleName, "io.github.fihuza.omani");
+        compare(panel().moduleName, "io.github.fihuza.omani");
+    }
+
+    function test_closing_for_a_popout_switch_closes_the_panel() {
+        widget.open();
+        compare(widget.opened, true, "the panel never opened");
+        widget.closeForPopoutSwitch();
+        compare(widget.opened, false, "the panel stayed open through a popout switch");
+    }
+
     function test_the_script_is_found_beside_the_widget() {
-        verify(widget.scriptPath.indexOf("/bin/omani") > 0, "the widget did not find its own script");
-        verify(widget.scriptPath.indexOf("file://") === -1, "the script path kept its url scheme");
-        verify(widget.pluginDir.charAt(widget.pluginDir.length - 1) !== "/", "the plugin directory kept a trailing slash");
+        compare(widget.scriptPath, widget.pluginDir + "/bin/omani", "the script is not beside the widget");
+        compare(widget.pluginDir.charAt(0), "/", "the plugin directory is not an absolute path");
+        verify(widget.pluginDir.indexOf("file://") === -1, "the plugin directory kept its url scheme");
+        var here = Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "");
+        compare(here, widget.pluginDir + "/tests/qml/", "the plugin directory is not the one these tests live under");
     }
 
     function test_the_panel_opens_closes_and_toggles() {

@@ -6,6 +6,7 @@ import "Model.js" as Model
 
 Panel {
     id: root
+    objectName: "omaniPanel"
     moduleName: "io.github.fihuza.omani"
     ipcTarget: "io.github.fihuza.omani"
     manageIpc: false
@@ -365,7 +366,7 @@ Panel {
                     root.activateCursor();
                     return;
                 }
-                root.dispatch(dy > 0 ? "j" : dy < 0 ? "k" : "");
+                root.dispatch(Model.wheelKey(dy));
             }
             onActivateRequested: if (root.cursorActive)
                 root.dispatch("enter")
@@ -532,6 +533,7 @@ Panel {
 
                 Flickable {
                     id: panelFlick
+                    objectName: "panelFlick"
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: headerBox.bottom
@@ -733,7 +735,7 @@ Panel {
                         }
 
                         Repeater {
-                            model: root.view === "shortcuts" ? Model.shortcuts() : []
+                            model: Model.shortcutRows(root.view)
 
                             delegate: Item {
                                 id: shortcutRow
