@@ -75,15 +75,7 @@ Panel {
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
-    readonly property var headings: ({
-            "history": "Continue watching",
-            "results": "Results",
-            "episodes": seriesTitle,
-            "settings": "Settings",
-            "quality": "Quality for this episode",
-            "player": liveSeries !== "" ? liveSeries : "Playing",
-            "shortcuts": "Shortcuts"
-        })
+    readonly property var headings: Model.headings(seriesTitle, liveSeries)
 
     readonly property var rowActions: ({
             "history": function (i) {

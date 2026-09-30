@@ -1375,6 +1375,21 @@ test("keys go to the field or the dialog while either holds them", () => {
   assert.equal(Model.keysBlocked(false, false), false)
 })
 
+test("each view is headed by what it is showing", () => {
+  const labels = Model.headings("Naruto", "Dragon Ball")
+  assert.equal(labels.history, "Continue watching")
+  assert.equal(labels.results, "Results")
+  assert.equal(labels.episodes, "Naruto")
+  assert.equal(labels.settings, "Settings")
+  assert.equal(labels.quality, "Quality for this episode")
+  assert.equal(labels.player, "Dragon Ball")
+  assert.equal(labels.shortcuts, "Shortcuts")
+})
+
+test("the player view falls back to a word when the series is not known yet", () => {
+  assert.equal(Model.headings("", "").player, "Playing")
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {

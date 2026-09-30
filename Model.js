@@ -610,6 +610,18 @@ function progressRows(records, positions) {
   return rows
 }
 
+function headings(openSeries, playingSeries) {
+  return {
+    history: "Continue watching",
+    results: "Results",
+    episodes: openSeries,
+    settings: "Settings",
+    quality: "Quality for this episode",
+    player: playingSeries !== "" ? playingSeries : "Playing",
+    shortcuts: "Shortcuts"
+  }
+}
+
 function heading(labels, view, busy, launching) {
   if (launching) return sectionLabel("Starting\u2026")
   if (busy) return sectionLabel("Loading\u2026")
@@ -730,6 +742,7 @@ function reduceKey(state, key, ctx) {
 // Stryker disable next-line ConditionalExpression,StringLiteral: the QML suite fails on this, which node cannot see
 if (typeof module !== "undefined") {
   module.exports = {
+    headings,
     searchVisible,
     headingVisible,
     headerTooltip,
