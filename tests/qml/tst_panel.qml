@@ -320,6 +320,110 @@ TestCase {
         compare(seen("rowForget"), true, "the selected row did not offer to be forgotten");
     }
 
+    function keys() {
+        var found = findChild(panel, "keyCatcher");
+        verify(found, "the panel catches no keys");
+        return found;
+    }
+
+    function test_the_first_turn_of_a_wheel_wakes_the_cursor_rather_than_moving_it() {
+        panel.open();
+        fake.rows = manyRows(10);
+        panel.setView("history");
+        compare(panel.cursorActive, false, "the cursor was already awake");
+
+        keys().moveRequested(0, 1);
+        compare(panel.cursorActive, true, "the first turn did not wake the cursor");
+        compare(panel.keyState.index, 0, "the first turn moved the cursor as well as waking it");
+
+        keys().moveRequested(0, 1);
+        compare(panel.keyState.index, 1, "a second turn did not move the cursor");
+
+        keys().moveRequested(0, -1);
+        compare(panel.keyState.index, 0, "turning back did not move the cursor up");
+    }
+
+    function test_changing_a_setting_reaches_the_service_and_the_panel() {
+        panel.open();
+        panel.setView("settings");
+        fake.settings = {
+            "id": panel.moduleName,
+            "mode": "dub"
+        };
+        panel.applySetting("quality", "720p");
+
+        compare(panel.settings.quality, "720p", "the panel did not take the new setting");
+        compare(fake.settings.quality, "720p", "the service was never told");
+        compare(fake.settings.id, panel.moduleName, "the entry lost the widget it belongs to");
+        compare(fake.settings.mode, "dub", "the entry was built without what the service already held");
+    }
+
+    function manyRows(count) {
+        var rows = [];
+        for (var i = 0; i < count; i++)
+            rows.push({
+                "animeId": "id-" + i,
+                "title": "Series " + i,
+                "episode": "1",
+                "kind": "series"
+            });
+        return rows;
+    }
+
+    function aListLongerThanItsViewport() {
+        panel.open();
+        fake.rows = manyRows(40);
+        panel.setView("history");
+        panel.activateCursor();
+        var flick = findChild(panel, "panelFlick");
+        verify(flick, "the panel carries no scrolling list");
+        tryVerify(function () {
+            return flick.contentHeight > flick.height;
+        }, 2000, "the list never grew past its viewport");
+        return flick;
+    }
+
+    function test_the_list_follows_the_cursor_down_and_back_up() {
+        var flick = aListLongerThanItsViewport();
+        compare(flick.contentY, 0, "the list did not begin at the top");
+
+        panel.dispatch("G");
+        tryVerify(function () {
+            return flick.contentY > 0;
+        }, 2000, "the list did not follow the cursor to the last row");
+
+        panel.dispatch("g");
+        panel.dispatch("g");
+        tryCompare(flick, "contentY", 0, 2000, "the list did not come back to the top");
+    }
+
+    function test_a_list_that_grows_under_the_cursor_follows_it() {
+        var flick = aListLongerThanItsViewport();
+        panel.dispatch("G");
+        tryVerify(function () {
+            return flick.contentY > 0;
+        }, 2000, "the list never scrolled in the first place");
+        var atTheEndOfForty = flick.contentY;
+
+        fake.rows = manyRows(80);
+        tryVerify(function () {
+            return flick.contentY !== atTheEndOfForty;
+        }, 2000, "the list grew under the cursor and stayed where it was");
+    }
+
+    function test_a_list_nobody_is_pointing_at_stays_where_it_is() {
+        var flick = aListLongerThanItsViewport();
+        panel.dispatch("G");
+        tryVerify(function () {
+            return flick.contentY > 0;
+        }, 2000, "the list never scrolled in the first place");
+        var settled = flick.contentY;
+
+        panel.cursorActive = false;
+        panel.applyScroll();
+        compare(flick.contentY, settled, "the list moved with nobody pointing at it");
+    }
+
     readonly property var everyKey: ["j", "k", "g", "g", "G", "ctrl+d", "ctrl+u", "0", "3", "j", "enter", "d", "c", "r", "s", "?", "/", "i", "x", "q", " ", "z", "escape"]
 
     function test_no_key_breaks_a_view_data() {
