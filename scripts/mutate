@@ -17,6 +17,21 @@ die() {
   exit 2
 }
 
+qt6_tool() {
+  local name=$1 candidate
+  for candidate in "/usr/lib/qt6/bin/$name" "/usr/lib/qt6/$name" "$name-qt6"; do
+    if command -v "$candidate" >/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  if command -v "$name" >/dev/null && "$name" --version 2>&1 | grep -q ' 6\.'; then
+    printf '%s\n' "$name"
+    return 0
+  fi
+  return 1
+}
+
 green_before_mutating() {
   local room=$1 what=$2 command=$3
   (cd "$WORK/$room" && eval "$command" >/dev/null 2>&1) ||
@@ -147,7 +162,8 @@ refusals() {
   cp "$ROOT/$script" "$WORK/shell/$script"
 }
 
-QML_TESTS="QT_QPA_PLATFORM=offscreen qmltestrunner -input tests/qml -import tests/qml/stubs"
+QMLTESTRUNNER=$(qt6_tool qmltestrunner) || die "no Qt6 qmltestrunner -- needs the qt6-declarative package"
+QML_TESTS="QT_QPA_PLATFORM=offscreen $QMLTESTRUNNER -input tests/qml -import tests/qml/stubs"
 MODEL_TESTS="node --test 'tests/*.test.js'"
 
 [[ $TARGET == all || $TARGET == model ]] && mutate_file Model.js js pure "$MODEL_TESTS" "$QML_TESTS"
