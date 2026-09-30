@@ -9,6 +9,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 total=0
 survived=0
+skipped=0
 survivors=""
 
 trimmed() {
@@ -17,55 +18,84 @@ trimmed() {
 }
 
 record() {
-  total=$((total + 1))
   survivors+="  $1"$'\n'
   survived=$((survived + 1))
 }
 
-pure_layer() {
-  local line src mutant from to pair
-  cp -r "$ROOT" "$WORK/pure"
-  mapfile -t LINES < <(grep -nE '===|!==|&&|\|\||<=|>=|\+ 1|- 1' "$ROOT/Model.js" | cut -d: -f1 | sort -u)
-  for line in "${LINES[@]}"; do
-    src=$(sed -n "${line}p" "$ROOT/Model.js")
-    for pair in '===:!==' '!==:===' '&&:||' '||:&&' '<=:<' '>=:>' '+ 1:- 1' '- 1:+ 1'; do
-      from=${pair%%:*}
-      to=${pair##*:}
-      [[ $src == *"$from"* ]] || continue
-      mutant=${src/"$from"/"$to"}
-      [[ $mutant == "$src" ]] && continue
-      mutant="$mutant" awk -v n="$line" 'NR==n{print ENVIRON["mutant"]; next}{print}' "$ROOT/Model.js" >"$WORK/pure/Model.js"
-      if (cd "$WORK/pure" && node --test 'tests/*.test.js' >/dev/null 2>&1); then
-        record "Model.js:$line  $from -> $to    $(trimmed "$src")"
-      else
-        total=$((total + 1))
-      fi
-    done
-  done
-  cp "$ROOT/Model.js" "$WORK/pure/Model.js"
+worth_mutating() {
+  local text=${1#"${1%%[![:space:]]*}"}
+  [[ -n $text ]] || return 1
+  [[ $text != //* ]] || return 1
+  [[ $text != import\ * ]] || return 1
+  [[ $text != pragma\ * ]] || return 1
 }
 
-panel_layer() {
-  local file=$1 line src mutant from to pair
-  cp -r "$ROOT" "$WORK/qml"
-  mapfile -t LINES < <(grep -nE '===|!==|&&|\|\||<=|>=' "$ROOT/$file" | cut -d: -f1 | sort -u)
-  for line in "${LINES[@]}"; do
-    src=$(sed -n "${line}p" "$ROOT/$file")
-    for pair in '===:!==' '!==:===' '&&:||' '||:&&' '<=:<' '>=:>'; do
-      from=${pair%%:*}
-      to=${pair##*:}
-      [[ $src == *"$from"* ]] || continue
-      mutant=${src/"$from"/"$to"}
-      [[ $mutant == "$src" ]] && continue
-      mutant="$mutant" awk -v n="$line" 'NR==n{print ENVIRON["mutant"]; next}{print}' "$ROOT/$file" >"$WORK/qml/$file"
-      if (cd "$WORK/qml" && QT_QPA_PLATFORM=offscreen qmltestrunner -input tests/qml -import tests/qml/stubs >/dev/null 2>&1); then
-        record "$file:$line  $from -> $to    $(trimmed "$src")"
-      else
-        total=$((total + 1))
-      fi
-    done
+swap() {
+  local src=$1 pattern=$2 replacement=$3
+  sed -E "0,/$pattern/s//$replacement/" <<<"$src"
+}
+
+mutants_for() {
+  local src=$1 dialect=$2 from to pair mutated
+  local pairs=('===:!==' '!==:===' '&&:||' '||:&&' '<=:<' '>=:>')
+  [[ $dialect == js ]] && pairs+=('+ 1:- 1' '- 1:+ 1')
+
+  for pair in "${pairs[@]}"; do
+    from=${pair%%:*}
+    to=${pair##*:}
+    [[ $src == *"$from"* ]] || continue
+    mutated=${src/"$from"/"$to"}
+    [[ $mutated == "$src" ]] && continue
+    printf '%s -> %s\t%s\n' "$from" "$to" "$mutated"
   done
-  cp "$ROOT/$file" "$WORK/qml/$file"
+
+  mutated=$(swap "$src" '\btrue\b' 'false')
+  [[ $mutated != "$src" ]] && printf 'true -> false\t%s\n' "$mutated"
+  mutated=$(swap "$src" '\bfalse\b' 'true')
+  [[ $mutated != "$src" ]] && printf 'false -> true\t%s\n' "$mutated"
+
+  mutated=$(swap "$src" '([^=<>!-])<([^=<])' '\1<=\2')
+  [[ $mutated != "$src" ]] && printf '< -> <=\t%s\n' "$mutated"
+  mutated=$(swap "$src" '([^=<>!-])>([^=>])' '\1>=\2')
+  [[ $mutated != "$src" ]] && printf '> -> >=\t%s\n' "$mutated"
+
+  if [[ $src =~ ^([[:space:]]*)return[[:space:]]+(.+)$ && ${BASH_REMATCH[2]} != null* ]]; then
+    printf 'return -> null\t%sreturn null;\n' "${BASH_REMATCH[1]}"
+  fi
+
+  mutated=$(swap "$src" '"[^"]+"' '""')
+  [[ $mutated != "$src" ]] && printf 'string -> empty\t%s\n' "$mutated"
+}
+
+still_parses() {
+  case "$2" in
+  js) node --check "$1" >/dev/null 2>&1 ;;
+  qml) qmlformat "$1" >/dev/null 2>&1 ;;
+  esac
+}
+
+mutate_file() {
+  local file=$1 dialect=$2 room=$3 verdict=$4
+  local line src label mutant total_lines
+  cp -r "$ROOT" "$WORK/$room"
+  total_lines=$(wc -l <"$ROOT/$file")
+  for ((line = 1; line <= total_lines; line++)); do
+    src=$(sed -n "${line}p" "$ROOT/$file")
+    worth_mutating "$src" || continue
+    while IFS=$'\t' read -r label mutant; do
+      [[ -n $label ]] || continue
+      mutant="$mutant" awk -v n="$line" 'NR==n{print ENVIRON["mutant"]; next}{print}' "$ROOT/$file" >"$WORK/$room/$file"
+      if ! still_parses "$WORK/$room/$file" "$dialect"; then
+        skipped=$((skipped + 1))
+        continue
+      fi
+      total=$((total + 1))
+      if (cd "$WORK/$room" && eval "$verdict" >/dev/null 2>&1); then
+        record "$file:$line  $label    $(trimmed "$src")"
+      fi
+    done < <(mutants_for "$src" "$dialect")
+  done
+  cp "$ROOT/$file" "$WORK/$room/$file"
 }
 
 refusals() {
@@ -75,21 +105,24 @@ refusals() {
   for line in "${LINES[@]}"; do
     sed "${line}s/.*/:/" "$ROOT/$script" >"$WORK/shell/$script"
     chmod +x "$WORK/shell/$script"
+    total=$((total + 1))
     if (cd "$WORK/shell" && bash tests/omani-test.sh >/dev/null 2>&1 && bash tests/provider-test.sh >/dev/null 2>&1); then
       record "$script:$line  guard removed   $(trimmed "$(sed -n "${line}p" "$ROOT/$script")")"
-    else
-      total=$((total + 1))
     fi
   done
   cp "$ROOT/$script" "$WORK/shell/$script"
 }
 
-[[ $TARGET == all || $TARGET == model ]] && pure_layer
-[[ $TARGET == all || $TARGET == qml ]] && panel_layer Service.qml
-[[ $TARGET == all || $TARGET == qml ]] && panel_layer Panel.qml
+MODEL_TESTS="node --test 'tests/*.test.js'"
+QML_TESTS="QT_QPA_PLATFORM=offscreen qmltestrunner -input tests/qml -import tests/qml/stubs"
+
+[[ $TARGET == all || $TARGET == model ]] && mutate_file Model.js js pure "$MODEL_TESTS"
+[[ $TARGET == all || $TARGET == qml ]] && mutate_file Service.qml qml qml "$QML_TESTS"
+[[ $TARGET == all || $TARGET == qml ]] && mutate_file Panel.qml qml qml "$QML_TESTS"
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani-provider
 
-printf 'mutants: %d   killed: %d   survived: %d\n' "$total" "$((total - survived))" "$survived"
+printf 'mutants: %d   killed: %d   survived: %d   unparsable (skipped): %d\n' \
+  "$total" "$((total - survived))" "$survived" "$skipped"
 [[ -n $survivors ]] && printf '%s' "$survivors"
 ((survived == 0))

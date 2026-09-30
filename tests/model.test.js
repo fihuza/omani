@@ -1119,6 +1119,46 @@ test("a digit cancels a pending g rather than arming it further", () => {
   assert.equal(press(["g", "3", "g"]).state.index, 0, "the second g arms rather than jumping")
 })
 
+test("a clock pads the seconds only below ten", () => {
+  assert.equal(Model.clock(9), "0:09")
+  assert.equal(Model.clock(10), "0:10")
+})
+
+test("a clock past an hour pads the minutes only below ten", () => {
+  assert.equal(Model.clock(3600 + 9 * 60), "1:09:00")
+  assert.equal(Model.clock(3600 + 10 * 60), "1:10:00")
+})
+
+test("the episode before the second is named rather than left blank", () => {
+  const rows = Model.playerRows("Dragon Ball", "2", false, "", false, true)
+  assert.equal(rows.find(r => r.key === "previous").label, "episode 1")
+})
+
+test("an episode exactly as long as the shortest is still reported", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  const players = [{ title: "A Episode 1", position: 30, duration: 60 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "a", episode: "1", position: 30, duration: 60 }
+  ])
+})
+
+test("a position exactly at the end is still reported", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  const players = [{ title: "A Episode 1", position: 1400, duration: 1400 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "a", episode: "1", position: 1400, duration: 1400 }
+  ])
+})
+
+test("a row with no player on the bus is not called paused", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  assert.equal(Model.progressRows(records, [])[0].paused, false)
+})
+
+test("a list that reports no page size still steps by a row", () => {
+  assert.equal(press("ctrl+d", { rowCount: 10, pageSize: 0 }).state.index, 1)
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {
