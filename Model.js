@@ -67,6 +67,26 @@ function progressLabel(row) {
 
 var SEARCHABLE = { history: true, results: true }
 
+function countVisible(keyState) {
+  return keyState.pendingCount !== "" || !!keyState.pendingG
+}
+
+function progressVisible(view, progress) {
+  return view === "player" && progress !== null
+}
+
+function emptyNoticeVisible(state) {
+  return state.ready && state.rowCount === 0 && !state.busy && !state.launching && state.view !== "shortcuts"
+}
+
+function sectionRuleVisible(index, section) {
+  return index > 0 && section !== ""
+}
+
+function emptyNotice(view) {
+  return view === "history" ? "Nothing watched yet \u2014 search for something." : "Nothing here."
+}
+
 function searchable(view) {
   return SEARCHABLE[view] === true
 }
@@ -489,13 +509,13 @@ function elapsed(position, duration) {
   return clock(position) + " / " + clock(duration)
 }
 
-function playingTitleOf(players, animeId, known) {
-  if (known) return known
-  if (!animeId) return ""
-  for (var i = 0; i < players.length; i++) {
-    if (players[i].animeId === animeId) return String(players[i].title || "")
+function playingTitleOf(players, animeId, titleFromBefore) {
+  if (animeId) {
+    for (var i = 0; i < players.length; i++) {
+      if (players[i].animeId === animeId) return String(players[i].title || "")
+    }
   }
-  return ""
+  return String(titleFromBefore || "")
 }
 
 function playerFor(players, title) {
@@ -670,6 +690,11 @@ function reduceKey(state, key, ctx) {
 
 if (typeof module !== "undefined") {
   module.exports = {
+    countVisible,
+    progressVisible,
+    emptyNoticeVisible,
+    sectionRuleVisible,
+    emptyNotice,
     parseHistory: parseHistory,
     statusFields: statusFields,
     watchedFraction: watchedFraction,

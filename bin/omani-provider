@@ -90,6 +90,15 @@ b64_decode() {
   base64 -d 2>/dev/null <<<"$1"
 }
 
+OBFUSCATION_KEY='otaku-embed-v1'
+
+unobfuscate() {
+  b64_decode "$1" | od -An -tu1 -v | tr -s ' ' '\n' | grep -v '^$' |
+    awk -v key="$OBFUSCATION_KEY" '
+      BEGIN { n = length(key); for (i = 0; i < 256; i++) code[sprintf("%c", i)] = i }
+      { printf "%c", xor($1, code[substr(key, (NR - 1) % n + 1, 1)]) }'
+}
+
 decrypt_playlist() {
   local key iv pad
   key=$(printf '%s' 'i?LMTAx0Q6,:}50U' | od -v -An -tx1 | tr -d ' \n')
@@ -173,40 +182,71 @@ cmd_stream() {
   ep_id=$(cmd_episodes "$id" | episode="$episode" awk -F'\t' '$2 == ENVIRON["episode"] { print $1; exit }')
   [[ -n $ep_id ]] || die "episode $episode not found"
 
-  local servers hash embed
+  local servers hashes
   servers=$(fetch "$BASE_API/api/theme/episode/servers?episodeId=$ep_id" | sed 's|\\"|"|g; s|server-item|\nserver-item|g')
-  hash=$(mode="$mode" awk '
+  hashes=$(mode="$mode" awk "$AWK_ATTR"'
     /server-item/ {
-      if (attr($0, "data-type") == ENVIRON["mode"]) {
-        print attr($0, "data-hash")
-        exit
-      }
-    }
-    function attr(line, key,   m) {
-      if (!match(line, key "=\"[^\"]*\"")) return ""
-      m = substr(line, RSTART, RLENGTH)
-      return substr(m, length(key) + 3, length(m) - length(key) - 3)
+      if (attr($0, "data-type") == ENVIRON["mode"])
+        print attr($0, "data-server-name") "\t" attr($0, "data-hash")
     }
   ' <<<"$servers")
-  [[ -n $hash ]] || die "the site lists no $mode source for this episode"
-  embed=$(b64_decode "$hash")
-  [[ -n $embed ]] || die "could not decode the embed url"
-  [[ $embed == https://* || $embed == http://* ]] || die "not a playable embed: $embed"
+  [[ -n $hashes ]] || die "the site lists no $mode source for this episode"
 
-  local referrer player json blob opened master subs links url
+  STREAM_REFUSAL=$(mktemp) || die "could not open a scratch file"
+  trap 'rm -f "$STREAM_REFUSAL"' EXIT
+
+  local name hash embed record skipped=0
+  local why="the site lists no $mode source for this episode"
+  while IFS=$'\t' read -r name hash; do
+    [[ -n $hash ]] || continue
+    embed=$(b64_decode "$hash")
+    if [[ -z $embed ]]; then
+      why="could not decode the embed url"
+    elif [[ $embed != https://* && $embed != http://* ]]; then
+      why="not a playable embed: $embed"
+    elif record=$(source_from "$embed" "$quality" 2>"$STREAM_REFUSAL"); then
+      printf '%s\nserver\t%s\nskipped\t%s\n' "$record" "$name" "$skipped"
+      return 0
+    else
+      why=$(sed -n '1s/^omani-provider: //p' "$STREAM_REFUSAL")
+      [[ -n $why ]] || why="that server gave up no source"
+    fi
+    skipped=$((skipped + 1))
+  done <<<"$hashes"
+  die "$why"
+}
+
+source_from() {
+  local embed="$1" quality="$2"
+  local referrer page player blob master subs links url
   referrer=$(sed -E 's|^(https?://[^/]*).*|\1/|' <<<"$embed")
-  player=$(fetch "$embed" -e "$BASE_API/" | sed -nE 's|.*data-id="([0-9]+)".*|\1|p' | head -1)
-  [[ -n $player ]] || die "the embed page carried no player id"
-  json=$(fetch "${referrer}stream/getSources?id=$player" -H 'X-Requested-With: XMLHttpRequest')
-  blob=$(jq -r '.enc // empty' <<<"$json" 2>/dev/null)
-  [[ -n $blob ]] || die "the sources carried no encrypted playlist"
-  opened=$(decrypt_playlist "$blob")
-  [[ -n $opened ]] || die "the playlist would not decrypt, so its key has changed"
-  master=$(jq -r '.file // empty' <<<"$opened" 2>/dev/null)
+  page=$(fetch "$embed" -e "$BASE_API/")
+  player=$(sed -nE 's|.*data-id="([0-9]+)".*|\1|p' <<<"$page" | head -1)
+  blob=$(sed -nE 's|.*window\.__P="([^"]+)".*|\1|p' <<<"$page" | head -1)
+
+  if [[ -n $player ]]; then
+    local json opened
+    json=$(fetch "${referrer}stream/getSources?id=$player" -H 'X-Requested-With: XMLHttpRequest')
+    opened=$(jq -r '.enc // empty' <<<"$json" 2>/dev/null)
+    [[ -n $opened ]] || die "the sources carried no encrypted playlist"
+    opened=$(decrypt_playlist "$opened")
+    [[ -n $opened ]] || die "the playlist would not decrypt, so its key has changed"
+    master=$(jq -r '.file // empty' <<<"$opened" 2>/dev/null)
+    # shellcheck disable=SC2016 # the filter is jq's, not the shell's
+    subs=$(jq -r 'first(.tracks[]? | select(.default == true) | .file) // empty' <<<"$json" 2>/dev/null)
+  elif [[ -n $blob ]]; then
+    local opened
+    opened=$(unobfuscate "$blob")
+    [[ -n $opened ]] || die "the playlist the page carried would not decode"
+    master=$(jq -r '.src // empty' <<<"$opened" 2>/dev/null)
+    # shellcheck disable=SC2016 # the filter is jq's, not the shell's
+    subs=$(jq -r 'first(.subtitles[]? | select(.default == true) | .src) // empty' <<<"$opened" 2>/dev/null)
+  else
+    die "the embed page carried no source"
+  fi
+
   [[ -n $master ]] || die "the playlist named no source"
   [[ $master == https://* || $master == http://* ]] || die "not a playable source: $master"
-  # shellcheck disable=SC2016 # the filter is jq's, not the shell's
-  subs=$(jq -r 'first(.tracks[]? | select(.default == true) | .file) // empty' <<<"$json" 2>/dev/null)
   [[ $subs == https://* || $subs == http://* ]] || subs=""
   links=$(fetch "$master" -e "$referrer" | parse_qualities "$master")
   [[ -n $links ]] || die "no playable qualities"

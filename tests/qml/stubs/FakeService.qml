@@ -29,6 +29,7 @@ QtObject {
     property string playingSeries: ""
     property string playingEpisode: ""
     property string playingTitle: ""
+    property string playingNow: ""
     property string playingQuality: ""
     property string selectedId: ""
     property string selectedTitle: ""
