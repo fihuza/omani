@@ -306,4 +306,14 @@ TestCase {
         }
         compare(panel.view, "history");
     }
+
+    function test_a_panel_with_no_service_still_reads_as_the_plugin_ships() {
+        panel.service = null;
+        compare(panel.quality, "best");
+        compare(panel.mode, "sub");
+        compare(panel.watched, "90");
+        compare(panel.liveSeries, "");
+        compare(panel.liveEpisode, "");
+        panel.service = fake;
+    }
 }

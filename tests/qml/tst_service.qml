@@ -488,6 +488,35 @@ TestCase {
         compare(askedFor("play"), false, "a replay started without knowing which episode");
     }
 
+    function test_the_panel_is_told_how_far_into_each_episode_a_player_is() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 7", "dragon-ball-970", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        Mpris.carry([busPlayer("Dragon Ball Episode 7", 612, 1440, true, 1)]);
+
+        compare(service.progress.length, 1, "the panel was told about no player");
+        compare(service.progress[0].title, "Dragon Ball Episode 7");
+        compare(service.progress[0].paused, false, "a running player was reported as paused");
+
+        Mpris.carry([busPlayer("Dragon Ball Episode 7", 612, 1440, false, 1)]);
+        service.mprisPositionTick++;
+        compare(service.progress[0].paused, true, "a stopped player was not reported as paused");
+    }
+
+    function test_playing_from_a_position_carries_it_to_the_script() {
+        service.play("dragon-ball-970", "Dragon Ball", "7", 612);
+        var asking = Quickshell.running("play");
+        verify(asking, "nothing was played");
+        compare(asking.command[5], "612", "the position to resume from never reached the script");
+    }
+
+    function test_playing_from_the_start_asks_for_no_position() {
+        service.play("dragon-ball-970", "Dragon Ball", "7");
+        var asking = Quickshell.running("play");
+        verify(asking, "nothing was played");
+        compare(asking.command.length, 5, "a position was sent when none was asked for");
+    }
+
     function test_the_next_episode_is_asked_for_by_name() {
         playingDragonBall();
         service.playNext();
