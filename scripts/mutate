@@ -12,6 +12,32 @@ survived=0
 skipped=0
 survivors=""
 
+die() {
+  printf 'mutate: %s\n' "$1" >&2
+  exit 2
+}
+
+qt6_tool() {
+  local name=$1 candidate
+  for candidate in "/usr/lib/qt6/bin/$name" "/usr/lib/qt6/$name" "$name-qt6"; do
+    if command -v "$candidate" >/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  if command -v "$name" >/dev/null && "$name" --version 2>&1 | grep -q ' 6\.'; then
+    printf '%s\n' "$name"
+    return 0
+  fi
+  return 1
+}
+
+green_before_mutating() {
+  local room=$1 what=$2 command=$3
+  (cd "$WORK/$room" && eval "$command" >/dev/null 2>&1) ||
+    die "$what does not pass before anything is mutated, so every mutant would count as killed"
+}
+
 trimmed() {
   local text=${1#"${1%%[![:space:]]*}"}
   printf '%s' "${text:0:64}"
@@ -96,6 +122,8 @@ mutate_file() {
   local file=$1 dialect=$2 room=$3 verdict=$4 second=${5:-}
   local line src label mutant total_lines
   cp -r "$ROOT" "$WORK/$room"
+  green_before_mutating "$room" "the suite for $file" "$verdict"
+  [[ -z $second ]] || green_before_mutating "$room" "the second opinion for $file" "$second"
   total_lines=$(wc -l <"$ROOT/$file")
   for ((line = 1; line <= total_lines; line++)); do
     src=$(sed -n "${line}p" "$ROOT/$file")
@@ -121,6 +149,7 @@ mutate_file() {
 refusals() {
   local script=$1 line
   cp -r "$ROOT" "$WORK/shell"
+  green_before_mutating shell "the shell suite" "bash tests/omani-test.sh && bash tests/provider-test.sh"
   mapfile -t LINES < <(grep -nE '\|\| (die|return)' "$ROOT/$script" | cut -d: -f1)
   for line in "${LINES[@]}"; do
     sed "${line}s/.*/:/" "$ROOT/$script" >"$WORK/shell/$script"
@@ -133,7 +162,8 @@ refusals() {
   cp "$ROOT/$script" "$WORK/shell/$script"
 }
 
-QML_TESTS="QT_QPA_PLATFORM=offscreen qmltestrunner -input tests/qml -import tests/qml/stubs"
+QMLTESTRUNNER=$(qt6_tool qmltestrunner) || die "no Qt6 qmltestrunner -- needs the qt6-declarative package"
+QML_TESTS="QT_QPA_PLATFORM=offscreen $QMLTESTRUNNER -input tests/qml -import tests/qml/stubs"
 MODEL_TESTS="node --test 'tests/*.test.js'"
 
 [[ $TARGET == all || $TARGET == model ]] && mutate_file Model.js js pure "$MODEL_TESTS" "$QML_TESTS"
