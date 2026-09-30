@@ -155,6 +155,91 @@ TestCase {
         compare(fake.asked, ["play:naruto:7"]);
     }
 
+    function test_choosing_a_series_from_the_history_resumes_it() {
+        fake.rows = [
+            {
+                "animeId": "naruto-1335",
+                "title": "Naruto",
+                "episode": "7",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        panel.activateCursor();
+        panel.dispatch("enter");
+        compare(fake.asked, ["resume"], "the watch history did not resume anything");
+        compare(panel.view, "player", "resuming did not show the player");
+    }
+
+    function test_choosing_a_playing_row_shows_its_player() {
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": ""
+            }
+        ];
+        panel.setView("history");
+        panel.activateCursor();
+        panel.dispatch("enter");
+        compare(fake.asked.join(","), "", "a player already running was started again");
+        compare(panel.view, "player", "choosing a playing row did not open its menu");
+        compare(fake.playingId, "naruto-1335", "the menu was opened for a different player");
+    }
+
+    function test_choosing_a_result_opens_that_series() {
+        fake.results = Model.seriesRows("naruto-1335\tNaruto\nfrieren-481\tFrieren\n");
+        panel.setView("results");
+        panel.activateCursor();
+        panel.dispatch("j");
+        panel.dispatch("enter");
+        compare(fake.asked, ["openSeries:frieren-481"], "the second result was not the one opened");
+        compare(panel.view, "episodes", "opening a series did not show its episodes");
+    }
+
+    function test_choosing_a_quality_replays_at_it() {
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": "1080 720"
+            }
+        ];
+        fake.playingId = "naruto-1335";
+        panel.setView("quality");
+        panel.activateCursor();
+        panel.dispatch("j");
+        panel.dispatch("enter");
+        compare(fake.asked.length, 1, "choosing a quality asked for nothing");
+        compare(fake.asked[0].indexOf("quality:") === 0, true, "something other than a quality change was asked for");
+        compare(panel.view, "player", "choosing a quality did not return to the player");
+    }
+
+    function test_choosing_the_repository_opens_it() {
+        fake.repo = "https://example.test/omani";
+        panel.setView("settings");
+        panel.activateCursor();
+        panel.dispatch("G");
+        panel.dispatch("enter");
+        compare(fake.asked, ["open:https://example.test/omani"], "about did not open the repository");
+    }
+
+    function test_clearing_the_history_asks_before_doing_it() {
+        panel.setView("settings");
+        panel.activateCursor();
+        panel.dispatch("G");
+        panel.dispatch("k");
+        panel.dispatch("enter");
+        compare(fake.asked, [], "the history was cleared without asking");
+        var dialog = findChild(panel, "confirmClear");
+        verify(dialog, "the panel carries no confirmation dialog");
+        compare(dialog.opened, true, "nothing asked the user to confirm");
+    }
+
     readonly property var everyKey: ["j", "k", "g", "g", "G", "ctrl+d", "ctrl+u", "0", "3", "j", "enter", "d", "c", "r", "s", "?", "/", "i", "x", "q", " ", "z", "escape"]
 
     function test_no_key_breaks_a_view_data() {
