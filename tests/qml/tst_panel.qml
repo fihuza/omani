@@ -8,6 +8,9 @@ TestCase {
     id: harness
     name: "Panel"
     when: windowShown
+    visible: true
+    width: 420
+    height: 700
 
     FakeService {
         id: fake
@@ -238,6 +241,83 @@ TestCase {
         var dialog = findChild(panel, "confirmClear");
         verify(dialog, "the panel carries no confirmation dialog");
         compare(dialog.opened, true, "nothing asked the user to confirm");
+    }
+
+    function seen(name) {
+        var item = findChild(panel, name);
+        verify(item, "the panel carries no " + name);
+        return item.visible;
+    }
+
+    function test_a_heading_shows_on_every_view_but_the_watch_history() {
+        panel.open();
+        fake.results = Model.seriesRows("naruto-1335\tNaruto\n");
+        panel.setView("results");
+        compare(seen("headingBand"), true, "a view with a heading showed none");
+        panel.setView("history");
+        compare(seen("headingBand"), false, "the watch history showed a heading of its own");
+    }
+
+    function test_the_episode_band_shows_only_where_there_is_an_episode_to_show() {
+        panel.open();
+        panel.setView("history");
+        compare(seen("episodeBand"), false, "the watch history showed a player's episode");
+
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": ""
+            }
+        ];
+        fake.playingId = "naruto-1335";
+        fake.progress = [
+            {
+                "animeId": "naruto-1335",
+                "title": "Naruto Episode 7",
+                "clock": "0:10 / 24:00",
+                "fraction": 0.1,
+                "paused": false
+            }
+        ];
+        panel.setView("player");
+        compare(seen("episodeBand"), true, "a playing episode showed no caption");
+    }
+
+    function test_a_row_shows_its_glyph_only_when_it_has_one() {
+        panel.open();
+        fake.rows = [
+            {
+                "animeId": "a",
+                "title": "A",
+                "episode": "1",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        compare(seen("rowIcon"), true, "a history row showed no glyph");
+
+        fake.results = Model.seriesRows("b\tB\n");
+        panel.setView("results");
+        compare(seen("rowIcon"), false, "a search result carried a glyph it has none of");
+    }
+
+    function test_forgetting_is_offered_only_on_the_row_the_cursor_is_on() {
+        panel.open();
+        fake.rows = [
+            {
+                "animeId": "a",
+                "title": "A",
+                "episode": "1",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        compare(seen("rowForget"), false, "a row nobody selected offered to be forgotten");
+        panel.activateCursor();
+        compare(seen("rowForget"), true, "the selected row did not offer to be forgotten");
     }
 
     readonly property var everyKey: ["j", "k", "g", "g", "G", "ctrl+d", "ctrl+u", "0", "3", "j", "enter", "d", "c", "r", "s", "?", "/", "i", "x", "q", " ", "z", "escape"]

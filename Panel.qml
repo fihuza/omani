@@ -456,6 +456,7 @@ Panel {
                     }
 
                     Item {
+                        objectName: "headingBand"
                         width: parent.width
                         visible: Model.headingVisible(root.ready, root.view) && headingLabel.text !== ""
                         implicitHeight: headingLabel.implicitHeight
@@ -469,6 +470,7 @@ Panel {
                     }
 
                     Item {
+                        objectName: "episodeBand"
                         width: parent.width
                         visible: Model.progressVisible(root.view, root.playerProgress) && episodeCaption.text !== ""
                         implicitHeight: episodeCaption.implicitHeight
@@ -632,6 +634,7 @@ Panel {
 
                                         Text {
                                             id: rowIcon
+                                            objectName: "rowIcon"
                                             visible: text !== ""
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: parent.left
@@ -713,6 +716,7 @@ Panel {
 
                                         PanelActionButton {
                                             id: rowForget
+                                            objectName: "rowForget"
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.right: parent.right
                                             visible: rowItem.selected && Model.forgettable(root.view, rowItem.modelData)
