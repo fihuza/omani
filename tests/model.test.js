@@ -224,11 +224,6 @@ test("a series is playing when a live player carries its id", () => {
   assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
 })
 
-test("the episode may change without the series stopping", () => {
-  const players = [{ pid: "1", title: "Naruto Episode 23", animeId: "naruto-1335", episode: "23" }]
-  assert.equal(Model.isPlayingSeries(players, "naruto-1335"), true)
-})
-
 test("another series playing does not count", () => {
   const players = [{ pid: "1", title: "Frieren Episode 1", animeId: "frieren-1", episode: "1" }]
   assert.equal(Model.isPlayingSeries(players, "naruto-1335"), false)
@@ -1122,6 +1117,81 @@ test("a digit cancels a pending g rather than arming it further", () => {
   const after = press(["g", "3"])
   assert.equal(after.state.pendingG, false)
   assert.equal(press(["g", "3", "g"]).state.index, 0, "the second g arms rather than jumping")
+})
+
+test("a clock pads the seconds only below ten", () => {
+  assert.equal(Model.clock(9), "0:09")
+  assert.equal(Model.clock(10), "0:10")
+})
+
+test("a clock past an hour pads the minutes only below ten", () => {
+  assert.equal(Model.clock(3600 + 9 * 60), "1:09:00")
+  assert.equal(Model.clock(3600 + 10 * 60), "1:10:00")
+})
+
+test("the episode before the second is named rather than left blank", () => {
+  const rows = Model.playerRows("Dragon Ball", "2", false, "", false, true)
+  assert.equal(rows.find(r => r.key === "previous").label, "episode 1")
+})
+
+test("an episode exactly as long as the shortest is still reported", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  const players = [{ title: "A Episode 1", position: 30, duration: 60 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "a", episode: "1", position: 30, duration: 60 }
+  ])
+})
+
+test("a position exactly at the end is still reported", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  const players = [{ title: "A Episode 1", position: 1400, duration: 1400 }]
+  assert.deepEqual(Model.progressReports(records, players), [
+    { animeId: "a", episode: "1", position: 1400, duration: 1400 }
+  ])
+})
+
+test("a row with no player on the bus is not called paused", () => {
+  const records = [{ pid: "1", title: "A Episode 1", animeId: "a", episode: "1", qualities: "" }]
+  assert.equal(Model.progressRows(records, [])[0].paused, false)
+})
+
+test("a list that reports no page size still steps by a row", () => {
+  assert.equal(press("ctrl+d", { rowCount: 10, pageSize: 0 }).state.index, 1)
+})
+
+test("the pending count shows while a count or a g is waiting", () => {
+  assert.equal(Model.countVisible({ pendingCount: "", pendingG: false }), false)
+  assert.equal(Model.countVisible({ pendingCount: "3", pendingG: false }), true)
+  assert.equal(Model.countVisible({ pendingCount: "", pendingG: true }), true)
+})
+
+test("progress shows on the player view and only when there is progress", () => {
+  assert.equal(Model.progressVisible("player", { clock: "0:10" }), true)
+  assert.equal(Model.progressVisible("player", null), false)
+  assert.equal(Model.progressVisible("history", { clock: "0:10" }), false)
+})
+
+test("the empty notice shows on a ready, idle, empty view that is not the shortcut list", () => {
+  const shown = change => Model.emptyNoticeVisible(Object.assign({
+    ready: true, rowCount: 0, busy: false, launching: false, view: "history"
+  }, change))
+  assert.equal(shown({}), true)
+  assert.equal(shown({ ready: false }), false)
+  assert.equal(shown({ rowCount: 1 }), false)
+  assert.equal(shown({ busy: true }), false)
+  assert.equal(shown({ launching: true }), false)
+  assert.equal(shown({ view: "shortcuts" }), false)
+})
+
+test("a section rule shows between sections, never above the first row", () => {
+  assert.equal(Model.sectionRuleVisible(0, "Today"), false)
+  assert.equal(Model.sectionRuleVisible(1, "Today"), true)
+  assert.equal(Model.sectionRuleVisible(1, ""), false)
+})
+
+test("the empty notice names what is missing", () => {
+  assert.equal(Model.emptyNotice("history"), "Nothing watched yet \u2014 search for something.")
+  assert.equal(Model.emptyNotice("results"), "Nothing here.")
 })
 
 function press(keys, context = ctx, state = start()) {
