@@ -1194,6 +1194,13 @@ test("the empty notice names what is missing", () => {
   assert.equal(Model.emptyNotice("results"), "Nothing here.")
 })
 
+test("the first row scrolls the list to its top, wherever the row sits", () => {
+  assert.equal(Model.scrollTarget({
+    index: 0, lastIndex: 9, rowTop: 20, rowHeight: 20,
+    current: 50, content: 100, viewport: 50, margin: 0
+  }), 0)
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {

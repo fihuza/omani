@@ -17,8 +17,26 @@ trimmed() {
   printf '%s' "${text:0:64}"
 }
 
+ACCOUNTED="$ROOT/tests/mutation-equivalents.tsv"
+explained=0
+explained_keys=""
+
+accounted_for() {
+  [[ -f $ACCOUNTED ]] || return 1
+  awk -F'\t' -v f="$1" -v l="$2" -v s="$3" \
+    '$1 == f && $2 == l && $3 == s { hit = 1 } END { exit hit ? 0 : 1 }' "$ACCOUNTED"
+}
+
 record() {
-  survivors+="  $1"$'\n'
+  local file=$1 line=$2 label=$3 src trim
+  src=$4
+  trim=$(trimmed "$src")
+  if accounted_for "$file" "$label" "$trim"; then
+    explained=$((explained + 1))
+    explained_keys+="$file"$'\t'"$label"$'\t'"$trim"$'\n'
+    return
+  fi
+  survivors+="  $file:$line  $label    $trim"$'\n'
   survived=$((survived + 1))
 }
 
@@ -75,7 +93,7 @@ still_parses() {
 }
 
 mutate_file() {
-  local file=$1 dialect=$2 room=$3 verdict=$4
+  local file=$1 dialect=$2 room=$3 verdict=$4 second=${5:-}
   local line src label mutant total_lines
   cp -r "$ROOT" "$WORK/$room"
   total_lines=$(wc -l <"$ROOT/$file")
@@ -90,9 +108,11 @@ mutate_file() {
         continue
       fi
       total=$((total + 1))
-      if (cd "$WORK/$room" && eval "$verdict" >/dev/null 2>&1); then
-        record "$file:$line  $label    $(trimmed "$src")"
+      (cd "$WORK/$room" && eval "$verdict" >/dev/null 2>&1) || continue
+      if [[ -n $second ]]; then
+        (cd "$WORK/$room" && eval "$second" >/dev/null 2>&1) || continue
       fi
+      record "$file" "$line" "$label" "$src"
     done < <(mutants_for "$src" "$dialect")
   done
   cp "$ROOT/$file" "$WORK/$room/$file"
@@ -107,22 +127,32 @@ refusals() {
     chmod +x "$WORK/shell/$script"
     total=$((total + 1))
     if (cd "$WORK/shell" && bash tests/omani-test.sh >/dev/null 2>&1 && bash tests/provider-test.sh >/dev/null 2>&1); then
-      record "$script:$line  guard removed   $(trimmed "$(sed -n "${line}p" "$ROOT/$script")")"
+      record "$script" "$line" "guard removed" "$(sed -n "${line}p" "$ROOT/$script")"
     fi
   done
   cp "$ROOT/$script" "$WORK/shell/$script"
 }
 
-MODEL_TESTS="node --test 'tests/*.test.js'"
 QML_TESTS="QT_QPA_PLATFORM=offscreen qmltestrunner -input tests/qml -import tests/qml/stubs"
+MODEL_TESTS="node --test 'tests/*.test.js'"
 
-[[ $TARGET == all || $TARGET == model ]] && mutate_file Model.js js pure "$MODEL_TESTS"
+[[ $TARGET == all || $TARGET == model ]] && mutate_file Model.js js pure "$MODEL_TESTS" "$QML_TESTS"
 [[ $TARGET == all || $TARGET == qml ]] && mutate_file Service.qml qml qml "$QML_TESTS"
 [[ $TARGET == all || $TARGET == qml ]] && mutate_file Panel.qml qml qml "$QML_TESTS"
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani-provider
 
-printf 'mutants: %d   killed: %d   survived: %d   unparsable (skipped): %d\n' \
-  "$total" "$((total - survived))" "$survived" "$skipped"
-[[ -n $survivors ]] && printf '%s' "$survivors"
-((survived == 0))
+stale=""
+if [[ -f $ACCOUNTED ]]; then
+  while IFS= read -r entry; do
+    [[ -n $entry && $entry != \#* ]] || continue
+    grep -Fqx "$entry" <<<"${explained_keys%$'\n'}" ||
+      stale+="  ${entry%%$'\t'*} -- $(cut -f2 <<<"$entry")"$'\n'
+  done < <(cut -f1-3 "$ACCOUNTED")
+fi
+
+printf 'mutants: %d   killed: %d   survived: %d   explained: %d   unparsable (skipped): %d\n' \
+  "$total" "$((total - survived - explained))" "$survived" "$explained" "$skipped"
+[[ -n $survivors ]] && printf '\nsurvivors nothing accounts for:\n%s' "$survivors"
+[[ -n $stale ]] && printf '\nno longer survive, so their entry has outlived the code:\n%s' "$stale"
+[[ -z $survivors && -z $stale ]]
