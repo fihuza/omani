@@ -56,10 +56,14 @@ episode=$(awk -F'\t' 'NF >= 2 && $2 != "" { print $2; exit }' <<<"$episodes")
 stream=$(ask_patiently "$PROVIDER" stream "$id" "$episode") || whatever_went_wrong $? stream
 url=$(awk -F'\t' '$1 == "url" { print $2; exit }' <<<"$stream")
 referrer=$(awk -F'\t' '$1 == "referrer" { print $2; exit }' <<<"$stream")
+server=$(awk -F'\t' '$1 == "server" { print $2; exit }' <<<"$stream")
+skipped=$(awk -F'\t' '$1 == "skipped" { print $2; exit }' <<<"$stream")
 
 [[ $url == https://* ]] ||
   the_site_changed "episode $episode of '$id' resolved to something that is not an https url: ${url:-<none>}"
 [[ -n $referrer ]] ||
   the_site_changed "episode $episode of '$id' resolved without the referrer the player needs"
+((${skipped:-0} == 0)) ||
+  the_site_changed "${skipped} server(s) the site lists ahead of '${server}' gave up no source, so playback survives on a fallback alone"
 
-printf 'searched, listed and resolved: %s -> %s episode %s\n' "$QUERY" "$id" "$episode"
+printf 'searched, listed and resolved through %s: %s -> %s episode %s\n' "$server" "$QUERY" "$id" "$episode"

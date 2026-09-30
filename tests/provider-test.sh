@@ -491,6 +491,22 @@ t_stream_moves_on_when_a_server_gives_nothing() {
   assert_contains "$out" "referrer	https://megaplay.buzz/"
 }
 
+t_stream_names_the_server_that_answered() {
+  local out
+  out=$(FAKE_SERVERS="$FIXTURES/servers-two.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "server	ZokoAnime"
+  assert_contains "$out" "skipped	0"
+}
+
+t_stream_counts_the_servers_that_refused_first() {
+  local out
+  out=$(FAKE_SERVERS="$FIXTURES/servers-two.html" \
+    FAKE_ZOKO_PAGE="$FIXTURES/embed-zoko-empty.html" \
+    "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "server	Vidstream-2"
+  assert_contains "$out" "skipped	1"
+}
+
 t_stream_tries_every_server_before_giving_up() {
   local log="$WORK/asked.txt" out
   : >"$log"
@@ -552,6 +568,8 @@ check "stream needs an id and an episode" t_stream_needs_an_id_and_an_episode
 check "stream reads a source carried inside the embed page" t_stream_reads_a_source_carried_inside_the_embed_page
 check "stream moves on when a server gives nothing" t_stream_moves_on_when_a_server_gives_nothing
 check "stream tries every server before giving up" t_stream_tries_every_server_before_giving_up
+check "stream names the server that answered" t_stream_names_the_server_that_answered
+check "stream counts the servers that refused first" t_stream_counts_the_servers_that_refused_first
 
 check "search rows come back as id and title" t_search_rows
 check "search decodes html entities in titles" t_search_decodes_html_entities
