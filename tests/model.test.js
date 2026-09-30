@@ -1390,6 +1390,20 @@ test("the player view falls back to a word when the series is not known yet", ()
   assert.equal(Model.headings("", "").player, "Playing")
 })
 
+test("a wheel turned down moves down, up moves up, and sideways moves nothing", () => {
+  assert.equal(Model.wheelKey(1), "j")
+  assert.equal(Model.wheelKey(40), "j")
+  assert.equal(Model.wheelKey(-1), "k")
+  assert.equal(Model.wheelKey(-40), "k")
+  assert.equal(Model.wheelKey(0), "")
+})
+
+test("the shortcut list is offered only to the view that shows it", () => {
+  assert.equal(Model.shortcutRows("shortcuts").length, Model.shortcuts().length)
+  assert.deepEqual(Model.shortcutRows("history"), [])
+  assert.deepEqual(Model.shortcutRows("player"), [])
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {
