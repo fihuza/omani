@@ -366,7 +366,7 @@ Panel {
             id: keyCatcher
             anchors.fill: parent
 
-            blocked: searchField.activeFocus || confirmClear.opened
+            blocked: Model.keysBlocked(searchField.activeFocus, confirmClear.opened)
 
             onMoveRequested: function (dx, dy) {
                 if (!root.cursorActive) {
@@ -419,7 +419,7 @@ Panel {
 
                                 Button {
                                     iconText: "󰌌"
-                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
+                                    tooltipText: Model.headerTooltip(root.view, "shortcuts")
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     iconSize: Style.font.subtitle * 1.5
@@ -430,7 +430,7 @@ Panel {
 
                                 Button {
                                     iconText: "󰒓"
-                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
+                                    tooltipText: Model.headerTooltip(root.view, "settings")
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     iconSize: Style.font.subtitle * 1.5
@@ -449,7 +449,7 @@ Panel {
 
                     Item {
                         width: parent.width
-                        visible: root.ready && Model.searchable(root.view)
+                        visible: Model.searchVisible(root.ready, root.view)
                         implicitHeight: searchField.implicitHeight + Style.space(4)
 
                         TextField {
@@ -465,7 +465,7 @@ Panel {
 
                     Item {
                         width: parent.width
-                        visible: root.ready && root.view !== "history" && headingLabel.text !== ""
+                        visible: Model.headingVisible(root.ready, root.view) && headingLabel.text !== ""
                         implicitHeight: headingLabel.implicitHeight
 
                         SectionLabel {
@@ -499,7 +499,7 @@ Panel {
                             anchors.right: parent.right
                             anchors.verticalCenter: episodeCaption.verticalCenter
                             textFormat: Text.PlainText
-                            text: root.playerProgress ? root.playerProgress.clock : ""
+                            text: Model.progressClock(root.playerProgress)
                             color: root.dim
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -523,7 +523,7 @@ Panel {
                                 height: playerTrack.height
                                 radius: playerTrack.radius
                                 color: root.foreground
-                                opacity: root.playerProgress && root.playerProgress.paused ? 0.45 : 1.0
+                                opacity: Model.progressOpacity(root.playerProgress)
 
                                 Behavior on width {
                                     NumberAnimation {
@@ -610,7 +610,7 @@ Panel {
                                 }
 
                                 SectionLabel {
-                                    visible: rowItem.section !== ""
+                                    visible: Model.sectionVisible(rowItem.section)
                                     width: parent.width
                                     text: rowItem.section
                                 }
@@ -644,7 +644,7 @@ Panel {
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: parent.left
                                             textFormat: Text.PlainText
-                                            text: rowItem.modelData.icon !== undefined ? rowItem.modelData.icon : ""
+                                            text: Model.rowIcon(rowItem.modelData)
                                             color: root.dim
                                             font.family: root.fontFamily
                                             font.pixelSize: Style.font.heading
@@ -780,7 +780,7 @@ Panel {
                     anchors.bottom: parent.bottom
                     visible: root.countVisible
                     textFormat: Text.PlainText
-                    text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
+                    text: Model.countCaption(root.keyState)
                     color: root.dim
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
