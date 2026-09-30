@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import Quickshell
 import Quickshell.Services.Mpris
+import qs.Commons
 import "../.." as Plugin
 
 TestCase {
@@ -17,6 +18,7 @@ TestCase {
     function init() {
         failOnWarning(/.*/);
         Quickshell.forget();
+        Util.forget();
         Mpris.carry([]);
         ready();
         var pending = Quickshell.processes.slice();
@@ -111,12 +113,14 @@ TestCase {
         refused.clear();
         service.togglePaused();
         compare(refused.count, 1, "pause did nothing and said nothing");
+        compare(refused.signalArguments[0][0], "this player is not answering, so it cannot be paused from here");
     }
 
     function test_muting_a_player_we_cannot_reach_says_so() {
         refused.clear();
         service.toggleMuted();
         compare(refused.count, 1, "mute did nothing and said nothing");
+        compare(refused.signalArguments[0][0], "this player is not answering, so it cannot be muted from here");
     }
 
     function resumedAndPlaying() {
@@ -333,6 +337,9 @@ TestCase {
     function test_a_setting_never_given_falls_back() {
         service.settings = {};
         compare(service.quality, "best");
+        compare(service.mode, "sub");
+        compare(service.watched, "90");
+        compare(service.historyLimit, 8);
     }
 
     function test_a_player_the_bus_says_is_stopped_reads_as_paused() {
@@ -479,5 +486,85 @@ TestCase {
         service.playAtQuality("720p");
 
         compare(askedFor("play"), false, "a replay started without knowing which episode");
+    }
+
+    function test_the_next_episode_is_asked_for_by_name() {
+        playingDragonBall();
+        service.playNext();
+        var asking = Quickshell.running("next");
+        verify(asking, "next episode asked the script for nothing");
+        compare(asking.command[1], "next");
+        compare(asking.command[2], "dragon-ball-970");
+    }
+
+    function test_the_previous_episode_is_asked_for_by_name() {
+        playingDragonBall();
+        service.playPrevious();
+        var asking = Quickshell.running("previous");
+        verify(asking, "previous episode asked the script for nothing");
+        compare(asking.command[1], "previous");
+    }
+
+    function test_stopping_asks_the_script_to_stop_everything() {
+        Quickshell.forget();
+        service.stop();
+        compare(Quickshell.detached.length, 1, "stop asked for nothing");
+        compare(Quickshell.detached[0].command[1], "stop");
+        compare(Quickshell.detached[0].command[2], "all");
+    }
+
+    function test_forgetting_a_series_names_the_series() {
+        Quickshell.forget();
+        service.forget("dragon-ball-970");
+        compare(Quickshell.detached.length, 1, "forget asked for nothing");
+        compare(Quickshell.detached[0].command[1], "forget");
+        compare(Quickshell.detached[0].command[2], "dragon-ball-970");
+    }
+
+    function test_clearing_the_history_asks_for_exactly_that() {
+        Quickshell.forget();
+        service.clearHistory();
+        compare(Quickshell.detached.length, 1, "clearing the history asked for nothing");
+        compare(Quickshell.detached[0].command[1], "history-clear");
+    }
+
+    function test_a_link_is_handed_to_the_browser() {
+        service.openLink("https://example.test/anime");
+        compare(Util.launched.length, 1, "the link reached no browser");
+        compare(Util.launched[0][0], "omarchy-launch-browser");
+        compare(Util.launched[0][1], "https://example.test/anime");
+    }
+
+    function test_what_is_playing_is_named_with_its_episode() {
+        service.play("dragon-ball-970", "Dragon Ball", "7");
+        compare(service.playingTitle, "Dragon Ball Episode 7");
+    }
+
+    function test_a_series_read_back_from_history_is_named_with_its_episode() {
+        Quickshell.file("history").contents = historyOf("dragon-ball-970", "Dragon Ball", "8");
+        service.playingId = "dragon-ball-970";
+        service.syncPlayingFromHistory();
+        compare(service.playingTitle, "Dragon Ball Episode 8");
+    }
+
+    function test_a_search_that_fails_without_saying_why_still_says_something() {
+        refused.clear();
+        service.search("dragon");
+        Quickshell.running("search").finish(1, "", "");
+        compare(refused.signalArguments[0][0], "the search failed");
+    }
+
+    function test_an_episode_list_that_fails_without_saying_why_still_says_something() {
+        refused.clear();
+        service.openSeries("dragon-ball-970", "Dragon Ball");
+        Quickshell.running("episodes").finish(1, "", "");
+        compare(refused.signalArguments[0][0], "the episode list could not be read");
+    }
+
+    function test_a_launch_that_fails_without_saying_why_still_says_something() {
+        refused.clear();
+        service.play("dragon-ball-970", "Dragon Ball", "7");
+        Quickshell.running("play").finish(1, "", "");
+        compare(refused.signalArguments[0][0], "the player could not be started");
     }
 }
