@@ -11,6 +11,11 @@ QtObject {
         readonly property int bodySmall: 12
         readonly property int caption: 11
     }
+    readonly property QtObject bar: QtObject {
+        readonly property int sizeHorizontal: 26
+        readonly property int sizeVertical: 28
+        readonly property int iconFont: 16
+    }
     readonly property QtObject spacing: QtObject {
         readonly property int controlHeight: 34
         readonly property int rowPaddingX: 10
