@@ -392,14 +392,14 @@ t_a_server_the_site_renames_still_plays() {
   assert_contains "$out" "url	"
 }
 
-t_an_embed_without_a_player_id_is_refused() {
+t_an_embed_carrying_neither_scheme_is_refused() {
   printf '<html><body>no player here</body></html>
 ' >"$WORK/blank-embed.html"
   local out
   if out=$(FAKE_EMBED_PAGE="$WORK/blank-embed.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
     fail "$current" "expected a non-zero exit"
   fi
-  assert_contains "$out" "player id"
+  assert_contains "$out" "carried no source"
 }
 
 t_sources_without_an_encrypted_playlist_are_refused() {
@@ -474,6 +474,37 @@ t_stream_refuses_a_mode_with_no_source() {
   assert_contains "$out" "no dub source"
 }
 
+t_stream_reads_a_source_carried_inside_the_embed_page() {
+  local out
+  out=$(FAKE_SERVERS="$FIXTURES/servers-two.html" "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "url	https://cdn/zoko/1080/i.m3u8"
+  assert_contains "$out" "referrer	https://zokoanime.video/"
+  assert_contains "$out" "subtitles	https://cdn/zoko/en.vtt"
+}
+
+t_stream_moves_on_when_a_server_gives_nothing() {
+  local out
+  out=$(FAKE_SERVERS="$FIXTURES/servers-two.html" \
+    FAKE_ZOKO_PAGE="$FIXTURES/embed-zoko-empty.html" \
+    "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1)
+  assert_contains "$out" "url	https://cdn/1080/i.m3u8"
+  assert_contains "$out" "referrer	https://megaplay.buzz/"
+}
+
+t_stream_tries_every_server_before_giving_up() {
+  local log="$WORK/asked.txt" out
+  : >"$log"
+  if out=$(FAKE_URL_LOG="$log" FAKE_SERVERS="$FIXTURES/servers-two.html" \
+    FAKE_ZOKO_PAGE="$FIXTURES/embed-zoko-empty.html" \
+    FAKE_EMBED_PAGE="$FIXTURES/embed-zoko-empty.html" \
+    "$PROVIDER" stream frieren-beyond-journeys-end-481 1 sub best 2>&1); then
+    fail "$current" "expected a non-zero exit"
+  fi
+  assert_contains "$(cat "$log")" "zokoanime.video"
+  assert_contains "$(cat "$log")" "megaplay.buzz"
+  assert_contains "$out" "carried no source"
+}
+
 t_stream_needs_an_id_and_an_episode() {
   local out
   out=$("$PROVIDER" stream frieren-1 2>&1)
@@ -507,7 +538,7 @@ check "a master playlist with no variants is refused" t_a_master_playlist_with_n
 check "a cloudflare block on plain curl names the fix" t_a_cloudflare_block_on_plain_curl_names_the_fix
 check "stream resolves through the source the site now serves" t_stream_resolves_through_the_source_the_site_now_serves
 check "a server the site renames still plays" t_a_server_the_site_renames_still_plays
-check "an embed without a player id is refused" t_an_embed_without_a_player_id_is_refused
+check "an embed carrying neither scheme is refused" t_an_embed_carrying_neither_scheme_is_refused
 check "sources without an encrypted playlist are refused" t_sources_without_an_encrypted_playlist_are_refused
 check "a playlist that will not decrypt is refused" t_a_playlist_that_will_not_decrypt_is_refused
 check "usage names every subcommand" t_usage_names_every_subcommand
@@ -518,6 +549,9 @@ check "the fetcher speaks only http" t_the_fetcher_speaks_only_http
 check "stream refuses a source that is not a web address" t_stream_refuses_a_source_that_is_not_a_web_address
 check "stream refuses a mode with no source" t_stream_refuses_a_mode_with_no_source
 check "stream needs an id and an episode" t_stream_needs_an_id_and_an_episode
+check "stream reads a source carried inside the embed page" t_stream_reads_a_source_carried_inside_the_embed_page
+check "stream moves on when a server gives nothing" t_stream_moves_on_when_a_server_gives_nothing
+check "stream tries every server before giving up" t_stream_tries_every_server_before_giving_up
 
 check "search rows come back as id and title" t_search_rows
 check "search decodes html entities in titles" t_search_decodes_html_entities
