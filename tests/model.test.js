@@ -1322,6 +1322,59 @@ test("the first row scrolls the list to its top, wherever the row sits", () => {
   }), 0)
 })
 
+test("the search field shows only on a ready view that can be searched", () => {
+  assert.equal(Model.searchVisible(true, "history"), true)
+  assert.equal(Model.searchVisible(false, "history"), false)
+  assert.equal(Model.searchVisible(true, "player"), false)
+})
+
+test("the heading shows on a ready view that is not the watch history", () => {
+  assert.equal(Model.headingVisible(true, "results"), true)
+  assert.equal(Model.headingVisible(true, "history"), false)
+  assert.equal(Model.headingVisible(false, "results"), false)
+})
+
+test("a header button offers the way back only from the view it opens", () => {
+  assert.equal(Model.headerTooltip("shortcuts", "shortcuts"), "Back")
+  assert.equal(Model.headerTooltip("history", "shortcuts"), "Keyboard shortcuts (?)")
+  assert.equal(Model.headerTooltip("settings", "settings"), "Back")
+  assert.equal(Model.headerTooltip("history", "settings"), "Settings (s)")
+})
+
+test("a section rule shows only where there is a section", () => {
+  assert.equal(Model.sectionVisible("CONTINUE WATCHING"), true)
+  assert.equal(Model.sectionVisible(""), false)
+})
+
+test("a row shows the glyph it carries, or none", () => {
+  assert.equal(Model.rowIcon({ icon: "A" }), "A")
+  assert.equal(Model.rowIcon({}), "")
+})
+
+test("the clock shows what the player reports, or nothing", () => {
+  assert.equal(Model.progressClock({ clock: "0:10" }), "0:10")
+  assert.equal(Model.progressClock(null), "")
+})
+
+test("a paused bar is dimmed and a playing one is not", () => {
+  assert.equal(Model.progressOpacity({ paused: true }), 0.45)
+  assert.equal(Model.progressOpacity({ paused: false }), 1.0)
+  assert.equal(Model.progressOpacity(null), 1.0)
+})
+
+test("a half-typed motion reads back as it was typed", () => {
+  assert.equal(Model.countCaption({ pendingCount: "12", pendingG: false }), "12")
+  assert.equal(Model.countCaption({ pendingCount: "", pendingG: true }), "g")
+  assert.equal(Model.countCaption({ pendingCount: "3", pendingG: true }), "3g")
+  assert.equal(Model.countCaption({ pendingCount: "", pendingG: false }), "")
+})
+
+test("keys go to the field or the dialog while either holds them", () => {
+  assert.equal(Model.keysBlocked(true, false), true)
+  assert.equal(Model.keysBlocked(false, true), true)
+  assert.equal(Model.keysBlocked(false, false), false)
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {

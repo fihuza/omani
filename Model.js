@@ -68,6 +68,43 @@ function progressLabel(row) {
 
 var SEARCHABLE = { history: true, results: true }
 
+function searchVisible(ready, view) {
+  return ready === true && searchable(view)
+}
+
+function headingVisible(ready, view) {
+  return ready === true && view !== "history"
+}
+
+function headerTooltip(view, target) {
+  if (view === target) return "Back"
+  return target === "shortcuts" ? "Keyboard shortcuts (?)" : "Settings (s)"
+}
+
+function sectionVisible(section) {
+  return section !== ""
+}
+
+function rowIcon(row) {
+  return row.icon !== undefined ? row.icon : ""
+}
+
+function progressClock(progress) {
+  return progress ? progress.clock : ""
+}
+
+function progressOpacity(progress) {
+  return progress && progress.paused ? 0.45 : 1.0
+}
+
+function countCaption(keyState) {
+  return keyState.pendingCount + (keyState.pendingG ? "g" : "")
+}
+
+function keysBlocked(searching, confirming) {
+  return searching === true || confirming === true
+}
+
 function countVisible(keyState) {
   return keyState.pendingCount !== "" || !!keyState.pendingG
 }
@@ -693,6 +730,15 @@ function reduceKey(state, key, ctx) {
 // Stryker disable next-line ConditionalExpression,StringLiteral: the QML suite fails on this, which node cannot see
 if (typeof module !== "undefined") {
   module.exports = {
+    searchVisible,
+    headingVisible,
+    headerTooltip,
+    sectionVisible,
+    rowIcon,
+    progressClock,
+    progressOpacity,
+    countCaption,
+    keysBlocked,
     countVisible,
     progressVisible,
     emptyNoticeVisible,
