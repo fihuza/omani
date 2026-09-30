@@ -357,6 +357,7 @@ Panel {
 
         PanelKeyCatcher {
             id: keyCatcher
+            objectName: "keyCatcher"
             anchors.fill: parent
 
             blocked: Model.keysBlocked(searchField.activeFocus, confirmClear.opened)
