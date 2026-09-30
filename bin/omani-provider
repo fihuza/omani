@@ -186,7 +186,8 @@ cmd_stream() {
   servers=$(fetch "$BASE_API/api/theme/episode/servers?episodeId=$ep_id" | sed 's|\\"|"|g; s|server-item|\nserver-item|g')
   hashes=$(mode="$mode" awk "$AWK_ATTR"'
     /server-item/ {
-      if (attr($0, "data-type") == ENVIRON["mode"]) print attr($0, "data-hash")
+      if (attr($0, "data-type") == ENVIRON["mode"])
+        print attr($0, "data-server-name") "\t" attr($0, "data-hash")
     }
   ' <<<"$servers")
   [[ -n $hashes ]] || die "the site lists no $mode source for this episode"
@@ -194,24 +195,23 @@ cmd_stream() {
   STREAM_REFUSAL=$(mktemp) || die "could not open a scratch file"
   trap 'rm -f "$STREAM_REFUSAL"' EXIT
 
-  local hash embed record why="the site lists no $mode source for this episode"
-  while IFS= read -r hash; do
+  local name hash embed record skipped=0
+  local why="the site lists no $mode source for this episode"
+  while IFS=$'\t' read -r name hash; do
     [[ -n $hash ]] || continue
     embed=$(b64_decode "$hash")
     if [[ -z $embed ]]; then
       why="could not decode the embed url"
-      continue
-    fi
-    if [[ $embed != https://* && $embed != http://* ]]; then
+    elif [[ $embed != https://* && $embed != http://* ]]; then
       why="not a playable embed: $embed"
-      continue
-    fi
-    if record=$(source_from "$embed" "$quality" 2>"$STREAM_REFUSAL"); then
-      printf '%s\n' "$record"
+    elif record=$(source_from "$embed" "$quality" 2>"$STREAM_REFUSAL"); then
+      printf '%s\nserver\t%s\nskipped\t%s\n' "$record" "$name" "$skipped"
       return 0
+    else
+      why=$(sed -n '1s/^omani-provider: //p' "$STREAM_REFUSAL")
+      [[ -n $why ]] || why="that server gave up no source"
     fi
-    why=$(sed -n '1s/^omani-provider: //p' "$STREAM_REFUSAL")
-    [[ -n $why ]] || why="that server gave up no source"
+    skipped=$((skipped + 1))
   done <<<"$hashes"
   die "$why"
 }
