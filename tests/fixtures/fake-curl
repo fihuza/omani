@@ -19,6 +19,7 @@ case "$url" in
 */episode/list/*) emit "$(cat "$FIXTURES/episodes.json")" ;;
 */episode/servers*) emit "$(cat "${FAKE_SERVERS:-$FIXTURES/servers-vidstream.html}")" ;;
 */stream/getSources*) emit "$(cat "${FAKE_SOURCES:-$FIXTURES/sources-cdn.json}")" ;;
+*zokoanime*) emit "$(cat "${FAKE_ZOKO_PAGE:-$FIXTURES/embed-zoko.html}")" ;;
 *megaplay*) emit "$(cat "${FAKE_EMBED_PAGE:-$FIXTURES/embed-megaplay.html}")" ;;
 *master.m3u8*) emit "$(cat "${FAKE_MASTER:-$FIXTURES/master.m3u8}")" ;;
 *) emit "" ;;
