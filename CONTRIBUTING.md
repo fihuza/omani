@@ -115,9 +115,18 @@ then fix it. A test that passes before the fix is testing something else.
 Name a test for the behaviour rather than the function: `resumes from the stored
 episode`, not `test_resumeEpisode_1`.
 
-`scripts/mutate` changes the code and reports what no test noticed. Run it
-before proposing a release; the pipeline runs it on every pull request into
-`main`.
+`scripts/mutate` changes the code and reports what no test noticed. It drives
+three tools, one per layer:
+
+| Layer | Tool | Run it |
+|---|---|---|
+| `Model.js` | [StrykerJS](https://stryker-mutator.io) | `./scripts/mutate model` |
+| `*.qml` | [qmutant](https://github.com/fihuza/qmutant) | `./scripts/mutate qml` |
+| `bin/omani*` | every refusal deleted in turn | `./scripts/mutate shell` |
+
+Both mutation tools come from `mise`, so they need no setup beyond
+`mise install`. The pipeline runs the first two on every pull request into
+`main`; run them before proposing a release.
 
 ## Never silence a finding
 

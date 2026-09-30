@@ -9,9 +9,9 @@ trap 'rm -rf "$WORK"' EXIT
 
 total=0
 survived=0
-skipped=0
 survivors=""
 model_failed=0
+view_failed=0
 
 die() {
   printf 'mutate: %s\n' "$1" >&2
@@ -69,86 +69,6 @@ record() {
   survived=$((survived + 1))
 }
 
-worth_mutating() {
-  local text=${1#"${1%%[![:space:]]*}"}
-  [[ -n $text ]] || return 1
-  [[ $text != //* ]] || return 1
-  [[ $text != import\ * ]] || return 1
-  [[ $text != pragma\ * ]] || return 1
-}
-
-swap() {
-  local src=$1 pattern=$2 replacement=$3
-  sed -E "0,/$pattern/s//$replacement/" <<<"$src"
-}
-
-mutants_for() {
-  local src=$1 dialect=$2 from to pair mutated
-  local pairs=('===:!==' '!==:===' '&&:||' '||:&&' '<=:<' '>=:>')
-  [[ $dialect == js ]] && pairs+=('+ 1:- 1' '- 1:+ 1')
-
-  for pair in "${pairs[@]}"; do
-    from=${pair%%:*}
-    to=${pair##*:}
-    [[ $src == *"$from"* ]] || continue
-    mutated=${src/"$from"/"$to"}
-    [[ $mutated == "$src" ]] && continue
-    printf '%s -> %s\t%s\n' "$from" "$to" "$mutated"
-  done
-
-  mutated=$(swap "$src" '\btrue\b' 'false')
-  [[ $mutated != "$src" ]] && printf 'true -> false\t%s\n' "$mutated"
-  mutated=$(swap "$src" '\bfalse\b' 'true')
-  [[ $mutated != "$src" ]] && printf 'false -> true\t%s\n' "$mutated"
-
-  mutated=$(swap "$src" '([^=<>!-])<([^=<])' '\1<=\2')
-  [[ $mutated != "$src" ]] && printf '< -> <=\t%s\n' "$mutated"
-  mutated=$(swap "$src" '([^=<>!-])>([^=>])' '\1>=\2')
-  [[ $mutated != "$src" ]] && printf '> -> >=\t%s\n' "$mutated"
-
-  if [[ $src =~ ^([[:space:]]*)return[[:space:]]+(.+)$ && ${BASH_REMATCH[2]} != null* ]]; then
-    printf 'return -> null\t%sreturn null;\n' "${BASH_REMATCH[1]}"
-  fi
-
-  mutated=$(swap "$src" '"[^"]+"' '""')
-  [[ $mutated != "$src" ]] && printf 'string -> empty\t%s\n' "$mutated"
-}
-
-still_parses() {
-  case "$2" in
-  js) node --check "$1" >/dev/null 2>&1 ;;
-  qml) qmlformat "$1" >/dev/null 2>&1 ;;
-  esac
-}
-
-mutate_file() {
-  local file=$1 dialect=$2 room=$3 verdict=$4 second=${5:-}
-  local line src label mutant total_lines
-  cp -r "$ROOT" "$WORK/$room"
-  green_before_mutating "$room" "the suite for $file" "$verdict"
-  [[ -z $second ]] || green_before_mutating "$room" "the second opinion for $file" "$second"
-  total_lines=$(wc -l <"$ROOT/$file")
-  for ((line = 1; line <= total_lines; line++)); do
-    src=$(sed -n "${line}p" "$ROOT/$file")
-    worth_mutating "$src" || continue
-    while IFS=$'\t' read -r label mutant; do
-      [[ -n $label ]] || continue
-      mutant="$mutant" awk -v n="$line" 'NR==n{print ENVIRON["mutant"]; next}{print}' "$ROOT/$file" >"$WORK/$room/$file"
-      if ! still_parses "$WORK/$room/$file" "$dialect"; then
-        skipped=$((skipped + 1))
-        continue
-      fi
-      total=$((total + 1))
-      (cd "$WORK/$room" && eval "$verdict" >/dev/null 2>&1) || continue
-      if [[ -n $second ]]; then
-        (cd "$WORK/$room" && eval "$second" >/dev/null 2>&1) || continue
-      fi
-      record "$file" "$line" "$label" "$src"
-    done < <(mutants_for "$src" "$dialect")
-  done
-  cp "$ROOT/$file" "$WORK/$room/$file"
-}
-
 refusals() {
   local script=$1 line
   cp -r "$ROOT" "$WORK/shell"
@@ -174,9 +94,13 @@ pure_layer() {
   (cd "$ROOT" && stryker run) || model_failed=1
 }
 
+view_layer() {
+  command -v qmutant >/dev/null || die "no qmutant -- run under mise, which pins it"
+  (cd "$ROOT" && PATH="$(dirname "$QMLTESTRUNNER"):$PATH" qmutant run) || view_failed=1
+}
+
 [[ $TARGET == all || $TARGET == model ]] && pure_layer
-[[ $TARGET == all || $TARGET == qml ]] && mutate_file Service.qml qml qml "$QML_TESTS"
-[[ $TARGET == all || $TARGET == qml ]] && mutate_file Panel.qml qml qml "$QML_TESTS"
+[[ $TARGET == all || $TARGET == qml ]] && view_layer
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani-provider
 
@@ -189,8 +113,8 @@ if [[ -f $ACCOUNTED ]]; then
   done < <(cut -f1-3 "$ACCOUNTED")
 fi
 
-printf 'mutants: %d   killed: %d   survived: %d   explained: %d   unparsable (skipped): %d\n' \
-  "$total" "$((total - survived - explained))" "$survived" "$explained" "$skipped"
+((total == 0)) || printf 'guards removed: %d   noticed: %d   survived: %d   explained: %d\n' \
+  "$total" "$((total - survived - explained))" "$survived" "$explained"
 [[ -n $survivors ]] && printf '\nsurvivors nothing accounts for:\n%s' "$survivors"
 [[ -n $stale ]] && printf '\nno longer survive, so their entry has outlived the code:\n%s' "$stale"
-[[ -z $survivors && -z $stale ]] && ((model_failed == 0))
+[[ -z $survivors && -z $stale ]] && ((model_failed == 0)) && ((view_failed == 0))

@@ -146,7 +146,7 @@ jobs:
   mutation:
     name: Mutation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     container: archlinux:latest
     if: github.base_ref == 'main'
     steps:
@@ -163,8 +163,11 @@ jobs:
           mise install
           echo "$HOME/.local/share/mise/shims" >>"$GITHUB_PATH"
 
-      - name: Every mutant is killed
+      - name: Every mutant in the pure layer is killed
         run: ./scripts/mutate model
+
+      - name: The views are mutated too
+        run: ./scripts/mutate qml
 
   tag:
     name: Tag the release
