@@ -1194,6 +1194,115 @@ test("the empty notice names what is missing", () => {
   assert.equal(Model.emptyNotice("results"), "Nothing here.")
 })
 
+test("a key that means nothing does nothing, and does not close the panel", () => {
+  assert.equal(press("z").command, null)
+  assert.equal(press("Z").command, null)
+})
+
+test("a record that names no series is never taken for the one playing", () => {
+  const nameless = [{ pid: "1", title: "T", animeId: "", episode: "7", qualities: "1080" }]
+  assert.equal(Model.qualitiesOf(nameless, ""), "")
+  assert.equal(Model.isPlayingSeries(nameless, ""), false)
+  assert.equal(Model.playingTitleOf(nameless, "", "remembered"), "remembered")
+})
+
+test("every player row carries the name and detail the panel shows", () => {
+  assert.deepEqual(
+    Model.playerRows("Naruto", "12", false, "720p", false, true).map(r => [r.key, r.title, r.label]),
+    [
+      ["pause", "Pause", ""],
+      ["mute", "Mute", ""],
+      ["next", "Next episode", "episode 13"],
+      ["replay", "Replay", "episode 12"],
+      ["previous", "Previous episode", "episode 11"],
+      ["select", "Select episode", ""],
+      ["quality", "Change quality", "720p"],
+      ["stop", "Stop", ""]
+    ]
+  )
+})
+
+test("a plugin that knows no repository offers no links", () => {
+  const rows = Model.settingRows("best", "sub", "90", "1.5.1", "")
+  assert.equal(rows.find(r => r.key === "about").link, "")
+  assert.equal(rows.find(r => r.key === "version").link, "")
+})
+
+test("every setting row carries the name, value and link the panel shows", () => {
+  assert.deepEqual(Model.settingRows("best", "sub", "90", "1.5.1", "https://example.test/repo"), [
+    { key: "quality", value: "best", title: "Quality", label: "best", link: "" },
+    { key: "mode", value: "sub", title: "Audio", label: "subbed", link: "" },
+    { key: "watched", value: "90", title: "Counts as watched", label: "90%", link: "" },
+    { key: "version", value: "1.5.1", title: "Version", label: "1.5.1", link: "https://example.test/repo/releases/tag/v1.5.1" },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" },
+    { key: "about", value: "", title: "About", label: "", link: "https://example.test/repo" }
+  ])
+})
+
+test("a status that names no paths reports them as empty rather than missing", () => {
+  assert.deepEqual(Model.statusFields("{}", 90), {
+    ready: false, tracking: true, watchedFraction: 90,
+    missing: "", version: "", repo: "", historyPath: "", playersPath: ""
+  })
+})
+
+test("a record whose title is only spaces is skipped", () => {
+  assert.deepEqual(Model.playerRecords("1\t   \tid\t7\n"), [])
+})
+
+test("a provider row with an empty field is skipped", () => {
+  assert.deepEqual(Model.seriesRows("   \tTitle\n"), [])
+  assert.deepEqual(Model.seriesRows("id\t   \n"), [])
+})
+
+test("a provider row keeps a carriage return inside its title", () => {
+  assert.equal(Model.seriesRows("id\ta\rb\r\n")[0].title, "a\rb")
+})
+
+test("the series and episode are found when the match is not the first player", () => {
+  const players = [
+    { pid: "1", title: "Other Episode 1", animeId: "other", episode: "1" },
+    { pid: "2", title: "Naruto Episode 9", animeId: "naruto-1335", episode: "9" }
+  ]
+  assert.equal(Model.seriesOf(players, "naruto-1335", "remembered"), "Naruto")
+  assert.equal(Model.episodeOf(players, "naruto-1335", "remembered"), "9")
+})
+
+test("a player record is read without the spaces around its fields", () => {
+  const [record] = Model.playerRecords(" 4242 \t Naruto Episode 79 \t naruto-1335 \t 79 \t 1080 \n")
+  assert.deepEqual(record, {
+    pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79", qualities: "1080"
+  })
+})
+
+test("only a carriage return ending the line is stripped, not one inside a title", () => {
+  const [record] = Model.playerRecords("1\ta\rb\tid\t7\r\n")
+  assert.equal(record.title, "a\rb")
+  assert.equal(record.episode, "7")
+})
+
+test("a provider row is read without the spaces around its fields", () => {
+  assert.deepEqual(Model.seriesRows(" id-1 \t A Title \n")[0], { animeId: "id-1", title: "A Title" })
+  const [episode] = Model.episodeRows(" 99 \t 12 \n", null, 90)
+  assert.equal(episode.episodeId, "99")
+  assert.equal(episode.number, "12")
+})
+
+test("an episode past the ninth still names its neighbours", () => {
+  const by = {}
+  for (const row of Model.playerRows("Naruto", "12", false, "", false, true)) by[row.key] = row.label
+  assert.equal(by.next, "episode 13")
+  assert.equal(by.previous, "episode 11")
+})
+
+test("a notice is trimmed before its prefix is taken off", () => {
+  assert.equal(Model.firstLine("  omani: boom  \n"), "boom")
+})
+
+test("only a prefix at the start of a notice is taken off", () => {
+  assert.equal(Model.firstLine("Cannot open: file"), "Cannot open: file")
+})
+
 test("a count of one means the first row, not the last", () => {
   assert.equal(press(["1", "G"]).state.index, 0)
   assert.equal(press(["1", "g", "g"]).state.index, 0)

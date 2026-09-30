@@ -1,0 +1,36 @@
+{
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "node --test 'tests/*.test.js'"
+  },
+  "mutate": [
+    "Model.js"
+  ],
+  "disableTypeChecks": false,
+  "coverageAnalysis": "off",
+  "reporters": [
+    "clear-text",
+    "html"
+  ],
+  "clearTextReporter": {
+    "allowColor": false,
+    "maxTestsToLog": 0
+  },
+  "htmlReporter": {
+    "fileName": "reports/mutation.html"
+  },
+  "thresholds": {
+    "high": 100,
+    "low": 100,
+    "break": 100
+  },
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true,
+  "ignorePatterns": [
+    ".stryker-tmp",
+    "reports",
+    "priv",
+    "docs",
+    ".github"
+  ]
+}

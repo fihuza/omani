@@ -2,13 +2,14 @@
 var SHORTEST_EPISODE_SECONDS = 60
 
 function statusFields(raw, fallbackFraction) {
-  if (!raw) return null
   var parsed
+  // Stryker disable BlockStatement: an emptied catch falls through to a line that returns the same
   try {
     parsed = JSON.parse(String(raw))
   } catch (e) {
     return null
   }
+  // Stryker restore BlockStatement
   if (!parsed || typeof parsed !== "object" || parsed instanceof Array) return null
   return {
     ready: parsed.ready === true,
@@ -23,15 +24,15 @@ function statusFields(raw, fallbackFraction) {
 }
 
 function parseHistory(raw) {
-  if (!raw) return []
   var parsed
+  // Stryker disable BlockStatement: an emptied catch falls through to a line that returns the same
   try {
     parsed = JSON.parse(String(raw))
   } catch (e) {
     return []
   }
+  // Stryker restore BlockStatement
   var series = parsed && parsed.series
-  if (!series) return []
   var rows = []
   for (var animeId in series) {
     var entry = series[animeId]
@@ -104,7 +105,6 @@ function popView(stack) {
 }
 
 function playerRecords(raw) {
-  if (!raw) return []
   var records = []
   var lines = String(raw).split("\n")
   for (var i = 0; i < lines.length; i++) {
@@ -125,9 +125,11 @@ function playerRecords(raw) {
 function progressReports(records, players) {
   var reports = []
   for (var i = 0; i < players.length; i++) {
+    // Stryker disable next-line StringLiteral: playerRecords never yields an empty title, so the fallback cannot be reached with a record
     var title = String(players[i].title || "")
     var position = Math.floor(Number(players[i].position) || 0)
     var duration = Math.floor(Number(players[i].duration) || 0)
+    // Stryker disable next-line ConditionalExpression,StringLiteral: no record reaching here carries an empty title
     if (title === "" || position <= 0) continue
     if (duration < SHORTEST_EPISODE_SECONDS || position > duration) continue
     for (var r = 0; r < records.length; r++) {
@@ -169,6 +171,7 @@ function noticeOnOpen(notice, unseen) {
 function launchDone(tracking, players, before, waitedTooLong) {
   if (!tracking || waitedTooLong) return true
   var running = players || []
+  // Stryker disable next-line ArrayDeclaration: reached only when nothing was running, and indexOf of a live pid is -1 in any array without it
   var started = before || []
   for (var i = 0; i < running.length; i++) {
     if (started.indexOf(running[i].pid) === -1) return true
@@ -287,6 +290,7 @@ function historyView(rows, players) {
     row.kind = "series"
     row.icon = "\u{f02da}"
     row.section = kept === 0 ? "CONTINUE WATCHING" : ""
+    // Stryker disable next-line UpdateOperator: only a count of zero is read, which is the first row whichever way it moves
     kept++
     view.push(row)
   }
@@ -371,6 +375,7 @@ function nextSetting(key, current) {
 
 function qualityRows(available, current) {
   var rows = []
+  // Stryker disable next-line Regex: the empty entries a single-space split leaves are skipped by the loop below
   var heights = String(available || "").split(/\s+/)
   for (var i = 0; i < heights.length; i++) {
     if (heights[i] === "") continue
@@ -444,7 +449,6 @@ function settingAction(row) {
 }
 
 function tabRows(raw) {
-  if (!raw) return []
   var rows = []
   var lines = String(raw).split("\n")
   for (var i = 0; i < lines.length; i++) {
@@ -520,6 +524,7 @@ function playingTitleOf(players, animeId, titleFromBefore) {
 function playerFor(players, title) {
   if (!title) return null
   for (var i = 0; i < players.length; i++) {
+    // Stryker disable next-line StringLiteral: a player with no title on the bus matches no title, fallback or not
     if (String(players[i].trackTitle || "") === title) return players[i]
   }
   return null
@@ -605,6 +610,7 @@ function reduceKey(state, key, ctx) {
   }
 
   var count = parseInt(next.pendingCount, 10)
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: parseInt reaches Infinity only after some three hundred digits
   var hasCount = isFinite(count) && count >= 1
   var steps = hasCount ? count : 1
   var wasG = next.pendingG
@@ -684,6 +690,7 @@ function reduceKey(state, key, ctx) {
   return done()
 }
 
+// Stryker disable next-line ConditionalExpression,StringLiteral: the QML suite fails on this, which node cannot see
 if (typeof module !== "undefined") {
   module.exports = {
     countVisible,

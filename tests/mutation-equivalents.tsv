@@ -1,9 +1,0 @@
-# Mutants that cannot change what the plugin does.
-#
-# A survivor missing from this list fails the gate, and an entry here that no
-# longer survives fails it too, so a reason cannot outlive the code it
-# describes. Each was measured, not argued.
-#
-# file	operator	source	reason
-Model.js	&& -> ||	var hasCount = isFinite(count) && count >= 1	differs only for a count that parseInt turns into Infinity, which needs some three hundred digits of typing
-Model.js	return -> null	return 0	progressOfPlayer feeds playingLabel, which reads it as Number(fraction) || 0, so null and 0 give the same label

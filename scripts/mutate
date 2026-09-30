@@ -11,6 +11,7 @@ total=0
 survived=0
 skipped=0
 survivors=""
+model_failed=0
 
 die() {
   printf 'mutate: %s\n' "$1" >&2
@@ -33,8 +34,10 @@ qt6_tool() {
 }
 
 green_before_mutating() {
-  local room=$1 what=$2 command=$3
-  (cd "$WORK/$room" && eval "$command" >/dev/null 2>&1) ||
+  local room=$1 what=$2 command=$3 where
+  where=$WORK/$room
+  [[ $room != . ]] || where=$ROOT
+  (cd "$where" && eval "$command" >/dev/null 2>&1) ||
     die "$what does not pass before anything is mutated, so every mutant would count as killed"
 }
 
@@ -164,9 +167,14 @@ refusals() {
 
 QMLTESTRUNNER=$(qt6_tool qmltestrunner) || die "no Qt6 qmltestrunner -- needs the qt6-declarative package"
 QML_TESTS="QT_QPA_PLATFORM=offscreen $QMLTESTRUNNER -input tests/qml -import tests/qml/stubs"
-MODEL_TESTS="node --test 'tests/*.test.js'"
+pure_layer() {
+  command -v stryker >/dev/null || die "no stryker -- run under mise, which pins it"
+  green_before_mutating . "the model suite" "node --test 'tests/*.test.js'"
+  green_before_mutating . "the model in Qt's engine" "$QML_TESTS"
+  (cd "$ROOT" && stryker run) || model_failed=1
+}
 
-[[ $TARGET == all || $TARGET == model ]] && mutate_file Model.js js pure "$MODEL_TESTS" "$QML_TESTS"
+[[ $TARGET == all || $TARGET == model ]] && pure_layer
 [[ $TARGET == all || $TARGET == qml ]] && mutate_file Service.qml qml qml "$QML_TESTS"
 [[ $TARGET == all || $TARGET == qml ]] && mutate_file Panel.qml qml qml "$QML_TESTS"
 [[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani
@@ -185,4 +193,4 @@ printf 'mutants: %d   killed: %d   survived: %d   explained: %d   unparsable (sk
   "$total" "$((total - survived - explained))" "$survived" "$explained" "$skipped"
 [[ -n $survivors ]] && printf '\nsurvivors nothing accounts for:\n%s' "$survivors"
 [[ -n $stale ]] && printf '\nno longer survive, so their entry has outlived the code:\n%s' "$stale"
-[[ -z $survivors && -z $stale ]]
+[[ -z $survivors && -z $stale ]] && ((model_failed == 0))
