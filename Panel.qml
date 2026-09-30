@@ -49,7 +49,7 @@ Panel {
             quality: root.quality,
             mode: root.mode
         })
-    readonly property bool countVisible: keyState.pendingCount !== "" || keyState.pendingG
+    readonly property bool countVisible: Model.countVisible(keyState)
     readonly property string liveSeries: service ? Model.seriesOf(service.players, service.playingId, service.playingSeries) : ""
     readonly property string liveEpisode: service ? Model.episodeOf(service.players, service.playingId, service.playingEpisode) : ""
     readonly property string missing: service ? service.missing : ""
@@ -478,7 +478,7 @@ Panel {
 
                     Item {
                         width: parent.width
-                        visible: root.view === "player" && root.playerProgress !== null && episodeCaption.text !== ""
+                        visible: Model.progressVisible(root.view, root.playerProgress) && episodeCaption.text !== ""
                         implicitHeight: episodeCaption.implicitHeight
 
                         Text {
@@ -509,7 +509,7 @@ Panel {
                     Column {
                         width: parent.width
                         spacing: Style.space(4)
-                        visible: root.view === "player" && root.playerProgress !== null
+                        visible: Model.progressVisible(root.view, root.playerProgress)
 
                         Rectangle {
                             id: playerTrack
@@ -560,10 +560,16 @@ Panel {
                         spacing: Style.space(10)
 
                         Text {
-                            visible: root.ready && root.rows.length === 0 && !root.busy && !root.launching && root.view !== "shortcuts"
+                            visible: Model.emptyNoticeVisible({
+                                ready: root.ready,
+                                rowCount: root.rows.length,
+                                busy: root.busy,
+                                launching: root.launching,
+                                view: root.view
+                            })
                             width: parent.width
                             textFormat: Text.PlainText
-                            text: root.view === "history" ? "Nothing watched yet — search for something." : "Nothing here."
+                            text: Model.emptyNotice(root.view)
                             color: root.dim
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.bodySmall
@@ -598,7 +604,7 @@ Panel {
                                 spacing: Style.space(10)
 
                                 PanelSeparator {
-                                    visible: rowItem.index > 0 && rowItem.section !== ""
+                                    visible: Model.sectionRuleVisible(rowItem.index, rowItem.section)
                                     width: parent.width
                                     foreground: root.foreground
                                 }

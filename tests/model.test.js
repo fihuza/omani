@@ -1159,6 +1159,41 @@ test("a list that reports no page size still steps by a row", () => {
   assert.equal(press("ctrl+d", { rowCount: 10, pageSize: 0 }).state.index, 1)
 })
 
+test("the pending count shows while a count or a g is waiting", () => {
+  assert.equal(Model.countVisible({ pendingCount: "", pendingG: false }), false)
+  assert.equal(Model.countVisible({ pendingCount: "3", pendingG: false }), true)
+  assert.equal(Model.countVisible({ pendingCount: "", pendingG: true }), true)
+})
+
+test("progress shows on the player view and only when there is progress", () => {
+  assert.equal(Model.progressVisible("player", { clock: "0:10" }), true)
+  assert.equal(Model.progressVisible("player", null), false)
+  assert.equal(Model.progressVisible("history", { clock: "0:10" }), false)
+})
+
+test("the empty notice shows on a ready, idle, empty view that is not the shortcut list", () => {
+  const shown = change => Model.emptyNoticeVisible(Object.assign({
+    ready: true, rowCount: 0, busy: false, launching: false, view: "history"
+  }, change))
+  assert.equal(shown({}), true)
+  assert.equal(shown({ ready: false }), false)
+  assert.equal(shown({ rowCount: 1 }), false)
+  assert.equal(shown({ busy: true }), false)
+  assert.equal(shown({ launching: true }), false)
+  assert.equal(shown({ view: "shortcuts" }), false)
+})
+
+test("a section rule shows between sections, never above the first row", () => {
+  assert.equal(Model.sectionRuleVisible(0, "Today"), false)
+  assert.equal(Model.sectionRuleVisible(1, "Today"), true)
+  assert.equal(Model.sectionRuleVisible(1, ""), false)
+})
+
+test("the empty notice names what is missing", () => {
+  assert.equal(Model.emptyNotice("history"), "Nothing watched yet \u2014 search for something.")
+  assert.equal(Model.emptyNotice("results"), "Nothing here.")
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {
