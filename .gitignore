@@ -9,3 +9,7 @@ coverage/
 # Editor and OS noise
 *.swp
 .DS_Store
+.stryker-tmp/
+reports/
+.qmutant/
+reports/

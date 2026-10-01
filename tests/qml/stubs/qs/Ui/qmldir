@@ -12,3 +12,4 @@ ConfirmDialog 1.0 ConfirmDialog.qml
 CursorSurface 1.0 CursorSurface.qml
 BarIconButton 1.0 BarIconButton.qml
 PanelController 1.0 PanelController.qml
+BarWidget 1.0 BarWidget.qml

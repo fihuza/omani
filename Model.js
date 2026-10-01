@@ -2,13 +2,14 @@
 var SHORTEST_EPISODE_SECONDS = 60
 
 function statusFields(raw, fallbackFraction) {
-  if (!raw) return null
   var parsed
+  // Stryker disable BlockStatement: an emptied catch falls through to a line that returns the same
   try {
     parsed = JSON.parse(String(raw))
   } catch (e) {
     return null
   }
+  // Stryker restore BlockStatement
   if (!parsed || typeof parsed !== "object" || parsed instanceof Array) return null
   return {
     ready: parsed.ready === true,
@@ -23,15 +24,15 @@ function statusFields(raw, fallbackFraction) {
 }
 
 function parseHistory(raw) {
-  if (!raw) return []
   var parsed
+  // Stryker disable BlockStatement: an emptied catch falls through to a line that returns the same
   try {
     parsed = JSON.parse(String(raw))
   } catch (e) {
     return []
   }
+  // Stryker restore BlockStatement
   var series = parsed && parsed.series
-  if (!series) return []
   var rows = []
   for (var animeId in series) {
     var entry = series[animeId]
@@ -66,6 +67,52 @@ function progressLabel(row) {
 }
 
 var SEARCHABLE = { history: true, results: true }
+
+function wheelKey(dy) {
+  if (dy > 0) return "j"
+  return dy < 0 ? "k" : ""
+}
+
+function shortcutRows(view) {
+  return view === "shortcuts" ? shortcuts() : []
+}
+
+function searchVisible(ready, view) {
+  return ready === true && searchable(view)
+}
+
+function headingVisible(ready, view) {
+  return ready === true && view !== "history"
+}
+
+function headerTooltip(view, target) {
+  if (view === target) return "Back"
+  return target === "shortcuts" ? "Keyboard shortcuts (?)" : "Settings (s)"
+}
+
+function sectionVisible(section) {
+  return section !== ""
+}
+
+function rowIcon(row) {
+  return row.icon !== undefined ? row.icon : ""
+}
+
+function progressClock(progress) {
+  return progress ? progress.clock : ""
+}
+
+function progressOpacity(progress) {
+  return progress && progress.paused ? 0.45 : 1.0
+}
+
+function countCaption(keyState) {
+  return keyState.pendingCount + (keyState.pendingG ? "g" : "")
+}
+
+function keysBlocked(searching, confirming) {
+  return searching === true || confirming === true
+}
 
 function countVisible(keyState) {
   return keyState.pendingCount !== "" || !!keyState.pendingG
@@ -104,7 +151,6 @@ function popView(stack) {
 }
 
 function playerRecords(raw) {
-  if (!raw) return []
   var records = []
   var lines = String(raw).split("\n")
   for (var i = 0; i < lines.length; i++) {
@@ -125,9 +171,11 @@ function playerRecords(raw) {
 function progressReports(records, players) {
   var reports = []
   for (var i = 0; i < players.length; i++) {
+    // Stryker disable next-line StringLiteral: playerRecords never yields an empty title, so the fallback cannot be reached with a record
     var title = String(players[i].title || "")
     var position = Math.floor(Number(players[i].position) || 0)
     var duration = Math.floor(Number(players[i].duration) || 0)
+    // Stryker disable next-line ConditionalExpression,StringLiteral: no record reaching here carries an empty title
     if (title === "" || position <= 0) continue
     if (duration < SHORTEST_EPISODE_SECONDS || position > duration) continue
     for (var r = 0; r < records.length; r++) {
@@ -169,6 +217,7 @@ function noticeOnOpen(notice, unseen) {
 function launchDone(tracking, players, before, waitedTooLong) {
   if (!tracking || waitedTooLong) return true
   var running = players || []
+  // Stryker disable next-line ArrayDeclaration: reached only when nothing was running, and indexOf of a live pid is -1 in any array without it
   var started = before || []
   for (var i = 0; i < running.length; i++) {
     if (started.indexOf(running[i].pid) === -1) return true
@@ -287,6 +336,7 @@ function historyView(rows, players) {
     row.kind = "series"
     row.icon = "\u{f02da}"
     row.section = kept === 0 ? "CONTINUE WATCHING" : ""
+    // Stryker disable next-line UpdateOperator: only a count of zero is read, which is the first row whichever way it moves
     kept++
     view.push(row)
   }
@@ -323,8 +373,7 @@ function scrollTarget(list) {
   var above = list.rowTop - list.margin
   if (above < list.current) return Math.max(0, Math.min(limit, above))
   var below = list.rowTop + list.rowHeight + list.margin
-  if (below > list.current + list.viewport) return Math.min(limit, below - list.viewport)
-  return Math.max(0, Math.min(limit, list.current))
+  return Math.max(0, Math.min(limit, Math.max(list.current, below - list.viewport)))
 }
 
 function shortcuts() {
@@ -372,6 +421,7 @@ function nextSetting(key, current) {
 
 function qualityRows(available, current) {
   var rows = []
+  // Stryker disable next-line Regex: the empty entries a single-space split leaves are skipped by the loop below
   var heights = String(available || "").split(/\s+/)
   for (var i = 0; i < heights.length; i++) {
     if (heights[i] === "") continue
@@ -445,7 +495,6 @@ function settingAction(row) {
 }
 
 function tabRows(raw) {
-  if (!raw) return []
   var rows = []
   var lines = String(raw).split("\n")
   for (var i = 0; i < lines.length; i++) {
@@ -521,6 +570,7 @@ function playingTitleOf(players, animeId, titleFromBefore) {
 function playerFor(players, title) {
   if (!title) return null
   for (var i = 0; i < players.length; i++) {
+    // Stryker disable next-line StringLiteral: a player with no title on the bus matches no title, fallback or not
     if (String(players[i].trackTitle || "") === title) return players[i]
   }
   return null
@@ -569,6 +619,18 @@ function progressRows(records, positions) {
   return rows
 }
 
+function headings(openSeries, playingSeries) {
+  return {
+    history: "Continue watching",
+    results: "Results",
+    episodes: openSeries,
+    settings: "Settings",
+    quality: "Quality for this episode",
+    player: playingSeries !== "" ? playingSeries : "Playing",
+    shortcuts: "Shortcuts"
+  }
+}
+
 function heading(labels, view, busy, launching) {
   if (launching) return sectionLabel("Starting\u2026")
   if (busy) return sectionLabel("Loading\u2026")
@@ -591,14 +653,11 @@ function initialKeyState() {
 }
 
 function clamp(value, max) {
-  if (!(max > 0)) return 0
-  if (value < 0) return 0
-  if (value > max) return max
-  return value
+  return Math.max(0, Math.min(Number(max) || 0, Number(value) || 0))
 }
 
 function reduceKey(state, key, ctx) {
-  var rowCount = ctx && ctx.rowCount > 0 ? ctx.rowCount : 0
+  var rowCount = Math.max(0, (ctx && Number(ctx.rowCount)) || 0)
   var pageSize = ctx && ctx.pageSize > 0 ? ctx.pageSize : 1
   var last = rowCount > 0 ? rowCount - 1 : 0
 
@@ -609,7 +668,8 @@ function reduceKey(state, key, ctx) {
   }
 
   var count = parseInt(next.pendingCount, 10)
-  var hasCount = isFinite(count) && count > 0
+  // Stryker disable next-line ConditionalExpression,LogicalOperator: parseInt reaches Infinity only after some three hundred digits
+  var hasCount = isFinite(count) && count >= 1
   var steps = hasCount ? count : 1
   var wasG = next.pendingG
 
@@ -688,8 +748,21 @@ function reduceKey(state, key, ctx) {
   return done()
 }
 
+// Stryker disable next-line ConditionalExpression,StringLiteral: the QML suite fails on this, which node cannot see
 if (typeof module !== "undefined") {
   module.exports = {
+    wheelKey,
+    shortcutRows,
+    headings,
+    searchVisible,
+    headingVisible,
+    headerTooltip,
+    sectionVisible,
+    rowIcon,
+    progressClock,
+    progressOpacity,
+    countCaption,
+    keysBlocked,
     countVisible,
     progressVisible,
     emptyNoticeVisible,

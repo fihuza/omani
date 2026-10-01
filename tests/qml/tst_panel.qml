@@ -8,6 +8,9 @@ TestCase {
     id: harness
     name: "Panel"
     when: windowShown
+    visible: true
+    width: 420
+    height: 700
 
     FakeService {
         id: fake
@@ -153,6 +156,272 @@ TestCase {
         panel.dispatch("j");
         panel.dispatch("enter");
         compare(fake.asked, ["play:naruto:7"]);
+    }
+
+    function test_choosing_a_series_from_the_history_resumes_it() {
+        fake.rows = [
+            {
+                "animeId": "naruto-1335",
+                "title": "Naruto",
+                "episode": "7",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        panel.activateCursor();
+        panel.dispatch("enter");
+        compare(fake.asked, ["resume"], "the watch history did not resume anything");
+        compare(panel.view, "player", "resuming did not show the player");
+    }
+
+    function test_choosing_a_playing_row_shows_its_player() {
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": ""
+            }
+        ];
+        panel.setView("history");
+        panel.activateCursor();
+        panel.dispatch("enter");
+        compare(fake.asked.join(","), "", "a player already running was started again");
+        compare(panel.view, "player", "choosing a playing row did not open its menu");
+        compare(fake.playingId, "naruto-1335", "the menu was opened for a different player");
+    }
+
+    function test_choosing_a_result_opens_that_series() {
+        fake.results = Model.seriesRows("naruto-1335\tNaruto\nfrieren-481\tFrieren\n");
+        panel.setView("results");
+        panel.activateCursor();
+        panel.dispatch("j");
+        panel.dispatch("enter");
+        compare(fake.asked, ["openSeries:frieren-481"], "the second result was not the one opened");
+        compare(panel.view, "episodes", "opening a series did not show its episodes");
+    }
+
+    function test_choosing_a_quality_replays_at_it() {
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": "1080 720"
+            }
+        ];
+        fake.playingId = "naruto-1335";
+        panel.setView("quality");
+        panel.activateCursor();
+        panel.dispatch("j");
+        panel.dispatch("enter");
+        compare(fake.asked.length, 1, "choosing a quality asked for nothing");
+        compare(fake.asked[0].indexOf("quality:") === 0, true, "something other than a quality change was asked for");
+        compare(panel.view, "player", "choosing a quality did not return to the player");
+    }
+
+    function test_choosing_the_repository_opens_it() {
+        fake.repo = "https://example.test/omani";
+        panel.setView("settings");
+        panel.activateCursor();
+        panel.dispatch("G");
+        panel.dispatch("enter");
+        compare(fake.asked, ["open:https://example.test/omani"], "about did not open the repository");
+    }
+
+    function test_clearing_the_history_asks_before_doing_it() {
+        panel.setView("settings");
+        panel.activateCursor();
+        panel.dispatch("G");
+        panel.dispatch("k");
+        panel.dispatch("enter");
+        compare(fake.asked, [], "the history was cleared without asking");
+        var dialog = findChild(panel, "confirmClear");
+        verify(dialog, "the panel carries no confirmation dialog");
+        compare(dialog.opened, true, "nothing asked the user to confirm");
+    }
+
+    function seen(name) {
+        var item = findChild(panel, name);
+        verify(item, "the panel carries no " + name);
+        return item.visible;
+    }
+
+    function test_a_heading_shows_on_every_view_but_the_watch_history() {
+        panel.open();
+        fake.results = Model.seriesRows("naruto-1335\tNaruto\n");
+        panel.setView("results");
+        compare(seen("headingBand"), true, "a view with a heading showed none");
+        panel.setView("history");
+        compare(seen("headingBand"), false, "the watch history showed a heading of its own");
+    }
+
+    function test_the_episode_band_shows_only_where_there_is_an_episode_to_show() {
+        panel.open();
+        panel.setView("history");
+        compare(seen("episodeBand"), false, "the watch history showed a player's episode");
+
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": ""
+            }
+        ];
+        fake.playingId = "naruto-1335";
+        fake.progress = [
+            {
+                "animeId": "naruto-1335",
+                "title": "Naruto Episode 7",
+                "clock": "0:10 / 24:00",
+                "fraction": 0.1,
+                "paused": false
+            }
+        ];
+        panel.setView("player");
+        compare(seen("episodeBand"), true, "a playing episode showed no caption");
+    }
+
+    function test_a_row_shows_its_glyph_only_when_it_has_one() {
+        panel.open();
+        fake.rows = [
+            {
+                "animeId": "a",
+                "title": "A",
+                "episode": "1",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        compare(seen("rowIcon"), true, "a history row showed no glyph");
+
+        fake.results = Model.seriesRows("b\tB\n");
+        panel.setView("results");
+        compare(seen("rowIcon"), false, "a search result carried a glyph it has none of");
+    }
+
+    function test_forgetting_is_offered_only_on_the_row_the_cursor_is_on() {
+        panel.open();
+        fake.rows = [
+            {
+                "animeId": "a",
+                "title": "A",
+                "episode": "1",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        compare(seen("rowForget"), false, "a row nobody selected offered to be forgotten");
+        panel.activateCursor();
+        compare(seen("rowForget"), true, "the selected row did not offer to be forgotten");
+    }
+
+    function keys() {
+        var found = findChild(panel, "keyCatcher");
+        verify(found, "the panel catches no keys");
+        return found;
+    }
+
+    function test_the_first_turn_of_a_wheel_wakes_the_cursor_rather_than_moving_it() {
+        panel.open();
+        fake.rows = manyRows(10);
+        panel.setView("history");
+        compare(panel.cursorActive, false, "the cursor was already awake");
+
+        keys().moveRequested(0, 1);
+        compare(panel.cursorActive, true, "the first turn did not wake the cursor");
+        compare(panel.keyState.index, 0, "the first turn moved the cursor as well as waking it");
+
+        keys().moveRequested(0, 1);
+        compare(panel.keyState.index, 1, "a second turn did not move the cursor");
+
+        keys().moveRequested(0, -1);
+        compare(panel.keyState.index, 0, "turning back did not move the cursor up");
+    }
+
+    function test_changing_a_setting_reaches_the_service_and_the_panel() {
+        panel.open();
+        panel.setView("settings");
+        fake.settings = {
+            "id": panel.moduleName,
+            "mode": "dub"
+        };
+        panel.applySetting("quality", "720p");
+
+        compare(panel.settings.quality, "720p", "the panel did not take the new setting");
+        compare(fake.settings.quality, "720p", "the service was never told");
+        compare(fake.settings.id, panel.moduleName, "the entry lost the widget it belongs to");
+        compare(fake.settings.mode, "dub", "the entry was built without what the service already held");
+    }
+
+    function manyRows(count) {
+        var rows = [];
+        for (var i = 0; i < count; i++)
+            rows.push({
+                "animeId": "id-" + i,
+                "title": "Series " + i,
+                "episode": "1",
+                "kind": "series"
+            });
+        return rows;
+    }
+
+    function aListLongerThanItsViewport() {
+        panel.open();
+        fake.rows = manyRows(40);
+        panel.setView("history");
+        panel.activateCursor();
+        var flick = findChild(panel, "panelFlick");
+        verify(flick, "the panel carries no scrolling list");
+        tryVerify(function () {
+            return flick.contentHeight > flick.height;
+        }, 2000, "the list never grew past its viewport");
+        return flick;
+    }
+
+    function test_the_list_follows_the_cursor_down_and_back_up() {
+        var flick = aListLongerThanItsViewport();
+        compare(flick.contentY, 0, "the list did not begin at the top");
+
+        panel.dispatch("G");
+        tryVerify(function () {
+            return flick.contentY > 0;
+        }, 2000, "the list did not follow the cursor to the last row");
+
+        panel.dispatch("g");
+        panel.dispatch("g");
+        tryCompare(flick, "contentY", 0, 2000, "the list did not come back to the top");
+    }
+
+    function test_a_list_that_grows_under_the_cursor_follows_it() {
+        var flick = aListLongerThanItsViewport();
+        panel.dispatch("G");
+        tryVerify(function () {
+            return flick.contentY > 0;
+        }, 2000, "the list never scrolled in the first place");
+        var atTheEndOfForty = flick.contentY;
+
+        fake.rows = manyRows(80);
+        tryVerify(function () {
+            return flick.contentY !== atTheEndOfForty;
+        }, 2000, "the list grew under the cursor and stayed where it was");
+    }
+
+    function test_a_list_nobody_is_pointing_at_stays_where_it_is() {
+        var flick = aListLongerThanItsViewport();
+        panel.dispatch("G");
+        tryVerify(function () {
+            return flick.contentY > 0;
+        }, 2000, "the list never scrolled in the first place");
+        var settled = flick.contentY;
+
+        panel.cursorActive = false;
+        panel.applyScroll();
+        compare(flick.contentY, settled, "the list moved with nobody pointing at it");
     }
 
     readonly property var everyKey: ["j", "k", "g", "g", "G", "ctrl+d", "ctrl+u", "0", "3", "j", "enter", "d", "c", "r", "s", "?", "/", "i", "x", "q", " ", "z", "escape"]
@@ -305,5 +574,15 @@ TestCase {
             steps++;
         }
         compare(panel.view, "history");
+    }
+
+    function test_a_panel_with_no_service_still_reads_as_the_plugin_ships() {
+        panel.service = null;
+        compare(panel.quality, "best");
+        compare(panel.mode, "sub");
+        compare(panel.watched, "90");
+        compare(panel.liveSeries, "");
+        compare(panel.liveEpisode, "");
+        panel.service = fake;
     }
 }

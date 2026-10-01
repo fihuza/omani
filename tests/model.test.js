@@ -1194,11 +1194,214 @@ test("the empty notice names what is missing", () => {
   assert.equal(Model.emptyNotice("results"), "Nothing here.")
 })
 
+test("a key that means nothing does nothing, and does not close the panel", () => {
+  assert.equal(press("z").command, null)
+  assert.equal(press("Z").command, null)
+})
+
+test("a record that names no series is never taken for the one playing", () => {
+  const nameless = [{ pid: "1", title: "T", animeId: "", episode: "7", qualities: "1080" }]
+  assert.equal(Model.qualitiesOf(nameless, ""), "")
+  assert.equal(Model.isPlayingSeries(nameless, ""), false)
+  assert.equal(Model.playingTitleOf(nameless, "", "remembered"), "remembered")
+})
+
+test("every player row carries the name and detail the panel shows", () => {
+  assert.deepEqual(
+    Model.playerRows("Naruto", "12", false, "720p", false, true).map(r => [r.key, r.title, r.label]),
+    [
+      ["pause", "Pause", ""],
+      ["mute", "Mute", ""],
+      ["next", "Next episode", "episode 13"],
+      ["replay", "Replay", "episode 12"],
+      ["previous", "Previous episode", "episode 11"],
+      ["select", "Select episode", ""],
+      ["quality", "Change quality", "720p"],
+      ["stop", "Stop", ""]
+    ]
+  )
+})
+
+test("a plugin that knows no repository offers no links", () => {
+  const rows = Model.settingRows("best", "sub", "90", "1.5.1", "")
+  assert.equal(rows.find(r => r.key === "about").link, "")
+  assert.equal(rows.find(r => r.key === "version").link, "")
+})
+
+test("every setting row carries the name, value and link the panel shows", () => {
+  assert.deepEqual(Model.settingRows("best", "sub", "90", "1.5.1", "https://example.test/repo"), [
+    { key: "quality", value: "best", title: "Quality", label: "best", link: "" },
+    { key: "mode", value: "sub", title: "Audio", label: "subbed", link: "" },
+    { key: "watched", value: "90", title: "Counts as watched", label: "90%", link: "" },
+    { key: "version", value: "1.5.1", title: "Version", label: "1.5.1", link: "https://example.test/repo/releases/tag/v1.5.1" },
+    { key: "clear", value: "", title: "Clear watch history", label: "", link: "" },
+    { key: "about", value: "", title: "About", label: "", link: "https://example.test/repo" }
+  ])
+})
+
+test("a status that names no paths reports them as empty rather than missing", () => {
+  assert.deepEqual(Model.statusFields("{}", 90), {
+    ready: false, tracking: true, watchedFraction: 90,
+    missing: "", version: "", repo: "", historyPath: "", playersPath: ""
+  })
+})
+
+test("a record whose title is only spaces is skipped", () => {
+  assert.deepEqual(Model.playerRecords("1\t   \tid\t7\n"), [])
+})
+
+test("a provider row with an empty field is skipped", () => {
+  assert.deepEqual(Model.seriesRows("   \tTitle\n"), [])
+  assert.deepEqual(Model.seriesRows("id\t   \n"), [])
+})
+
+test("a provider row keeps a carriage return inside its title", () => {
+  assert.equal(Model.seriesRows("id\ta\rb\r\n")[0].title, "a\rb")
+})
+
+test("the series and episode are found when the match is not the first player", () => {
+  const players = [
+    { pid: "1", title: "Other Episode 1", animeId: "other", episode: "1" },
+    { pid: "2", title: "Naruto Episode 9", animeId: "naruto-1335", episode: "9" }
+  ]
+  assert.equal(Model.seriesOf(players, "naruto-1335", "remembered"), "Naruto")
+  assert.equal(Model.episodeOf(players, "naruto-1335", "remembered"), "9")
+})
+
+test("a player record is read without the spaces around its fields", () => {
+  const [record] = Model.playerRecords(" 4242 \t Naruto Episode 79 \t naruto-1335 \t 79 \t 1080 \n")
+  assert.deepEqual(record, {
+    pid: "4242", title: "Naruto Episode 79", animeId: "naruto-1335", episode: "79", qualities: "1080"
+  })
+})
+
+test("only a carriage return ending the line is stripped, not one inside a title", () => {
+  const [record] = Model.playerRecords("1\ta\rb\tid\t7\r\n")
+  assert.equal(record.title, "a\rb")
+  assert.equal(record.episode, "7")
+})
+
+test("a provider row is read without the spaces around its fields", () => {
+  assert.deepEqual(Model.seriesRows(" id-1 \t A Title \n")[0], { animeId: "id-1", title: "A Title" })
+  const [episode] = Model.episodeRows(" 99 \t 12 \n", null, 90)
+  assert.equal(episode.episodeId, "99")
+  assert.equal(episode.number, "12")
+})
+
+test("an episode past the ninth still names its neighbours", () => {
+  const by = {}
+  for (const row of Model.playerRows("Naruto", "12", false, "", false, true)) by[row.key] = row.label
+  assert.equal(by.next, "episode 13")
+  assert.equal(by.previous, "episode 11")
+})
+
+test("a notice is trimmed before its prefix is taken off", () => {
+  assert.equal(Model.firstLine("  omani: boom  \n"), "boom")
+})
+
+test("only a prefix at the start of a notice is taken off", () => {
+  assert.equal(Model.firstLine("Cannot open: file"), "Cannot open: file")
+})
+
+test("a count of one means the first row, not the last", () => {
+  assert.equal(press(["1", "G"]).state.index, 0)
+  assert.equal(press(["1", "g", "g"]).state.index, 0)
+})
+
+test("a scroll target is never negative, however far the list is overscrolled", () => {
+  assert.equal(Model.scrollTarget({
+    index: 1, lastIndex: 9, rowTop: 20, rowHeight: 20,
+    current: -10, content: 500, viewport: 50, margin: 8
+  }), 0)
+})
+
 test("the first row scrolls the list to its top, wherever the row sits", () => {
   assert.equal(Model.scrollTarget({
     index: 0, lastIndex: 9, rowTop: 20, rowHeight: 20,
     current: 50, content: 100, viewport: 50, margin: 0
   }), 0)
+})
+
+test("the search field shows only on a ready view that can be searched", () => {
+  assert.equal(Model.searchVisible(true, "history"), true)
+  assert.equal(Model.searchVisible(false, "history"), false)
+  assert.equal(Model.searchVisible(true, "player"), false)
+})
+
+test("the heading shows on a ready view that is not the watch history", () => {
+  assert.equal(Model.headingVisible(true, "results"), true)
+  assert.equal(Model.headingVisible(true, "history"), false)
+  assert.equal(Model.headingVisible(false, "results"), false)
+})
+
+test("a header button offers the way back only from the view it opens", () => {
+  assert.equal(Model.headerTooltip("shortcuts", "shortcuts"), "Back")
+  assert.equal(Model.headerTooltip("history", "shortcuts"), "Keyboard shortcuts (?)")
+  assert.equal(Model.headerTooltip("settings", "settings"), "Back")
+  assert.equal(Model.headerTooltip("history", "settings"), "Settings (s)")
+})
+
+test("a section rule shows only where there is a section", () => {
+  assert.equal(Model.sectionVisible("CONTINUE WATCHING"), true)
+  assert.equal(Model.sectionVisible(""), false)
+})
+
+test("a row shows the glyph it carries, or none", () => {
+  assert.equal(Model.rowIcon({ icon: "A" }), "A")
+  assert.equal(Model.rowIcon({}), "")
+})
+
+test("the clock shows what the player reports, or nothing", () => {
+  assert.equal(Model.progressClock({ clock: "0:10" }), "0:10")
+  assert.equal(Model.progressClock(null), "")
+})
+
+test("a paused bar is dimmed and a playing one is not", () => {
+  assert.equal(Model.progressOpacity({ paused: true }), 0.45)
+  assert.equal(Model.progressOpacity({ paused: false }), 1.0)
+  assert.equal(Model.progressOpacity(null), 1.0)
+})
+
+test("a half-typed motion reads back as it was typed", () => {
+  assert.equal(Model.countCaption({ pendingCount: "12", pendingG: false }), "12")
+  assert.equal(Model.countCaption({ pendingCount: "", pendingG: true }), "g")
+  assert.equal(Model.countCaption({ pendingCount: "3", pendingG: true }), "3g")
+  assert.equal(Model.countCaption({ pendingCount: "", pendingG: false }), "")
+})
+
+test("keys go to the field or the dialog while either holds them", () => {
+  assert.equal(Model.keysBlocked(true, false), true)
+  assert.equal(Model.keysBlocked(false, true), true)
+  assert.equal(Model.keysBlocked(false, false), false)
+})
+
+test("each view is headed by what it is showing", () => {
+  const labels = Model.headings("Naruto", "Dragon Ball")
+  assert.equal(labels.history, "Continue watching")
+  assert.equal(labels.results, "Results")
+  assert.equal(labels.episodes, "Naruto")
+  assert.equal(labels.settings, "Settings")
+  assert.equal(labels.quality, "Quality for this episode")
+  assert.equal(labels.player, "Dragon Ball")
+  assert.equal(labels.shortcuts, "Shortcuts")
+})
+
+test("the player view falls back to a word when the series is not known yet", () => {
+  assert.equal(Model.headings("", "").player, "Playing")
+})
+
+test("a wheel turned down moves down, up moves up, and sideways moves nothing", () => {
+  assert.equal(Model.wheelKey(1), "j")
+  assert.equal(Model.wheelKey(40), "j")
+  assert.equal(Model.wheelKey(-1), "k")
+  assert.equal(Model.wheelKey(-40), "k")
+  assert.equal(Model.wheelKey(0), "")
+})
+
+test("the shortcut list is offered only to the view that shows it", () => {
+  assert.equal(Model.shortcutRows("shortcuts").length, Model.shortcuts().length)
+  assert.deepEqual(Model.shortcutRows("history"), [])
+  assert.deepEqual(Model.shortcutRows("player"), [])
 })
 
 function press(keys, context = ctx, state = start()) {

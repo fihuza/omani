@@ -15,6 +15,10 @@ TestCase {
         scriptPath: "/nowhere/omani"
     }
 
+    Plugin.Service {
+        id: untouched
+    }
+
     function init() {
         failOnWarning(/.*/);
         Quickshell.forget();
@@ -62,6 +66,23 @@ TestCase {
 
     function record(pid, title, id, episode) {
         return pid + "\t" + title + "\t" + id + "\t" + episode + "\t1080\t999\n";
+    }
+
+    function test_nothing_is_claimed_before_the_script_has_answered() {
+        compare(untouched.ready, false, "the service claimed to be ready before asking anything");
+        compare(untouched.busy, false, "the service claimed to be busy having done nothing");
+        compare(untouched.launching, false, "the service claimed a launch it never started");
+        compare(untouched.playing, false, "the service claimed a player it never saw");
+        compare(untouched.playingId, "", "the service named something it is not playing");
+    }
+
+    function test_tracking_is_assumed_until_the_script_says_otherwise() {
+        compare(untouched.tracking, true, "the panel would report tracking as lost before asking");
+    }
+
+    function test_a_launch_that_never_began_is_not_waiting_or_swallowing() {
+        compare(untouched.waitedTooLong, false, "a launch that never began had already timed out");
+        compare(untouched.swallowNextExit, false, "an exit was set to be ignored before anything ran");
     }
 
     function test_the_service_answers_once_its_status_is_read() {
@@ -351,6 +372,34 @@ TestCase {
         compare(service.paused, false, "a running player still read as paused");
     }
 
+    function test_muting_remembers_the_volume_and_unmuting_restores_it() {
+        playingDragonBall();
+        var loud = busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0.8);
+        Mpris.carry([loud]);
+        compare(service.muted, false, "an audible player already read as muted");
+
+        service.toggleMuted();
+        compare(loud.volume, 0, "muting did not silence the player");
+        compare(service.volumeBeforeMute, 0.8, "the volume it was at was not remembered");
+
+        var silenced = busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0);
+        Mpris.carry([silenced]);
+        compare(service.muted, true, "a silenced player did not read as muted");
+
+        service.toggleMuted();
+        compare(silenced.volume, 0.8, "unmuting did not put the volume back where it was");
+    }
+
+    function test_unmuting_a_player_that_was_never_heard_gives_it_a_voice() {
+        playingDragonBall();
+        var player = busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0);
+        Mpris.carry([player]);
+        service.volumeBeforeMute = 0;
+
+        service.toggleMuted();
+        compare(player.volume, 1, "a player with no remembered volume stayed silent");
+    }
+
     function test_a_player_turned_all_the_way_down_reads_as_muted() {
         playingDragonBall();
         Mpris.carry([busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0)]);
@@ -486,6 +535,80 @@ TestCase {
         service.playAtQuality("720p");
 
         compare(askedFor("play"), false, "a replay started without knowing which episode");
+    }
+
+    function test_the_panel_is_told_how_far_into_each_episode_a_player_is() {
+        Quickshell.file("players").contents = record("153691", "Dragon Ball Episode 7", "dragon-ball-970", "7");
+        service.reloadPlayers();
+        answer("players", Quickshell.file("players").contents);
+        Mpris.carry([busPlayer("Dragon Ball Episode 7", 612, 1440, true, 1)]);
+
+        compare(service.progress.length, 1, "the panel was told about no player");
+        compare(service.progress[0].title, "Dragon Ball Episode 7");
+        compare(service.progress[0].paused, false, "a running player was reported as paused");
+
+        Mpris.carry([busPlayer("Dragon Ball Episode 7", 612, 1440, false, 1)]);
+        service.mprisPositionTick++;
+        compare(service.progress[0].paused, true, "a stopped player was not reported as paused");
+    }
+
+    function test_playing_from_a_position_carries_it_to_the_script() {
+        service.play("dragon-ball-970", "Dragon Ball", "7", 612);
+        var asking = Quickshell.running("play");
+        verify(asking, "nothing was played");
+        compare(asking.command[5], "612", "the position to resume from never reached the script");
+    }
+
+    function test_playing_from_the_start_asks_for_no_position() {
+        service.play("dragon-ball-970", "Dragon Ball", "7");
+        var asking = Quickshell.running("play");
+        verify(asking, "nothing was played");
+        compare(asking.command.length, 5, "a position was sent when none was asked for");
+    }
+
+    function test_stepping_forgets_what_it_cannot_know_yet() {
+        playingDragonBall();
+        service.playingEpisode = "7";
+        service.playingTitle = "Dragon Ball Episode 7";
+        service.playingQuality = "720p";
+
+        service.playNext();
+
+        compare(service.playingId, "dragon-ball-970", "stepping forgot which series is playing");
+        compare(service.playingEpisode, "", "stepping kept an episode it has not been told yet");
+        compare(service.playingTitle, "", "stepping kept a title it has not been told yet");
+        compare(service.playingQuality, "", "stepping kept a quality the next episode may not have");
+    }
+
+    function test_a_cancelled_launch_absorbs_the_exit_that_follows_it() {
+        playingDragonBall();
+        service.playNext();
+        compare(service.launching, true, "nothing was launching");
+        var launching = Quickshell.running("next");
+        verify(launching, "no player was started");
+
+        refused.clear();
+        service.cancelLaunch();
+        compare(service.launching, false, "the launch was not cancelled");
+        compare(service.swallowNextExit, true, "the exit still to come was not set to be ignored");
+
+        launching.finish(1, "", "killed");
+        compare(refused.count, 0, "a launch we cancelled ourselves was reported as a failure");
+    }
+
+    function test_cancelling_when_nothing_is_launching_changes_nothing() {
+        compare(service.launching, false, "something was already launching");
+        service.swallowNextExit = false;
+        service.cancelLaunch();
+        compare(service.swallowNextExit, false, "an exit was set to be ignored with nothing to ignore");
+    }
+
+    function test_a_chosen_quality_reaches_the_player_environment() {
+        playingDragonBall();
+        service.playAtQuality("720p");
+        var launching = Quickshell.running("play");
+        verify(launching, "nothing was replayed");
+        compare(launching.environment.OMANI_QUALITY, "720p", "the chosen quality never reached the player");
     }
 
     function test_the_next_episode_is_asked_for_by_name() {

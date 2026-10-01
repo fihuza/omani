@@ -6,6 +6,7 @@ import "Model.js" as Model
 
 Panel {
     id: root
+    objectName: "omaniPanel"
     moduleName: "io.github.fihuza.omani"
     ipcTarget: "io.github.fihuza.omani"
     manageIpc: false
@@ -75,15 +76,7 @@ Panel {
             "shortcuts": []
         })
     readonly property var rows: viewRows[view]
-    readonly property var headings: ({
-            "history": "Continue watching",
-            "results": "Results",
-            "episodes": seriesTitle,
-            "settings": "Settings",
-            "quality": "Quality for this episode",
-            "player": liveSeries !== "" ? liveSeries : "Playing",
-            "shortcuts": "Shortcuts"
-        })
+    readonly property var headings: Model.headings(seriesTitle, liveSeries)
 
     readonly property var rowActions: ({
             "history": function (i) {
@@ -364,16 +357,17 @@ Panel {
 
         PanelKeyCatcher {
             id: keyCatcher
+            objectName: "keyCatcher"
             anchors.fill: parent
 
-            blocked: searchField.activeFocus || confirmClear.opened
+            blocked: Model.keysBlocked(searchField.activeFocus, confirmClear.opened)
 
             onMoveRequested: function (dx, dy) {
                 if (!root.cursorActive) {
                     root.activateCursor();
                     return;
                 }
-                root.dispatch(dy > 0 ? "j" : dy < 0 ? "k" : "");
+                root.dispatch(Model.wheelKey(dy));
             }
             onActivateRequested: if (root.cursorActive)
                 root.dispatch("enter")
@@ -419,7 +413,7 @@ Panel {
 
                                 Button {
                                     iconText: "󰌌"
-                                    tooltipText: root.view === "shortcuts" ? "Back" : "Keyboard shortcuts (?)"
+                                    tooltipText: Model.headerTooltip(root.view, "shortcuts")
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     iconSize: Style.font.subtitle * 1.5
@@ -430,7 +424,7 @@ Panel {
 
                                 Button {
                                     iconText: "󰒓"
-                                    tooltipText: root.view === "settings" ? "Back" : "Settings (s)"
+                                    tooltipText: Model.headerTooltip(root.view, "settings")
                                     foreground: root.foreground
                                     fontFamily: root.fontFamily
                                     iconSize: Style.font.subtitle * 1.5
@@ -449,7 +443,7 @@ Panel {
 
                     Item {
                         width: parent.width
-                        visible: root.ready && Model.searchable(root.view)
+                        visible: Model.searchVisible(root.ready, root.view)
                         implicitHeight: searchField.implicitHeight + Style.space(4)
 
                         TextField {
@@ -464,8 +458,9 @@ Panel {
                     }
 
                     Item {
+                        objectName: "headingBand"
                         width: parent.width
-                        visible: root.ready && root.view !== "history" && headingLabel.text !== ""
+                        visible: Model.headingVisible(root.ready, root.view) && headingLabel.text !== ""
                         implicitHeight: headingLabel.implicitHeight
 
                         SectionLabel {
@@ -477,6 +472,7 @@ Panel {
                     }
 
                     Item {
+                        objectName: "episodeBand"
                         width: parent.width
                         visible: Model.progressVisible(root.view, root.playerProgress) && episodeCaption.text !== ""
                         implicitHeight: episodeCaption.implicitHeight
@@ -499,7 +495,7 @@ Panel {
                             anchors.right: parent.right
                             anchors.verticalCenter: episodeCaption.verticalCenter
                             textFormat: Text.PlainText
-                            text: root.playerProgress ? root.playerProgress.clock : ""
+                            text: Model.progressClock(root.playerProgress)
                             color: root.dim
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
@@ -523,7 +519,7 @@ Panel {
                                 height: playerTrack.height
                                 radius: playerTrack.radius
                                 color: root.foreground
-                                opacity: root.playerProgress && root.playerProgress.paused ? 0.45 : 1.0
+                                opacity: Model.progressOpacity(root.playerProgress)
 
                                 Behavior on width {
                                     NumberAnimation {
@@ -538,6 +534,7 @@ Panel {
 
                 Flickable {
                     id: panelFlick
+                    objectName: "panelFlick"
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: headerBox.bottom
@@ -610,7 +607,7 @@ Panel {
                                 }
 
                                 SectionLabel {
-                                    visible: rowItem.section !== ""
+                                    visible: Model.sectionVisible(rowItem.section)
                                     width: parent.width
                                     text: rowItem.section
                                 }
@@ -640,11 +637,12 @@ Panel {
 
                                         Text {
                                             id: rowIcon
+                                            objectName: "rowIcon"
                                             visible: text !== ""
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.left: parent.left
                                             textFormat: Text.PlainText
-                                            text: rowItem.modelData.icon !== undefined ? rowItem.modelData.icon : ""
+                                            text: Model.rowIcon(rowItem.modelData)
                                             color: root.dim
                                             font.family: root.fontFamily
                                             font.pixelSize: Style.font.heading
@@ -721,6 +719,7 @@ Panel {
 
                                         PanelActionButton {
                                             id: rowForget
+                                            objectName: "rowForget"
                                             anchors.verticalCenter: parent.verticalCenter
                                             anchors.right: parent.right
                                             visible: rowItem.selected && Model.forgettable(root.view, rowItem.modelData)
@@ -737,7 +736,7 @@ Panel {
                         }
 
                         Repeater {
-                            model: root.view === "shortcuts" ? Model.shortcuts() : []
+                            model: Model.shortcutRows(root.view)
 
                             delegate: Item {
                                 id: shortcutRow
@@ -780,7 +779,7 @@ Panel {
                     anchors.bottom: parent.bottom
                     visible: root.countVisible
                     textFormat: Text.PlainText
-                    text: root.keyState.pendingCount + (root.keyState.pendingG ? "g" : "")
+                    text: Model.countCaption(root.keyState)
                     color: root.dim
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -789,6 +788,7 @@ Panel {
 
             ConfirmDialog {
                 id: confirmClear
+                objectName: "confirmClear"
                 anchors.fill: parent
                 z: 20
                 focus: opened

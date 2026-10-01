@@ -42,7 +42,11 @@ BarWidget {
     }
 
     function resumeTop() {
-        omani.resume(Model.resumeTarget(omani.rows, omani.players));
+        var target = Model.resumeTarget(omani.rows, omani.players);
+        if (!target)
+            return false;
+        omani.resume(target);
+        return true;
     }
 
     function injectPanel() {
@@ -107,13 +111,13 @@ BarWidget {
             return "ok";
         }
         function resumeTop(): string {
-            root.resumeTop();
-            return Model.resumeTarget(omani.rows, omani.players) ? "ok" : "nothing to continue";
+            return root.resumeTop() ? "ok" : "nothing to continue";
         }
     }
 
     BarIconButton {
         id: button
+        objectName: "barButton"
         anchors.fill: parent
         bar: root.bar
         iconComponent: Component {
