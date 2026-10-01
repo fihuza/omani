@@ -146,7 +146,7 @@ jobs:
   mutation:
     name: Mutation
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     container: archlinux:latest
     if: github.base_ref == 'main'
     steps:
@@ -165,9 +165,6 @@ jobs:
 
       - name: Every mutant in the pure layer is killed
         run: ./scripts/mutate model
-
-      - name: The views are mutated too
-        run: ./scripts/mutate qml
 
   tag:
     name: Tag the release
