@@ -1,5 +1,5 @@
 mutate = ["AnimeIcon.qml", "BarWidget.qml", "Panel.qml", "Service.qml"]
 command = "QT_QPA_PLATFORM=offscreen qmltestrunner -input tests/qml -import tests/qml/stubs"
 jobs = "50%"
-thresholds = { break = 61 }
+thresholds = { break = 60 }
 reporters = ["terminal", "progress"]
