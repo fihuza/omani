@@ -1,0 +1,32 @@
+name: Mutation
+
+on:
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: What the shell layer does not notice
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: archlinux:latest
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed git jq mise
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the pinned toolchain
+        run: |
+          set -euo pipefail
+          mise trust --yes
+          mise install
+          echo "$HOME/.local/share/mise/shims" >>"$GITHUB_PATH"
+
+      - name: Mutate bin/omani
+        run: ./scripts/mutate shell
