@@ -372,6 +372,34 @@ TestCase {
         compare(service.paused, false, "a running player still read as paused");
     }
 
+    function test_muting_remembers_the_volume_and_unmuting_restores_it() {
+        playingDragonBall();
+        var loud = busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0.8);
+        Mpris.carry([loud]);
+        compare(service.muted, false, "an audible player already read as muted");
+
+        service.toggleMuted();
+        compare(loud.volume, 0, "muting did not silence the player");
+        compare(service.volumeBeforeMute, 0.8, "the volume it was at was not remembered");
+
+        var silenced = busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0);
+        Mpris.carry([silenced]);
+        compare(service.muted, true, "a silenced player did not read as muted");
+
+        service.toggleMuted();
+        compare(silenced.volume, 0.8, "unmuting did not put the volume back where it was");
+    }
+
+    function test_unmuting_a_player_that_was_never_heard_gives_it_a_voice() {
+        playingDragonBall();
+        var player = busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0);
+        Mpris.carry([player]);
+        service.volumeBeforeMute = 0;
+
+        service.toggleMuted();
+        compare(player.volume, 1, "a player with no remembered volume stayed silent");
+    }
+
     function test_a_player_turned_all_the_way_down_reads_as_muted() {
         playingDragonBall();
         Mpris.carry([busPlayer("Dragon Ball Episode 7", 10, 1400, true, 0)]);
@@ -536,6 +564,51 @@ TestCase {
         var asking = Quickshell.running("play");
         verify(asking, "nothing was played");
         compare(asking.command.length, 5, "a position was sent when none was asked for");
+    }
+
+    function test_stepping_forgets_what_it_cannot_know_yet() {
+        playingDragonBall();
+        service.playingEpisode = "7";
+        service.playingTitle = "Dragon Ball Episode 7";
+        service.playingQuality = "720p";
+
+        service.playNext();
+
+        compare(service.playingId, "dragon-ball-970", "stepping forgot which series is playing");
+        compare(service.playingEpisode, "", "stepping kept an episode it has not been told yet");
+        compare(service.playingTitle, "", "stepping kept a title it has not been told yet");
+        compare(service.playingQuality, "", "stepping kept a quality the next episode may not have");
+    }
+
+    function test_a_cancelled_launch_absorbs_the_exit_that_follows_it() {
+        playingDragonBall();
+        service.playNext();
+        compare(service.launching, true, "nothing was launching");
+        var launching = Quickshell.running("next");
+        verify(launching, "no player was started");
+
+        refused.clear();
+        service.cancelLaunch();
+        compare(service.launching, false, "the launch was not cancelled");
+        compare(service.swallowNextExit, true, "the exit still to come was not set to be ignored");
+
+        launching.finish(1, "", "killed");
+        compare(refused.count, 0, "a launch we cancelled ourselves was reported as a failure");
+    }
+
+    function test_cancelling_when_nothing_is_launching_changes_nothing() {
+        compare(service.launching, false, "something was already launching");
+        service.swallowNextExit = false;
+        service.cancelLaunch();
+        compare(service.swallowNextExit, false, "an exit was set to be ignored with nothing to ignore");
+    }
+
+    function test_a_chosen_quality_reaches_the_player_environment() {
+        playingDragonBall();
+        service.playAtQuality("720p");
+        var launching = Quickshell.running("play");
+        verify(launching, "nothing was replayed");
+        compare(launching.environment.OMANI_QUALITY, "720p", "the chosen quality never reached the player");
     }
 
     function test_the_next_episode_is_asked_for_by_name() {

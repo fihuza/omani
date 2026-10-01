@@ -117,6 +117,7 @@ BarWidget {
 
     BarIconButton {
         id: button
+        objectName: "barButton"
         anchors.fill: parent
         bar: root.bar
         iconComponent: Component {
