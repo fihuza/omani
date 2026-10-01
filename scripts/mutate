@@ -132,7 +132,9 @@ pure_layer() {
 
 view_layer() {
   command -v qmutant >/dev/null || die "no qmutant -- run under mise, which pins it"
-  (cd "$ROOT" && PATH="$(dirname "$QMLTESTRUNNER"):$PATH" qmutant run) || view_failed=1
+  local -a workers=()
+  [[ -z ${QMUTANT_JOBS:-} ]] || workers=(-j "$QMUTANT_JOBS")
+  (cd "$ROOT" && PATH="$(dirname "$QMLTESTRUNNER"):$PATH" qmutant run "${workers[@]}") || view_failed=1
 }
 
 [[ $TARGET == all || $TARGET == model ]] && pure_layer

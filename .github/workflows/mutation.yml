@@ -52,3 +52,5 @@ jobs:
 
       - name: Mutate the QML
         run: ./scripts/mutate qml
+        env:
+          QMUTANT_JOBS: 100%
