@@ -192,6 +192,49 @@ TestCase {
         compare(fake.playingId, "naruto-1335", "the menu was opened for a different player");
     }
 
+    function test_the_episodes_of_a_series_you_are_watching_open_without_searching() {
+        fake.rows = [
+            {
+                "animeId": "naruto-1335",
+                "title": "Naruto",
+                "episode": "7",
+                "kind": "series"
+            }
+        ];
+        panel.setView("history");
+        panel.activateCursor();
+        panel.dispatch("l");
+
+        compare(fake.asked, ["openSeries:naruto-1335"], "the episode list was never asked for");
+        compare(panel.view, "episodes", "the panel did not show the episodes");
+    }
+
+    function test_the_episodes_of_a_playing_row_open_under_the_series_name() {
+        fake.players = [
+            {
+                "pid": "1",
+                "title": "Naruto Episode 7",
+                "animeId": "naruto-1335",
+                "episode": "7",
+                "qualities": ""
+            }
+        ];
+        panel.setView("history");
+        panel.activateCursor();
+        panel.dispatch("l");
+
+        compare(fake.asked, ["openSeries:naruto-1335"], "a playing row would not open its episodes");
+    }
+
+    function test_l_on_a_row_that_is_not_a_series_asks_for_nothing() {
+        panel.setView("settings");
+        panel.activateCursor();
+        panel.dispatch("l");
+
+        compare(fake.asked, [], "the provider was asked for a series the row does not name");
+        compare(panel.view, "settings", "the panel left the settings for an episode list of nothing");
+    }
+
     function test_choosing_a_result_opens_that_series() {
         fake.results = Model.seriesRows("naruto-1335\tNaruto\nfrieren-481\tFrieren\n");
         panel.setView("results");
