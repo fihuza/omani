@@ -46,6 +46,7 @@ moving under the same keys.
 | `Enter` | Open or play the row under the cursor |
 | `s` | Settings — quality, audio, watched threshold, clear history, about |
 | `?` | Keyboard shortcuts |
+| `l` | Episode list of the series under the cursor — pick any episode without searching for it again |
 | `d` or `x` | Forget the series under the cursor |
 | `c` | Clear the whole watch history (asks first) |
 | `r` | Re-read status and history |

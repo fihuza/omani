@@ -173,6 +173,24 @@ t_the_fake_service_answers_for_the_real_one() {
   [[ -z $missing ]] || fail "$current" "the panel needs what the fake does not offer: $missing"
 }
 
+t_the_readme_lists_every_key_the_panel_offers() {
+  local cells keys missing=""
+  cells=$(sed -n '/^| Key | Action |$/,/^$/p' "$ROOT/README.md" | tr -d '`' | awk -F'|' 'NF > 2 {
+    split($2, examples, ", ")
+    for (i in examples) {
+      gsub(/^ +| +$/, "", examples[i])
+      print examples[i]
+    }
+  }')
+  [[ -n $cells ]] || fail "$current" "the README has no keyboard table"
+  keys=$(grep -oP '^\s*\{ keys: "\K[^"]+' "$ROOT/Model.js")
+  local key
+  while read -r key; do
+    grep -qxF -- "$key" <<<"$cells" || missing+="$key, "
+  done <<<"$keys"
+  [[ -z $missing ]] || fail "$current" "keys the panel answers that the README never names: ${missing%, }"
+}
+
 t_hovering_a_row_follows_the_pointer_not_the_list() {
   local panel="$ROOT/Panel.qml"
   grep -q "onPositionChanged: root.selectRow" "$panel" ||
@@ -190,6 +208,7 @@ check "an unknown gate is refused" t_an_unknown_gate_is_refused
 check "every gate the pipeline names exists" t_every_gate_the_pipeline_names_exists
 check "every gate is run by the pipeline" t_every_gate_is_run_by_the_pipeline
 check "the fake service answers for the real one" t_the_fake_service_answers_for_the_real_one
+check "the readme lists every key the panel offers" t_the_readme_lists_every_key_the_panel_offers
 check "hovering a row follows the pointer, not the list" t_hovering_a_row_follows_the_pointer_not_the_list
 
 printf '\n%d passed, %d failed\n' "$passed" "$failed"

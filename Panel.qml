@@ -175,6 +175,13 @@ Panel {
             "focusSearch": function () {
                 searchField.forceActiveFocus();
             },
+            "episodes": function (c) {
+                var row = root.rows[c.index];
+                if (!row || !row.animeId)
+                    return;
+                root.service.openSeries(row.animeId, Model.seriesTitle(row.title));
+                root.setView("episodes");
+            },
             "forget": function (c) {
                 var row = root.rows[c.index];
                 if (Model.forgettable(root.view, row))

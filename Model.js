@@ -386,6 +386,7 @@ function shortcuts() {
     { keys: "/ or i", action: "Search field" },
     { keys: "s", action: "Settings" },
     { keys: "?", action: "This list" },
+    { keys: "l", action: "Episodes of this series" },
     { keys: "d or x", action: "Forget the series" },
     { keys: "c", action: "Clear history" },
     { keys: "r", action: "Refresh" },
@@ -735,6 +736,7 @@ function reduceKey(state, key, ctx) {
   if (key === "s") return done({ type: "toggleSettings" })
   if (key === "?") return done({ type: "toggleShortcuts" })
   if (key === "/" || key === "i") return done(ctx && ctx.searchable ? { type: "focusSearch" } : null)
+  if (key === "l") return done(rowCount > 0 ? { type: "episodes", index: next.index } : null)
   if (key === "d") return done(rowCount > 0 ? { type: "forget", index: next.index } : null)
   if (key === "c") return done({ type: "clearHistory" })
   if (key === "r") return done({ type: "refresh" })

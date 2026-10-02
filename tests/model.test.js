@@ -1404,6 +1404,30 @@ test("the shortcut list is offered only to the view that shows it", () => {
   assert.deepEqual(Model.shortcutRows("player"), [])
 })
 
+test("every key that triggers an action is named in the shortcut list", () => {
+  const listed = new Set()
+  for (const row of Model.shortcuts()) {
+    for (const token of row.keys.split(/ \/ | or |, /)) listed.add(token.toLowerCase())
+  }
+  const spelt = { enter: "enter", escape: "esc", "ctrl+d": "ctrl-d", "ctrl+u": "ctrl-u" }
+  const candidates = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/?".split("")
+  const unlisted = []
+  for (const key of candidates.concat(["enter", "escape", "ctrl+d", "ctrl+u"])) {
+    if (!press(key).command) continue
+    if (!listed.has(spelt[key] || key.toLowerCase())) unlisted.push(key)
+  }
+  assert.deepEqual(unlisted, [], "keys that act but the shortcut list never names")
+})
+
+test("l opens the episode list of the row the cursor is on", () => {
+  assert.deepEqual(press("l").command, { type: "episodes", index: 0 })
+  assert.deepEqual(press(["j", "l"]).command, { type: "episodes", index: 1 })
+})
+
+test("l on an empty list opens nothing", () => {
+  assert.equal(press("l", { rowCount: 0, pageSize: 4 }).command, null)
+})
+
 function press(keys, context = ctx, state = start()) {
   let command = null
   for (const key of [].concat(keys)) {
