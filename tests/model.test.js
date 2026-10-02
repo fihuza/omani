@@ -969,8 +969,8 @@ test("a missing dependency is what the hero says", () => {
   assert.equal(Model.heroMeta(hero({ ready: false, missing: "mpv" })), "missing: mpv")
 })
 
-test("losing player tracking is said without claiming the plugin is broken", () => {
-  assert.equal(Model.heroMeta(hero({ tracking: false })), "mpv-mpris missing \u00b7 players are not tracked")
+test("losing player tracking names the progress it costs, not only the players", () => {
+  assert.equal(Model.heroMeta(hero({ tracking: false })), "mpv-mpris missing \u00b7 progress is not tracked")
 })
 
 test("with nothing playing the hero summarises the settings", () => {

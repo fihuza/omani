@@ -157,8 +157,10 @@ than opening an issue -- `SECURITY.md` says what is in scope.
 there, and `mpv-mpris` is too. That last one is not a command Omani runs — it
 is a script mpv loads, and without it mpv does not report what it is playing.
 Search and playback still work; what stops is tracking, so nothing appears
-under **Playing** and the player menu has nothing to control. The panel says
-so rather than leaving you to guess.
+under **Playing**, the player menu has nothing to control, and the watch
+history never learns you finished an episode — so **Enter** on a series offers
+the same episode again. Press `l` on the row to pick the next one by hand. The
+panel says the tracking is gone rather than leaving you to guess.
 
 `curl-impersonate` is used when present, which gets past Cloudflare where plain
 `curl` is blocked.

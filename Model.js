@@ -593,7 +593,7 @@ function progressFor(rows, animeId) {
 function heroMeta(state) {
   if (state.notice) return state.notice
   if (!state.ready) return "missing: " + state.missing
-  if (!state.tracking) return "mpv-mpris missing \u00b7 players are not tracked"
+  if (!state.tracking) return "mpv-mpris missing \u00b7 progress is not tracked"
   return state.quality + " \u00b7 " + state.mode
 }
 
