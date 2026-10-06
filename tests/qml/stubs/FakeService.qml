@@ -48,6 +48,9 @@ QtObject {
     function reloadHistory() {
         note("history");
     }
+    function reloadPlayers() {
+        note("players");
+    }
     function search(query) {
         note("search:" + query);
     }

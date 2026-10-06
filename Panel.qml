@@ -338,6 +338,7 @@ Panel {
         resetViews();
         service.refresh();
         service.reloadHistory();
+        service.reloadPlayers();
         var adopt = Model.adoptable(service.players, service.playingId);
         if (adopt)
             selectPlayer(adopt);

@@ -384,6 +384,11 @@ mpris_present() {
 }
 
 cmd_status() {
+  # The panel watches the player list for changes, and a watch cannot be placed
+  # inside a directory that does not exist. STATE_DIR lives under XDG_RUNTIME_DIR,
+  # which is emptied on every boot, so the first status call has to create it.
+  mkdir -p "$STATE_DIR" 2>/dev/null
+
   local missing=()
   command -v "$PLAYER" >/dev/null || missing+=("$PLAYER")
   command -v curl >/dev/null || command -v curl_chrome136 >/dev/null || missing+=(curl)
