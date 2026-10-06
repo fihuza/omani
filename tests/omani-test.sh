@@ -1245,6 +1245,14 @@ t_forgetting_the_last_series_leaves_a_history_that_reads() {
   assert_eq "$("$OMANI" history | jq -r '.version')" "1"
 }
 
+t_status_leaves_a_directory_the_panel_can_watch() {
+  local state="$WORK/unborn-state"
+  rm -rf "$state"
+  OMANI_STATE_DIR="$state" "$OMANI" status >/dev/null
+  [[ -d $state ]] ||
+    fail "$current" "status left $state missing, and a file watch cannot be placed inside a directory that does not exist"
+}
+
 t_status_survives_a_missing_players_file() {
   rm -rf "$OMANI_STATE_DIR"
   assert_eq "$("$OMANI" players | wc -l)" "0"
@@ -1416,6 +1424,7 @@ check "a title holding a tab keeps the player record readable" t_a_title_holding
 check "a first play creates the history" t_a_first_play_creates_the_history
 check "forgetting the last series leaves a history that reads" t_forgetting_the_last_series_leaves_a_history_that_reads
 check "status survives a missing players file" t_status_survives_a_missing_players_file
+check "status leaves a directory the panel can watch" t_status_leaves_a_directory_the_panel_can_watch
 check "clearing an already empty history keeps it valid" t_clearing_an_already_empty_history_keeps_it_valid
 check "clearing refuses when the backup cannot be written" t_clearing_refuses_when_the_backup_cannot_be_written
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up
