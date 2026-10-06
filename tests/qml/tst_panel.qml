@@ -135,6 +135,14 @@ TestCase {
         compare(panel.view, "player");
     }
 
+    function test_opening_the_panel_re_reads_the_running_players() {
+        panel.close();
+        fake.asked = [];
+        panel.open();
+
+        verify(fake.asked.indexOf("players") >= 0, "a player list the file watch never delivered stays invisible until the shell restarts");
+    }
+
     function test_opening_the_panel_re_reads_the_watch_history() {
         panel.close();
         fake.asked = [];

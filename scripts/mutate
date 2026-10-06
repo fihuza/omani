@@ -69,23 +69,59 @@ record() {
   survived=$((survived + 1))
 }
 
-refusals() {
-  local script=$1 line
+SHELL_TESTS="bash tests/omani-test.sh && bash tests/provider-test.sh"
+
+shell_noticed() {
+  (cd "$WORK/shell" && eval "$SHELL_TESTS" >/dev/null 2>&1)
+}
+
+try_shell_mutant() {
+  local script=$1 line=$2 label=$3 text=$4
+  printf '%s\n' "$text" >"$WORK/shell/$script"
+  chmod +x "$WORK/shell/$script"
+  bash -n "$WORK/shell/$script" 2>/dev/null || return 0
+  total=$((total + 1))
+  if shell_noticed; then
+    record "$script" "$line" "$label" "$(sed -n "${line}p" "$ROOT/$script")"
+  fi
+}
+
+shell_layer() {
+  local script=$1 line src pair from to mutated total_lines text
+  local pairs
   cp -r "$ROOT" "$WORK/shell"
-  green_before_mutating shell "the shell suite" "bash tests/omani-test.sh && bash tests/provider-test.sh"
+  green_before_mutating shell "the shell suite" "$SHELL_TESTS"
+
   mapfile -t LINES < <(grep -nE '\|\| (die|return)' "$ROOT/$script" | cut -d: -f1)
   for line in "${LINES[@]}"; do
-    sed "${line}s/.*/:/" "$ROOT/$script" >"$WORK/shell/$script"
-    chmod +x "$WORK/shell/$script"
-    total=$((total + 1))
-    if (cd "$WORK/shell" && bash tests/omani-test.sh >/dev/null 2>&1 && bash tests/provider-test.sh >/dev/null 2>&1); then
-      record "$script" "$line" "guard removed" "$(sed -n "${line}p" "$ROOT/$script")"
-    fi
+    try_shell_mutant "$script" "$line" "refusal removed" "$(sed "${line}s/.*/:/" "$ROOT/$script")"
   done
+
+  total_lines=$(wc -l <"$ROOT/$script")
+  for ((line = 1; line <= total_lines; line++)); do
+    src=$(sed -n "${line}p" "$ROOT/$script")
+    [[ ${src#"${src%%[![:space:]]*}"} != \#* ]] || continue
+    pairs=('&&:||' '||:&&' ' == : != ' ' != : == ' ' -z : -n ' ' -n : -z ' ' -f : -e ' ' -d : -e ')
+    [[ $src != *'(('* ]] || pairs+=(' < : <= ' ' > : >= ' ' >= : > ' ' <= : < ')
+    for pair in "${pairs[@]}"; do
+      from=${pair%%:*}
+      to=${pair##*:}
+      [[ $src == *"$from"* ]] || continue
+      mutated=${src/"$from"/"$to"}
+      [[ $mutated != "$src" ]] || continue
+      text=$(mutant="$mutated" awk -v n="$line" 'NR==n{print ENVIRON["mutant"]; next}{print}' "$ROOT/$script")
+      try_shell_mutant "$script" "$line" "$from ->$to" "$text"
+    done
+  done
+
   cp "$ROOT/$script" "$WORK/shell/$script"
 }
 
-QMLTESTRUNNER=$(qt6_tool qmltestrunner) || die "no Qt6 qmltestrunner -- needs the qt6-declarative package"
+if [[ $TARGET == shell ]]; then
+  QMLTESTRUNNER=""
+else
+  QMLTESTRUNNER=$(qt6_tool qmltestrunner) || die "no Qt6 qmltestrunner -- needs the qt6-declarative package"
+fi
 QML_TESTS="QT_QPA_PLATFORM=offscreen $QMLTESTRUNNER -input tests/qml -import tests/qml/stubs"
 pure_layer() {
   command -v stryker >/dev/null || die "no stryker -- run under mise, which pins it"
@@ -96,13 +132,15 @@ pure_layer() {
 
 view_layer() {
   command -v qmutant >/dev/null || die "no qmutant -- run under mise, which pins it"
-  (cd "$ROOT" && PATH="$(dirname "$QMLTESTRUNNER"):$PATH" qmutant run) || view_failed=1
+  local -a workers=()
+  [[ -z ${QMUTANT_JOBS:-} ]] || workers=(-j "$QMUTANT_JOBS")
+  (cd "$ROOT" && PATH="$(dirname "$QMLTESTRUNNER"):$PATH" qmutant run "${workers[@]}") || view_failed=1
 }
 
 [[ $TARGET == all || $TARGET == model ]] && pure_layer
 [[ $TARGET == all || $TARGET == qml ]] && view_layer
-[[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani
-[[ $TARGET == all || $TARGET == shell ]] && refusals bin/omani-provider
+[[ $TARGET == all || $TARGET == shell ]] && shell_layer bin/omani
+[[ $TARGET == all || $TARGET == shell ]] && shell_layer bin/omani-provider
 
 stale=""
 if [[ -f $ACCOUNTED ]]; then
