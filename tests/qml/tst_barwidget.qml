@@ -114,7 +114,7 @@ TestCase {
         button().pressed(Qt.RightButton);
         var asking = Quickshell.running("resume");
         verify(asking, "a right press asked the script for nothing");
-        compare(asking.command[2], "dragon-ball-970", "a different series was continued");
+        compare(asking.words[1], "dragon-ball-970", "a different series was continued");
         compare(widget.opened, false, "a right press opened the panel as well");
     }
 
@@ -185,7 +185,7 @@ TestCase {
         compare(widget.resumeTop(), true, "the widget had a row to continue and did not say so");
         var asking = Quickshell.running("resume");
         verify(asking, "nothing was asked of the script");
-        compare(asking.command[2], "dragon-ball-970", "a different series was resumed");
+        compare(asking.words[1], "dragon-ball-970", "a different series was resumed");
     }
 
     function test_nothing_to_continue_is_reported_rather_than_guessed() {

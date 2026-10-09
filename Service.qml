@@ -123,10 +123,15 @@ Item {
         return Math.max(min, Math.min(max, n));
     }
 
-    function command(args) {
-        return [scriptPath].concat(args);
-    }
-
+    // What is searched for and what is watched never go in argv.
+    // /proc/<pid>/cmdline is world-readable on a default procfs mount, so an
+    // argument is visible to every local account for as long as the process
+    // runs. The words travel on stdin instead, and argv carries only the flag
+    // that tells bin/omani to read them.
+    //
+    // Each Process keeps its own words rather than sharing one slot, because
+    // opening the panel starts three of them in a row and a shared slot would
+    // hand a process whatever was staged last.
     function settingsEnv(qualityOverride) {
         return {
             OMANI_QUALITY: qualityOverride || quality,
@@ -135,17 +140,43 @@ Item {
         };
     }
 
+    function stage(process, args) {
+        process.pendingWords = args.map(function (arg) {
+            return String(arg);
+        });
+        process.command = [scriptPath, "--stdin-args"];
+    }
+
+    function writeWords(process) {
+        var words = process.pendingWords;
+        process.pendingWords = [];
+        for (var i = 0; i < words.length; i++)
+            process.write(words[i] + "\n");
+        process.stdinEnabled = false;
+    }
+
+    // A detached command has no stdin to be written to, so its words go in the
+    // environment, which only its owner may read, and bin/omani drops the
+    // variable before it starts anything else.
+    function detachedEnv(args) {
+        var env = settingsEnv("");
+        env.OMANI_ARGS = args.map(function (arg) {
+            return String(arg);
+        }).join("\n");
+        return env;
+    }
+
     function run(args) {
         Quickshell.execDetached({
-            command: command(args),
-            environment: settingsEnv("")
+            command: [scriptPath],
+            environment: detachedEnv(args)
         });
     }
 
     function refresh() {
         if (scriptPath === "" || statusProcess.running)
             return;
-        statusProcess.command = command(["status"]);
+        stage(statusProcess, ["status"]);
         statusProcess.running = true;
     }
 
@@ -175,7 +206,7 @@ Item {
     function reloadPlayers() {
         applyPlayers();
         if (scriptPath !== "" && !playersProcess.running) {
-            playersProcess.command = command(["players"]);
+            stage(playersProcess, ["players"]);
             playersProcess.running = true;
         }
     }
@@ -219,7 +250,7 @@ Item {
             return;
         results = [];
         busy = true;
-        searchProcess.command = command(["search", String(query)]);
+        stage(searchProcess, ["search", query]);
         searchProcess.running = true;
     }
 
@@ -230,7 +261,7 @@ Item {
         selectedTitle = String(title);
         episodes = [];
         busy = true;
-        episodesProcess.command = command(["episodes", selectedId]);
+        stage(episodesProcess, ["episodes", selectedId]);
         episodesProcess.running = true;
     }
 
@@ -246,7 +277,7 @@ Item {
         playingSeries = String(title);
         playingEpisode = String(episode);
         playingTitle = title + " Episode " + episode;
-        launch(command(args));
+        launch(args);
     }
 
     function resume(row) {
@@ -258,7 +289,7 @@ Item {
         playingSeries = String(row.title);
         playingEpisode = "";
         playingTitle = "";
-        launch(command(["resume", row.animeId]));
+        launch(["resume", row.animeId]);
     }
 
     function playNext() {
@@ -276,7 +307,7 @@ Item {
         playingQuality = "";
         playingEpisode = "";
         playingTitle = "";
-        launch(command([action, playingId]));
+        launch([action, playingId]);
     }
 
     property string playingQuality: ""
@@ -290,7 +321,7 @@ Item {
             return;
         beginLaunch();
         playingQuality = String(value);
-        launch(command(["play", playingId, series, episode]), playingQuality);
+        launch(["play", playingId, series, episode], playingQuality);
     }
 
     function replayCurrent() {
@@ -348,9 +379,9 @@ Item {
         }
     }
 
-    function launch(argv, qualityOverride) {
+    function launch(args, qualityOverride) {
         launchProcess.environment = settingsEnv(qualityOverride);
-        launchProcess.command = argv;
+        stage(launchProcess, args);
         launchProcess.running = true;
     }
 
@@ -384,6 +415,9 @@ Item {
         id: launchProcess
         running: false
         command: []
+        property var pendingWords: []
+        stdinEnabled: true
+        onStarted: root.writeWords(this)
         stderr: StdioCollector {
             id: launchErr
             waitForEnd: true
@@ -406,6 +440,9 @@ Item {
         id: playersProcess
         running: false
         command: []
+        property var pendingWords: []
+        stdinEnabled: true
+        onStarted: root.writeWords(this)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: playersOut
@@ -422,6 +459,9 @@ Item {
         id: statusProcess
         running: false
         command: []
+        property var pendingWords: []
+        stdinEnabled: true
+        onStarted: root.writeWords(this)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: statusOut
@@ -439,6 +479,9 @@ Item {
         id: searchProcess
         running: false
         command: []
+        property var pendingWords: []
+        stdinEnabled: true
+        onStarted: root.writeWords(this)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: searchOut
@@ -461,6 +504,9 @@ Item {
         id: episodesProcess
         running: false
         command: []
+        property var pendingWords: []
+        stdinEnabled: true
+        onStarted: root.writeWords(this)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: episodesOut

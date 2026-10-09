@@ -23,22 +23,32 @@ pick_curl() {
 
 CURL="${OMANI_CURL:-$(pick_curl)}" || die "curl not found"
 
+# The url is handed to curl through a config on stdin rather than as an
+# argument. /proc/<pid>/cmdline is world-readable on a default procfs mount, so
+# an argument would show every local account what is being searched for and
+# watched while the request runs.
+curl_config() {
+  local value=${1//\\/\\\\}
+  printf 'url = "%s"\n' "${value//\"/\\\"}"
+}
+
 fetch() {
-  local body status
-  [[ ${1:-} == https://* || ${1:-} == http://* ]] || die "not a web address: ${1:-}"
-  body=$("$CURL" -sL -A "$AGENT" --max-time 15 \
+  local url=${1:-} body status
+  [[ $url == https://* || $url == http://* ]] || die "not a web address: $url"
+  shift
+  body=$(curl_config "$url" | "$CURL" -K - -sL -A "$AGENT" --max-time 15 \
     --proto '=http,https' --proto-redir '=http,https' \
     -w ' %{http_code}' "$@") || status=$?
   local code=${body##* }
   body=${body% *}
   if [[ -n ${status:-} ]]; then
-    die "could not fetch $1 (HTTP ${code:-none}, curl exit $status)"
+    die "could not fetch $url (HTTP ${code:-none}, curl exit $status)"
   fi
   if grep -qi "<title>Just a moment" <<<"$body"; then
     [[ $CURL == curl ]] && die "blocked by cloudflare; install curl-impersonate"
     die "blocked by cloudflare"
   fi
-  [[ $code == 2?? ]] || die "HTTP $code from $1"
+  [[ $code == 2?? ]] || die "HTTP $code from $url"
   printf '%s' "$body"
 }
 
@@ -275,6 +285,21 @@ environment:
   OMANI_CURL       the curl to use        (default: curl-impersonate, else curl)
 USAGE
 }
+
+# Arguments arrive on stdin, one per line, when the caller asks for it.
+# /proc/<pid>/cmdline is world-readable on a default procfs mount, so a search
+# term or a series title passed as an argument is visible to every local
+# account for as long as the process runs.
+args_from_stdin() {
+  STDIN_ARGS=()
+  local line
+  while IFS= read -r line; do STDIN_ARGS+=("$line"); done
+}
+
+if [[ ${1:-} == --stdin-args ]]; then
+  args_from_stdin
+  set -- ${STDIN_ARGS[@]+"${STDIN_ARGS[@]}"}
+fi
 
 case "${1:-}" in
 search)

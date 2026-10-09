@@ -178,7 +178,7 @@ TestCase {
 
         var asked = Quickshell.running("play");
         verify(asked, "replay asked the script for nothing");
-        verify(asked.command.indexOf("7") >= 0, "replay asked for episode '" + asked.command.join(" ") + "'");
+        verify(asked.words.indexOf("7") >= 0, "replay asked for episode '" + asked.words.join(" ") + "'");
     }
 
     function test_replaying_does_not_lose_the_player_it_is_replaying() {
@@ -273,7 +273,7 @@ TestCase {
 
         service.stopPlayer(service.players[0]);
         compare(Quickshell.detached.length, 1, "nothing was asked to stop the player");
-        verify(Quickshell.detached[0].command.indexOf("stop") >= 0, "the script was asked for something other than a stop");
+        verify(Quickshell.detached[0].words.indexOf("stop") >= 0, "the script was asked for something other than a stop");
     }
 
     function test_a_player_the_script_reports_is_live_even_when_mpris_says_nothing() {
@@ -323,12 +323,12 @@ TestCase {
         service.reportProgress();
 
         compare(Quickshell.detached.length, 1, "no progress was reported");
-        var args = Quickshell.detached[0].command;
-        compare(args[1], "progress");
-        compare(args[2], "dragon-ball-970");
-        compare(args[3], "7");
-        compare(args[4], "612", "the position the bus gave was not the one reported");
-        compare(args[5], "1440", "the length the bus gave was not the one reported");
+        var args = Quickshell.detached[0].words;
+        compare(args[0], "progress");
+        compare(args[1], "dragon-ball-970");
+        compare(args[2], "7");
+        compare(args[3], "612", "the position the bus gave was not the one reported");
+        compare(args[4], "1440", "the length the bus gave was not the one reported");
     }
 
     function test_the_quality_setting_travels_with_every_command() {
@@ -514,8 +514,8 @@ TestCase {
         compare(service.playingQuality, "720p");
         var launching = Quickshell.running("play");
         verify(launching, "nothing was replayed");
-        compare(launching.command[2], "dragon-ball-970");
-        compare(launching.command[4], "7", "the episode that is playing was not the one replayed");
+        compare(launching.words[1], "dragon-ball-970");
+        compare(launching.words[3], "7", "the episode that is playing was not the one replayed");
     }
 
     function test_another_quality_is_refused_while_a_launch_is_in_flight() {
@@ -556,14 +556,14 @@ TestCase {
         service.play("dragon-ball-970", "Dragon Ball", "7", 612);
         var asking = Quickshell.running("play");
         verify(asking, "nothing was played");
-        compare(asking.command[5], "612", "the position to resume from never reached the script");
+        compare(asking.words[4], "612", "the position to resume from never reached the script");
     }
 
     function test_playing_from_the_start_asks_for_no_position() {
         service.play("dragon-ball-970", "Dragon Ball", "7");
         var asking = Quickshell.running("play");
         verify(asking, "nothing was played");
-        compare(asking.command.length, 5, "a position was sent when none was asked for");
+        compare(asking.words.length, 4, "a position was sent when none was asked for");
     }
 
     function test_stepping_forgets_what_it_cannot_know_yet() {
@@ -616,8 +616,8 @@ TestCase {
         service.playNext();
         var asking = Quickshell.running("next");
         verify(asking, "next episode asked the script for nothing");
-        compare(asking.command[1], "next");
-        compare(asking.command[2], "dragon-ball-970");
+        compare(asking.words[0], "next");
+        compare(asking.words[1], "dragon-ball-970");
     }
 
     function test_the_previous_episode_is_asked_for_by_name() {
@@ -625,30 +625,30 @@ TestCase {
         service.playPrevious();
         var asking = Quickshell.running("previous");
         verify(asking, "previous episode asked the script for nothing");
-        compare(asking.command[1], "previous");
+        compare(asking.words[0], "previous");
     }
 
     function test_stopping_asks_the_script_to_stop_everything() {
         Quickshell.forget();
         service.stop();
         compare(Quickshell.detached.length, 1, "stop asked for nothing");
-        compare(Quickshell.detached[0].command[1], "stop");
-        compare(Quickshell.detached[0].command[2], "all");
+        compare(Quickshell.detached[0].words[0], "stop");
+        compare(Quickshell.detached[0].words[1], "all");
     }
 
     function test_forgetting_a_series_names_the_series() {
         Quickshell.forget();
         service.forget("dragon-ball-970");
         compare(Quickshell.detached.length, 1, "forget asked for nothing");
-        compare(Quickshell.detached[0].command[1], "forget");
-        compare(Quickshell.detached[0].command[2], "dragon-ball-970");
+        compare(Quickshell.detached[0].words[0], "forget");
+        compare(Quickshell.detached[0].words[1], "dragon-ball-970");
     }
 
     function test_clearing_the_history_asks_for_exactly_that() {
         Quickshell.forget();
         service.clearHistory();
         compare(Quickshell.detached.length, 1, "clearing the history asked for nothing");
-        compare(Quickshell.detached[0].command[1], "history-clear");
+        compare(Quickshell.detached[0].words[0], "history-clear");
     }
 
     function test_a_link_is_handed_to_the_browser() {

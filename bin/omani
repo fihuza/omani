@@ -154,6 +154,29 @@ record_player() {
   )
 }
 
+# mpv reads a config value written as %<bytes>%<value> literally, so a series
+# title carrying a '#' or a quote is neither cut short as a comment nor
+# reinterpreted. The length is in bytes, which is what LC_ALL=C makes ${#...}
+# count.
+literal_option() {
+  local LC_ALL=C
+  printf '%s=%%%s%%%s\n' "$1" "${#2}" "$2"
+}
+
+# What the player is told to do goes in a file under STATE_DIR instead of its
+# argv, for the reason given above args_from_stdin. STATE_DIR is inside
+# XDG_RUNTIME_DIR, which only its owner may enter, and the file is created with
+# no group or other access. Requests older than a minute belonged to a player
+# that has long since read them.
+request_file() {
+  mkdir -p "$STATE_DIR" 2>/dev/null
+  find "$STATE_DIR" -maxdepth 1 -name 'request.*' -type f -mmin +1 -delete 2>/dev/null
+  local file
+  file=$(mktemp "$STATE_DIR/request.XXXXXX" 2>/dev/null) || return 1
+  chmod 600 "$file" 2>/dev/null
+  printf '%s' "$file"
+}
+
 playing_episode() {
   cmd_players | id="$1" awk -F'\t' '$3 == ENVIRON["id"] { latest = $4 } END { if (latest != "") print latest }'
 }
@@ -262,7 +285,7 @@ cmd_play() {
   title=${title//$'\n'/ }
 
   local stream url referrer subtitles
-  stream=$("$PROVIDER" stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
+  stream=$(provider stream "$id" "$episode" "$MODE" "${QUALITY:-best}") || die "could not resolve episode $episode"
   url=$(awk -F'\t' '$1 == "url" { print $2 }' <<<"$stream")
   referrer=$(awk -F'\t' '$1 == "referrer" { print $2 }' <<<"$stream")
   subtitles=$(awk -F'\t' '$1 == "subtitles" { print $2 }' <<<"$stream")
@@ -274,17 +297,28 @@ cmd_play() {
 
   cmd_stop "$id"
 
-  local args=("$PLAYER" "--referrer=$referrer" "--force-media-title=$title Episode $episode")
-  [[ -n $subtitles ]] && args+=("--sub-file=$subtitles")
-  ((start > 0)) && args+=("--start=$start")
-  args+=(-- "$url")
+  local request
+  request=$(request_file) || die "cannot write the player request in $STATE_DIR"
+  {
+    literal_option referrer "$referrer"
+    literal_option force-media-title "$title Episode $episode"
+    [[ -n $subtitles ]] && literal_option sub-file "$subtitles"
+    ((start > 0)) && printf 'start=%s\n' "$start"
+  } >"$request"
+
+  local args=("$PLAYER" "--include=$request" "--playlist=-")
 
   if dry; then
+    # Read back from the request itself rather than repeating its contents, so
+    # a dry run cannot describe something the player would not be told.
     printf '%s\n' "${args[*]}"
+    sed 's/=%[0-9]*%/=/' "$request"
+    printf 'playlist=%s\n' "$url"
+    rm -f "$request"
     return 0
   fi
 
-  "${args[@]}" </dev/null >/dev/null 2>&1 &
+  printf '%s\n' "$url" | "${args[@]}" >/dev/null 2>&1 &
   read_started_at "$!"
   record_player "$!" "$title Episode $episode" "$id" "$episode" "$qualities" "$STARTED_AT"
   disown 2>/dev/null || true
@@ -339,7 +373,7 @@ cmd_resume() {
   fi
 
   local episodes next
-  episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
+  episodes=$(provider episodes "$id") || die "could not list episodes for '$title'"
   next=$(neighbour_episode "$episode" after "$episodes")
   [[ -n $next ]] || die "no episode after $episode of $title"
 
@@ -358,7 +392,7 @@ cmd_step() {
   current=$(playing_episode "$id")
   [[ -n $current ]] || current=$(jq -r '.episode' <<<"$entry")
   title=$(jq -r '.title' <<<"$entry")
-  episodes=$("$PROVIDER" episodes "$id") || die "could not list episodes for '$title'"
+  episodes=$(provider episodes "$id") || die "could not list episodes for '$title'"
   target=$(neighbour_episode "$current" "$side" "$episodes")
   [[ -n $target ]] || die "no episode $side $current of $title"
 
@@ -410,7 +444,7 @@ cmd_status() {
 
 advance_past() {
   local id="$1" episode="$2" episodes next
-  episodes=$("$PROVIDER" episodes "$id" 2>/dev/null) || return 0
+  episodes=$(provider episodes "$id" 2>/dev/null) || return 0
   next=$(neighbour_episode "$episode" after "$episodes")
   [[ -n $next ]] || return 0
   # shellcheck disable=SC2016 # $id and $next are jq variables, bound by --arg
@@ -459,14 +493,41 @@ cmd_history_clear() {
   update_history '{version: 1, series: {}}'
 }
 
+# Arguments arrive on stdin, one per line, when the caller asks for it.
+# /proc/<pid>/cmdline is world-readable on a default procfs mount, so a search
+# term or a series title passed as an argument is visible to every local
+# account for as long as the process runs.
+args_from_stdin() {
+  STDIN_ARGS=()
+  local line
+  while IFS= read -r line; do STDIN_ARGS+=("$line"); done
+}
+
+# Never hands the provider its arguments in argv, for the reason above.
+provider() {
+  printf '%s\n' "$@" | "$PROVIDER" --stdin-args
+}
+
 main() {
+  if [[ ${1:-} == --stdin-args ]]; then
+    args_from_stdin
+    set -- ${STDIN_ARGS[@]+"${STDIN_ARGS[@]}"}
+  elif [[ -n ${OMANI_ARGS:-} ]]; then
+    # Detached callers have no stdin to write to. /proc/<pid>/environ, unlike
+    # /proc/<pid>/cmdline, is readable only by the owner, so the environment is
+    # where their arguments go instead of argv.
+    args_from_stdin <<<"$OMANI_ARGS"
+    set -- ${STDIN_ARGS[@]+"${STDIN_ARGS[@]}"}
+  fi
+  unset OMANI_ARGS
+
   local sub="${1:-}"
   (($# > 0)) && shift
 
   case "$sub" in
   status) cmd_status ;;
-  search) "$PROVIDER" search "$@" ;;
-  episodes) "$PROVIDER" episodes "$@" ;;
+  search) provider search "$@" ;;
+  episodes) provider episodes "$@" ;;
   play) cmd_play "$@" ;;
   resume) cmd_resume "$@" ;;
   next) cmd_step after "$@" ;;
