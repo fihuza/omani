@@ -114,16 +114,20 @@ if wanted qml-lint; then
         "$@" 2>&1
     }
 
+    # One file at a time, so a finding names its file and a crash in the tool
+    # names the file that caused it instead of failing the whole run blind.
     lint_out=""
-    lint_status=0
-    if ((${#qml_plugin[@]})); then
-      lint_out=$(lint_qml -I "$qsroot" -I "$OMARCHY_PATH/shell" "${qml_plugin[@]}")
-      lint_status=$?
-    fi
+    for qml_file in ${qml_plugin[@]+"${qml_plugin[@]}"}; do
+      file_out=$(lint_qml -I "$qsroot" -I "$OMARCHY_PATH/shell" "$qml_file")
+      file_status=$?
+      [[ -z $file_out ]] || lint_out+="${lint_out:+$'\n'}$file_out"
+      ((file_status == 0)) ||
+        lint_out+="${lint_out:+$'\n'}$qml_file: qmllint exited $file_status"
+    done
     rm -rf "$qsroot"
-    if ((lint_status != 0)) || [[ -n $lint_out ]]; then
+    if [[ -n $lint_out ]]; then
       printf '%s\n' "$lint_out"
-      fail "qmllint exited $lint_status over ${#qml_plugin[@]} file(s)"
+      fail "qmllint reported findings"
     fi
   elif [[ ! -d $OMARCHY_PATH/shell ]]; then
     fail "\$OMARCHY_PATH/shell ($OMARCHY_PATH/shell) is absent -- qs.* imports cannot resolve, so this gate did NOT run"
