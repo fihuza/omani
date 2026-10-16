@@ -123,7 +123,7 @@ if wanted qml-lint; then
     rm -rf "$qsroot"
     if ((lint_status != 0)) || [[ -n $lint_out ]]; then
       printf '%s\n' "$lint_out"
-      fail "qmllint reported findings"
+      fail "qmllint exited $lint_status over ${#qml_plugin[@]} file(s)"
     fi
   elif [[ ! -d $OMARCHY_PATH/shell ]]; then
     fail "\$OMARCHY_PATH/shell ($OMARCHY_PATH/shell) is absent -- qs.* imports cannot resolve, so this gate did NOT run"
