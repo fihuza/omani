@@ -7,6 +7,10 @@ QtObject {
     property var files: []
 
     function execDetached(spec) {
+        // A detached command carries its words in OMANI_ARGS, so the stub
+        // offers them as a list the way the Process stub does.
+        var env = spec.environment || {};
+        spec.words = env.OMANI_ARGS === undefined ? [] : String(env.OMANI_ARGS).split("\n");
         detached = detached.concat([spec]);
     }
 
@@ -25,7 +29,7 @@ QtObject {
     function running(subcommand) {
         for (var i = processes.length - 1; i >= 0; i--) {
             var p = processes[i];
-            if (p.running && p.command.indexOf(subcommand) >= 0)
+            if (p.running && p.words.indexOf(subcommand) >= 0)
                 return p;
         }
         return null;

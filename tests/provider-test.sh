@@ -37,13 +37,31 @@ assert_contains() {
   fail "$current" "expected output to contain '$2', got: $1"
 }
 
+argv_spy() {
+  local spy
+  spy=$(mktemp "$WORK/argvspy.XXXXXX")
+  cat >"$spy" <<SPY
+#!/bin/sh
+printf '%s\n' "\$*" >"$1"
+printf ' 200'
+SPY
+  chmod +x "$spy"
+  printf '%s' "$spy"
+}
+
 url_spy() {
   local spy
   spy=$(mktemp "$WORK/spy.XXXXXX")
   cat >"$spy" <<SPY
 #!/bin/sh
-for arg; do
-  case \$arg in http*) printf '%s' "\$arg" >"$1" ;; esac
+while IFS= read -r line; do
+  case \$line in
+  'url = '*)
+    line=\${line#url = \"}
+    printf '%s' "\${line%\"}" >"$1"
+    break
+    ;;
+  esac
 done
 printf ' 200'
 SPY
@@ -587,7 +605,16 @@ check "a variant without a resolution is left out" t_a_variant_without_a_resolut
 check "codecs carrying an x do not swallow the height" t_codecs_carrying_an_x_do_not_swallow_the_height
 check "an already absolute variant url is left alone" t_qualities_keep_absolute_urls
 check "i-frame variants are not offered as qualities" t_qualities_drop_iframe_variants
+t_a_search_term_never_reaches_curls_arguments() {
+  local seen="$WORK/argv-search"
+  OMANI_CURL=$(argv_spy "$seen") "$PROVIDER" search "leak-probe-query" >/dev/null 2>&1
+  if grep -q 'leak-probe-query' "$seen"; then
+    fail "$current" "the term is in curl's argv, which every local account can read from /proc/<pid>/cmdline: $(cat "$seen")"
+  fi
+}
+
 check "no subcommand prints usage and fails" t_usage_without_a_subcommand
+check "a search term never reaches curl's arguments" t_a_search_term_never_reaches_curls_arguments
 
 printf '\n%d passed, %d failed\n' "$passed" "$failed"
 ((failed == 0))

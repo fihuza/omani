@@ -72,8 +72,21 @@ setup() {
   export OMANI_DRY_RUN=1
   unset OMANI_QUALITY OMANI_MODE
 
+  # The stubs stand in for bin/omani-provider, which takes its arguments on
+  # stdin so they never show up in /proc/<pid>/cmdline. They read them the same
+  # way, or they would not be standing in for the real thing.
+  cat >"$WORK/stdin-args" <<'LIB'
+if [[ ${1:-} == --stdin-args ]]; then
+  _args=()
+  while IFS= read -r _line; do _args+=("$_line"); done
+  set -- ${_args[@]+"${_args[@]}"}
+fi
+LIB
+  export OMANI_TEST_STDIN_ARGS="$WORK/stdin-args"
+
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 search) printf 'frieren-1\tFrieren\nnaruto-2\tNaruto\n' ;;
 episodes) printf '9001\t1\n9002\t2\n9003\t3\n' ;;
@@ -208,14 +221,15 @@ t_play_builds_a_player_command() {
   out=$("$OMANI" play frieren-1 "Frieren" 3)
   assert_ok $?
   assert_contains "$out" "mpv"
-  assert_contains "$out" "--force-media-title=Frieren Episode 3"
-  assert_contains "$out" "--referrer=https://embed/"
+  assert_contains "$out" "force-media-title=Frieren Episode 3"
+  assert_contains "$out" "referrer=https://embed/"
   assert_contains "$out" "https://cdn/frieren-1/3.m3u8"
 }
 
 t_play_asks_the_provider_for_the_requested_quality() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 [[ $1 == stream ]] && printf 'url\thttps://cdn/%s.m3u8\nreferrer\thttps://e/\nsubtitles\t\n' "$5"
 FAKE
   chmod +x "$WORK/provider"
@@ -225,6 +239,7 @@ FAKE
 t_play_without_a_quality_asks_for_the_default() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 [[ $1 == stream ]] && printf 'url\thttps://cdn/%s.m3u8\nreferrer\thttps://e/\nsubtitles\t\n' "${5:-unset}"
 FAKE
   chmod +x "$WORK/provider"
@@ -232,12 +247,13 @@ FAKE
 }
 
 t_play_passes_subtitles_when_offered() {
-  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--sub-file=https://cdn/subs.vtt"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "sub-file=https://cdn/subs.vtt"
 }
 
 t_play_omits_subtitles_when_absent() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 [[ $1 == stream ]] && printf 'url\thttps://cdn/x.m3u8\nreferrer\thttps://e/\nsubtitles\t\n'
 FAKE
   chmod +x "$WORK/provider"
@@ -254,6 +270,7 @@ t_play_needs_all_three_arguments() {
 t_play_drops_a_subtitle_that_is_not_a_web_address() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 episodes) printf '9001\t1\n' ;;
 stream) printf 'url\thttps://cdn/a.m3u8\nreferrer\thttps://e/\nsubtitles\t%s\n' "${FAKE_SUBS:-}" ;;
@@ -272,18 +289,20 @@ FAKE
 t_play_keeps_a_subtitle_that_is_a_web_address() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 episodes) printf '9001\t1\n' ;;
 stream) printf 'url\thttps://cdn/a.m3u8\nreferrer\thttps://e/\nsubtitles\thttps://cdn/en.vtt\n' ;;
 esac
 FAKE
   chmod +x "$WORK/provider"
-  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--sub-file=https://cdn/en.vtt"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "sub-file=https://cdn/en.vtt"
 }
 
 t_play_refuses_a_url_the_provider_should_not_have_sent() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 episodes) printf '9001\t1\n' ;;
 stream) printf 'url\t%s\nreferrer\thttps://e/\n' "${FAKE_URL:--v}" ;;
@@ -299,12 +318,13 @@ FAKE
 }
 
 t_the_player_is_told_where_its_arguments_end() {
-  assert_contains "$("$OMANI" play frieren-1 "Frieren" 3)" " -- http"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 3)" "playlist=http"
 }
 
 t_play_fails_when_no_source_resolves() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 [[ $1 == stream ]] && printf 'url\t\nreferrer\t\nsubtitles\t\n'
 FAKE
   chmod +x "$WORK/provider"
@@ -453,6 +473,7 @@ t_resume_refuses_when_the_episode_list_cannot_be_read() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "3", "episodes": {"3": {"position": 1400, "duration": 1400}}}}'
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 exit 1
 FAKE
   chmod +x "$WORK/provider"
@@ -557,28 +578,28 @@ t_resume_restarts_the_episode_where_it_stopped() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 600 1400
   local out
   out=$("$OMANI" resume frieren-1)
-  assert_contains "$out" "--force-media-title=Frieren Episode 2"
-  assert_contains "$out" "--start=600"
+  assert_contains "$out" "force-media-title=Frieren Episode 2"
+  assert_contains "$out" "start=600"
 }
 
 t_resume_moves_on_when_the_episode_was_nearly_finished() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1330 1400
   local out
   out=$("$OMANI" resume frieren-1)
-  assert_contains "$out" "--force-media-title=Frieren Episode 3"
-  assert_lacks "$out" "--start="
+  assert_contains "$out" "force-media-title=Frieren Episode 3"
+  assert_lacks "$out" "start="
 }
 
 t_a_series_with_no_progress_plays_the_episode_it_is_on() {
   local out
   out=$("$OMANI" resume frieren-1)
   assert_contains "$out" "Frieren Episode 2"
-  assert_lacks "$out" "--start="
+  assert_lacks "$out" "start="
 }
 
 t_resume_plays_the_episode_after_one_watched_to_the_end() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 1400 1400
-  assert_contains "$("$OMANI" resume frieren-1)" "--force-media-title=Frieren Episode 3"
+  assert_contains "$("$OMANI" resume frieren-1)" "force-media-title=Frieren Episode 3"
 }
 
 t_resume_refuses_an_unknown_series() {
@@ -597,15 +618,15 @@ t_resume_refuses_when_nothing_follows() {
 }
 
 t_next_plays_the_episode_after_the_one_watched() {
-  assert_contains "$("$OMANI" next frieren-1)" "--force-media-title=Frieren Episode 3"
+  assert_contains "$("$OMANI" next frieren-1)" "force-media-title=Frieren Episode 3"
 }
 
 t_next_moves_on_from_an_episode_barely_started() {
   OMANI_DRY_RUN='' "$OMANI" progress frieren-1 2 30 1400
   local out
   out=$("$OMANI" next frieren-1)
-  assert_contains "$out" "--force-media-title=Frieren Episode 3"
-  assert_lacks "$out" "--start="
+  assert_contains "$out" "force-media-title=Frieren Episode 3"
+  assert_lacks "$out" "start="
 }
 
 t_next_leaves_the_progress_of_the_episode_it_leaves() {
@@ -742,13 +763,13 @@ t_forget_needs_an_id() {
 }
 
 t_previous_plays_the_episode_before_the_one_watched() {
-  assert_contains "$("$OMANI" previous frieren-1)" "--force-media-title=Frieren Episode 1"
+  assert_contains "$("$OMANI" previous frieren-1)" "force-media-title=Frieren Episode 1"
 }
 
 t_previous_resumes_an_episode_left_part_way() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"1": {"position": 300, "duration": 1400}}}}'
-  assert_contains "$("$OMANI" previous frieren-1)" "--start=300"
+  assert_contains "$("$OMANI" previous frieren-1)" "start=300"
 }
 
 t_previous_restarts_an_episode_already_watched() {
@@ -757,24 +778,24 @@ t_previous_restarts_an_episode_already_watched() {
   local out
   out=$("$OMANI" previous frieren-1)
   assert_contains "$out" "Frieren Episode 1"
-  assert_lacks "$out" "--start="
+  assert_lacks "$out" "start="
 }
 
 t_previous_starts_an_episode_never_opened_at_the_beginning() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2", "episodes": {}}}'
-  assert_lacks "$("$OMANI" previous frieren-1)" "--start="
+  assert_lacks "$("$OMANI" previous frieren-1)" "start="
 }
 
 t_next_resumes_an_episode_left_part_way() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "1",
                  "episodes": {"2": {"position": 420, "duration": 1400}}}}'
-  assert_contains "$("$OMANI" next frieren-1)" "--start=420"
+  assert_contains "$("$OMANI" next frieren-1)" "start=420"
 }
 
 t_replay_starts_at_the_beginning_however_far_in_you_were() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 600, "duration": 1400}}}}'
-  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2 0)" "--start="
+  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2 0)" "start="
 }
 
 t_a_position_that_is_not_a_count_of_seconds_starts_from_the_beginning() {
@@ -783,19 +804,19 @@ t_a_position_that_is_not_a_count_of_seconds_starts_from_the_beginning() {
   local out
   out=$("$OMANI" play frieren-1 "Frieren" 2 2>&1)
   assert_ok $?
-  assert_lacks "$out" "--start="
+  assert_lacks "$out" "start="
 }
 
 t_a_position_past_the_end_counts_as_watched() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 1500, "duration": 1400}}}}'
-  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2)" "--start="
+  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2)" "start="
 }
 
 t_a_position_with_no_duration_is_still_where_it_was_left() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 240, "duration": 0}}}}'
-  assert_contains "$("$OMANI" play frieren-1 "Frieren" 2)" "--start=240"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 2)" "start=240"
 }
 
 t_an_episodes_field_that_is_not_an_object_starts_from_the_beginning() {
@@ -803,19 +824,19 @@ t_an_episodes_field_that_is_not_an_object_starts_from_the_beginning() {
   local out
   out=$("$OMANI" play frieren-1 "Frieren" 2 2>&1)
   assert_ok $?
-  assert_lacks "$out" "--start="
+  assert_lacks "$out" "start="
 }
 
 t_choosing_an_episode_picks_it_up_where_it_was_left() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 600, "duration": 1400}}}}'
-  assert_contains "$("$OMANI" play frieren-1 "Frieren" 2)" "--start=600"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 2)" "start=600"
 }
 
 t_choosing_an_episode_watched_to_the_end_starts_it_again() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "2",
                  "episodes": {"2": {"position": 1350, "duration": 1400}}}}'
-  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2)" "--start="
+  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 2)" "start="
 }
 
 t_previous_refuses_at_the_first_episode() {
@@ -907,6 +928,7 @@ t_the_players_file_does_not_grow_without_end() {
 t_resume_reports_a_provider_that_refuses_the_episode() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 episodes) printf '9001\t1\n' ;;
 stream)
@@ -954,12 +976,12 @@ t_players_says_nothing_on_stderr_about_a_pid_that_is_gone() {
 
 t_an_episode_watched_to_exactly_the_threshold_restarts() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "episodes": {"1": {"position": 1260, "duration": 1400}}}}'
-  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 1)" "--start="
+  assert_lacks "$("$OMANI" play frieren-1 "Frieren" 1)" "start="
 }
 
 t_an_episode_a_second_short_of_the_threshold_resumes() {
   seed_history '{"frieren-1": {"title": "Frieren", "episode": "1", "episodes": {"1": {"position": 1259, "duration": 1400}}}}'
-  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "--start=1259"
+  assert_contains "$("$OMANI" play frieren-1 "Frieren" 1)" "start=1259"
 }
 
 t_stop_ends_a_player_that_ignores_being_asked() {
@@ -1157,6 +1179,7 @@ t_resume_after_forgetting_the_series_fails_cleanly() {
 t_an_episode_number_carrying_a_backslash_still_steps() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 episodes) printf '9001\t1\n9002\t2\\x\n9003\t3\n' ;;
 stream) printf 'url\thttps://cdn/%s/%s.m3u8\nreferrer\thttps://e/\n' "$2" "$3" ;;
@@ -1174,6 +1197,7 @@ FAKE
 t_an_episode_number_carrying_a_decimal_plays() {
   cat >"$WORK/provider" <<'FAKE'
 #!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
 case "$1" in
 episodes) printf '9001	7
 9002	7.5
@@ -1243,6 +1267,87 @@ t_forgetting_the_last_series_leaves_a_history_that_reads() {
   OMANI_DRY_RUN='' "$OMANI" forget naruto-2
   assert_eq "$("$OMANI" history | jq -r '.series | length')" "0"
   assert_eq "$("$OMANI" history | jq -r '.version')" "1"
+}
+
+argv_recorder() {
+  local spy
+  spy=$(mktemp "$WORK/argv.XXXXXX")
+  cat >"$spy" <<SPY
+#!/bin/sh
+printf '%s\n' "\$*" >"$1"
+SPY
+  chmod +x "$spy"
+  printf '%s' "$spy"
+}
+
+echo_provider() {
+  local spy
+  spy=$(mktemp "$WORK/echo.XXXXXX")
+  cat >"$spy" <<'SPY'
+#!/bin/bash
+. "$OMANI_TEST_STDIN_ARGS"
+printf '%s' "$*"
+SPY
+  chmod +x "$spy"
+  printf '%s' "$spy"
+}
+
+t_arguments_can_arrive_on_stdin_instead_of_argv() {
+  local out
+  out=$(printf '%s\n' search "frieren" | OMANI_PROVIDER=$(echo_provider) "$OMANI" --stdin-args)
+  assert_eq "$out" "search frieren"
+}
+
+t_the_provider_is_never_handed_content_in_its_argv() {
+  local seen="$WORK/provider-argv"
+  printf '%s\n' search "leak-probe-query" |
+    OMANI_PROVIDER=$(argv_recorder "$seen") "$OMANI" --stdin-args >/dev/null 2>&1
+  if grep -q 'leak-probe-query' "$seen"; then
+    fail "$current" "the provider is started with the term in its argv, readable from /proc/<pid>/cmdline: $(cat "$seen")"
+  fi
+}
+
+t_the_player_request_is_readable_only_by_its_owner() {
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 "Frieren" 2
+  local request mode
+  request=$(find "$OMANI_STATE_DIR" -maxdepth 1 -name 'request.*' -type f | head -1)
+  [[ -n $request ]] || fail "$current" "no request was written, so nothing was checked"
+  mode=$(stat -c '%a' "$request" 2>/dev/null)
+  [[ $mode == 600 ]] ||
+    fail "$current" "the request holding the title is mode $mode, not 600"
+}
+
+t_a_title_carrying_a_comment_character_is_written_literally() {
+  OMANI_DRY_RUN='' OMANI_PLAYER=true "$OMANI" play frieren-1 'Re:Zero #2' 4
+  local request
+  request=$(find "$OMANI_STATE_DIR" -maxdepth 1 -name 'request.*' -type f | head -1)
+  [[ -n $request ]] || fail "$current" "no request was written, so nothing was checked"
+  grep -qE '^force-media-title=%[0-9]+%Re:Zero #2 Episode 4$' "$request" ||
+    fail "$current" "the title is not length-prefixed, so mpv reads the '#' as a comment and cuts it short: $(cat "$request")"
+}
+
+t_the_player_is_never_handed_content_in_its_argv() {
+  local seen="$WORK/player-argv"
+  cat >"$WORK/recorder" <<SPY
+#!/bin/sh
+printf '%s\n' "\$*" >"$seen"
+printf '%s\n' "\$\$" >>"$WORK/spawned"
+cat >/dev/null
+exec sleep 30
+SPY
+  chmod +x "$WORK/recorder"
+
+  OMANI_DRY_RUN='' OMANI_PLAYER="$WORK/recorder" "$OMANI" play leak-probe-series "Leak Probe Title" 3
+  local waited=0
+  while [[ ! -s $seen ]] && ((waited < 60)); do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [[ -s $seen ]] || fail "$current" "the player never started, so its argv proves nothing"
+
+  if grep -qE 'Leak Probe Title|leak-probe-series|https://' "$seen"; then
+    fail "$current" "the player is started with the title or the stream url in its argv, readable from /proc/<pid>/cmdline: $(cat "$seen")"
+  fi
 }
 
 t_status_leaves_a_directory_the_panel_can_watch() {
@@ -1425,6 +1530,11 @@ check "a first play creates the history" t_a_first_play_creates_the_history
 check "forgetting the last series leaves a history that reads" t_forgetting_the_last_series_leaves_a_history_that_reads
 check "status survives a missing players file" t_status_survives_a_missing_players_file
 check "status leaves a directory the panel can watch" t_status_leaves_a_directory_the_panel_can_watch
+check "arguments can arrive on stdin instead of argv" t_arguments_can_arrive_on_stdin_instead_of_argv
+check "the provider is never handed content in its argv" t_the_provider_is_never_handed_content_in_its_argv
+check "the player is never handed content in its argv" t_the_player_is_never_handed_content_in_its_argv
+check "the player request is readable only by its owner" t_the_player_request_is_readable_only_by_its_owner
+check "a title carrying a comment character is written literally" t_a_title_carrying_a_comment_character_is_written_literally
 check "clearing an already empty history keeps it valid" t_clearing_an_already_empty_history_keeps_it_valid
 check "clearing refuses when the backup cannot be written" t_clearing_refuses_when_the_backup_cannot_be_written
 check "history-clear empties the file and backs it up" t_history_clear_empties_and_backs_up

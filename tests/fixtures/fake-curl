@@ -1,9 +1,11 @@
 #!/bin/bash
+# Real curl is handed the url through a config on stdin (-K -), never argv.
 url=""
-prev=""
-for arg in "$@"; do
-  if [[ $arg == https://* && $prev != "-e" && -z $url ]]; then url="$arg"; fi
-  prev="$arg"
+while IFS= read -r line; do
+  [[ $line == url\ =\ * ]] || continue
+  line=${line#url = \"}
+  url=${line%\"}
+  break
 done
 
 emit() { printf '%s %s' "$1" "${FAKE_CODE:-200}"; }

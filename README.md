@@ -171,11 +171,21 @@ Omani *fetch*: the embed address it hands back is checked the same way, and
 compromised provider cannot point it at a local file. What you type is
 percent-encoded, so a title carrying `&` or `#` is searched for as written.
 
+What you search for and what you watch never appear in a command's arguments.
+`/proc/<pid>/cmdline` is world-readable on a default procfs mount, so an
+argument is visible to every account on the machine for as long as the process
+runs. The panel sends those words to `bin/omani` on stdin, `bin/omani` sends
+them to the provider the same way, the request url reaches `curl` through a
+config on stdin, and what the player is told to play goes in a file under
+`$XDG_RUNTIME_DIR` that only you can read. A command you type yourself still
+takes ordinary arguments, so `omani search <query>` in a terminal is as visible
+as any other command you run.
+
 No privileged commands, no services, no installers. Omani writes only its own
 watch history under `$XDG_STATE_HOME/omani` (with a `.bak` and a lock file
-beside it) and a record of the players it started, under `$XDG_RUNTIME_DIR`. A player is only
-ever listed or stopped while its pid still belongs to the process the record
-named.
+beside it) and, under `$XDG_RUNTIME_DIR`, a record of the players it started
+and one request file per launch. A player is only ever listed or stopped while
+its pid still belongs to the process the record named.
 
 ## Remove
 
