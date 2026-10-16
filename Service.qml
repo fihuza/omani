@@ -417,7 +417,7 @@ Item {
         command: []
         property var pendingWords: []
         stdinEnabled: true
-        onStarted: root.writeWords(this)
+        onStarted: root.writeWords(launchProcess)
         stderr: StdioCollector {
             id: launchErr
             waitForEnd: true
@@ -442,7 +442,7 @@ Item {
         command: []
         property var pendingWords: []
         stdinEnabled: true
-        onStarted: root.writeWords(this)
+        onStarted: root.writeWords(playersProcess)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: playersOut
@@ -461,7 +461,7 @@ Item {
         command: []
         property var pendingWords: []
         stdinEnabled: true
-        onStarted: root.writeWords(this)
+        onStarted: root.writeWords(statusProcess)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: statusOut
@@ -481,7 +481,7 @@ Item {
         command: []
         property var pendingWords: []
         stdinEnabled: true
-        onStarted: root.writeWords(this)
+        onStarted: root.writeWords(searchProcess)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: searchOut
@@ -506,7 +506,7 @@ Item {
         command: []
         property var pendingWords: []
         stdinEnabled: true
-        onStarted: root.writeWords(this)
+        onStarted: root.writeWords(episodesProcess)
         environment: root.settingsEnv("")
         stdout: StdioCollector {
             id: episodesOut
