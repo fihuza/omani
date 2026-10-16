@@ -88,14 +88,42 @@ if wanted qml-lint; then
     qsroot=$(mktemp -d)
     ln -sfn "$OMARCHY_PATH/shell" "$qsroot/qs"
 
-    lint_out=$("$QMLLINT" \
-      --max-warnings 0 \
-      --unused-imports warning \
-      --unqualified disable \
-      --missing-property disable \
-      --signal-handler-parameters disable \
-      -I "$qsroot" -I "$OMARCHY_PATH/shell" "${QML[@]}" 2>&1)
-    lint_status=$?
+    # The stubs under tests/qml/stubs are modules of their own, and qmllint can
+    # only match a file to the qmldir that declares it when that module's root
+    # is on the import path. They get their own root. Everything else is linted
+    # against the real shell, never against the stubs, so a thin double can
+    # never pass for the component it stands in for.
+    qml_stubs=()
+    qml_plugin=()
+    for qml_file in "${QML[@]}"; do
+      case "$qml_file" in
+      *tests/qml/stubs/*) qml_stubs+=("$qml_file") ;;
+      *) qml_plugin+=("$qml_file") ;;
+      esac
+    done
+
+    lint_qml() {
+      "$QMLLINT" \
+        --max-warnings 0 \
+        --unused-imports warning \
+        --unqualified disable \
+        --missing-property disable \
+        --signal-handler-parameters disable \
+        "$@" 2>&1
+    }
+
+    lint_out=""
+    lint_status=0
+    if ((${#qml_plugin[@]})); then
+      lint_out=$(lint_qml -I "$qsroot" -I "$OMARCHY_PATH/shell" "${qml_plugin[@]}")
+      lint_status=$?
+    fi
+    if ((${#qml_stubs[@]})); then
+      stub_out=$(lint_qml -I tests/qml/stubs "${qml_stubs[@]}")
+      stub_status=$?
+      ((lint_status != 0)) || lint_status=$stub_status
+      [[ -z $stub_out ]] || lint_out+="${lint_out:+$'\n'}$stub_out"
+    fi
     rm -rf "$qsroot"
     if ((lint_status != 0)) || [[ -n $lint_out ]]; then
       printf '%s\n' "$lint_out"
