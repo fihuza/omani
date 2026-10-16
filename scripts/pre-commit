@@ -88,22 +88,7 @@ if wanted qml-lint; then
     qsroot=$(mktemp -d)
     ln -sfn "$OMARCHY_PATH/shell" "$qsroot/qs"
 
-    # The stubs are not linted. They deliberately take the names of real
-    # modules -- Quickshell, Quickshell.Io, Quickshell.Services.Mpris -- and the
-    # installed packages win that name, so qmllint resolves a stub against the
-    # component it doubles and reports the two as disagreeing. Nothing it says
-    # there is about whether the double is right. What keeps them honest is the
-    # QML suite, which loads them for real and fails to compile when one is
-    # missing a property or a signal, and the shell test that every stub still
-    # stands for something upstream.
-    qml_plugin=()
-    for qml_file in "${QML[@]}"; do
-      case "$qml_file" in
-      *tests/qml/stubs/*) ;;
-      *) qml_plugin+=("$qml_file") ;;
-      esac
-    done
-
+    # Every .qml is linted, the stubs included, against the real shell.
     lint_qml() {
       "$QMLLINT" \
         --max-warnings 0 \
@@ -117,7 +102,7 @@ if wanted qml-lint; then
     # One file at a time, so a finding names its file and a crash in the tool
     # names the file that caused it instead of failing the whole run blind.
     lint_out=""
-    for qml_file in ${qml_plugin[@]+"${qml_plugin[@]}"}; do
+    for qml_file in "${QML[@]}"; do
       file_out=$(lint_qml -I "$qsroot" -I "$OMARCHY_PATH/shell" "$qml_file")
       file_status=$?
       [[ -z $file_out ]] || lint_out+="${lint_out:+$'\n'}$file_out"
