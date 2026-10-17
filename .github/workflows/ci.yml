@@ -23,7 +23,15 @@ jobs:
     steps:
       - name: Install toolchain
         run: |
-          pacman -Syu --noconfirm --needed \
+          # Qt 6.12's qmllint dies while importing Quickshell.Services.Mpris:
+          # exit 255 and not a word of output, which takes the QML gates with it.
+          # The container is pinned to the last Arch snapshot before 6.12 landed
+          # on 2026-10-01, so the gates keep running against 6.11.2. -Syuu
+          # because the image ships newer packages than the snapshot. Lift this
+          # once a fixed qmllint is in extra.
+          printf 'Server=https://archive.archlinux.org/repos/2026/09/28/$repo/os/$arch\n' \
+            >/etc/pacman.d/mirrorlist
+          pacman -Syuu --noconfirm --needed \
             git jq mise shellcheck shfmt qt6-declarative quickshell diffutils
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -152,7 +160,15 @@ jobs:
     steps:
       - name: Install toolchain
         run: |
-          pacman -Syu --noconfirm --needed git jq mise qt6-declarative quickshell
+          # Qt 6.12's qmllint dies while importing Quickshell.Services.Mpris:
+          # exit 255 and not a word of output, which takes the QML gates with it.
+          # The container is pinned to the last Arch snapshot before 6.12 landed
+          # on 2026-10-01, so the gates keep running against 6.11.2. -Syuu
+          # because the image ships newer packages than the snapshot. Lift this
+          # once a fixed qmllint is in extra.
+          printf 'Server=https://archive.archlinux.org/repos/2026/09/28/$repo/os/$arch\n' \
+            >/etc/pacman.d/mirrorlist
+          pacman -Syuu --noconfirm --needed git jq mise qt6-declarative quickshell
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
